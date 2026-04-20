@@ -3,7 +3,7 @@ import * as Sharing from 'expo-sharing';
 
 type PlantillaPDF = 'default' | 'elegante' | 'antigua' | 'colorida' | 'minimal';
 
-export async function generarYCompartirPDF(factura: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default') {
+export async function generarYCompartirPDF(factura: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€') {
   const fechaCreacion = new Date(factura.fecha).toLocaleDateString('es-ES', {
     day: '2-digit', month: 'long', year: 'numeric'
   });
@@ -29,9 +29,9 @@ export async function generarYCompartirPDF(factura: any, items: any[], isPremium
     <tr>
       <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #1a1a1a;">${item.descripcion}</td>
       <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: center; font-size: 13px; color: #555;">${item.cantidad} ${item.unidad}</td>
-      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px; color: #555;">${Number(item.precio_unitario).toFixed(2)} €</td>
+      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px; color: #555;">${Number(item.precio_unitario).toFixed(2)} ${simboloMoneda}</td>
       <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: center; font-size: 13px; color: #555;">${item.descuento}%</td>
-      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px; font-weight: 700; color: #1a1a1a;">${Number(item.subtotal).toFixed(2)} €</td>
+      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px; font-weight: 700; color: #1a1a1a;">${Number(item.subtotal).toFixed(2)} ${simboloMoneda}</td>
     </tr>
   `).join('');
 
@@ -252,12 +252,12 @@ export async function generarYCompartirPDF(factura: any, items: any[], isPremium
         </table>
         <div class="totales">
           <div class="totales-box">
-            <div class="total-row"><span>Subtotal</span><span>${Number(factura.subtotal).toFixed(2)} €</span></div>
-            <div class="total-row"><span>IVA (${factura.iva_porcentaje}%)</span><span>+${Number(factura.iva_importe).toFixed(2)} €</span></div>
-            ${Number(factura.irpf_porcentaje) > 0 ? `<div class="total-row"><span>IRPF (${factura.irpf_porcentaje}%)</span><span style="color:#FF4757">-${Number(factura.irpf_importe).toFixed(2)} €</span></div>` : ''}
+            <div class="total-row"><span>Subtotal</span><span>${Number(factura.subtotal).toFixed(2)} ${simboloMoneda}</span></div>
+            <div class="total-row"><span>IVA (${factura.iva_porcentaje}%)</span><span>+${Number(factura.iva_importe).toFixed(2)} ${simboloMoneda}</span></div>
+            ${Number(factura.irpf_porcentaje) > 0 ? `<div class="total-row"><span>IRPF (${factura.irpf_porcentaje}%)</span><span style="color:#FF4757">-${Number(factura.irpf_importe).toFixed(2)} ${simboloMoneda}</span></div>` : ''}
             <div class="total-row final">
               <span>TOTAL</span>
-              <span>${Number(factura.total).toFixed(2)} €</span>
+              <span>${Number(factura.total).toFixed(2)} ${simboloMoneda}</span>
             </div>
           </div>
         </div>

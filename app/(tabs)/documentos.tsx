@@ -3,28 +3,30 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
-  FlatList,
-  Keyboard,
-  Modal,
-  ScrollView,
-  Share,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View
+    Alert,
+    FlatList,
+    Keyboard,
+    Modal,
+    ScrollView,
+    Share,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    TouchableWithoutFeedback,
+    View
 } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { useTheme } from "../../contexts/ThemeContext";
 import { generarYCompartirPDF } from "../../utils/pdf";
-import { FormatoFecha, getFormatoFecha, getPlantillaPDF } from "../../utils/settings";
+import { FormatoFecha, getFormatoFecha, getMoneda, getPlantillaPDF } from "../../utils/settings";
 import { deleteFactura, getFacturaItems, getFacturas, updateEstadoFactura } from "../db/facturas";
 
 const ESTADOS = ['todas', 'no_enviada', 'pendiente', 'pagada', 'impagada'];
 
 export default function Documentos() {
   const { t } = useTranslation();
+  const { currentTheme } = useTheme();
 
   const ESTADOS_LABELS: Record<string, string> = {
     'pendiente': t('por_cobrar'),
@@ -47,7 +49,11 @@ export default function Documentos() {
   const [compartiendo, setCompartiendo] = useState(false);
   const [mostrarFiltro, setMostrarFiltro] = useState(false);
   const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
+  const [mostrarFiltroImporte, setMostrarFiltroImporte] = useState(false);
+  const [importeMinimo, setImporteMinimo] = useState('');
+  const [importeMaximo, setImporteMaximo] = useState('');
   const [formatoFecha, setFormatoFecha] = useState<FormatoFecha>('DD/MM/YYYY');
+  const [simboloMoneda, setSimboloMoneda] = useState('€');
   const hoy = new Date();
   const [diaSeleccionado, setDiaSeleccionado] = useState(hoy.getDate());
   const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth() + 1);
@@ -94,6 +100,7 @@ export default function Documentos() {
   useFocusEffect(useCallback(() => {
     cargarFacturas();
     getFormatoFecha().then(setFormatoFecha);
+    getMoneda().then(m => setSimboloMoneda(m.simbolo));
     
     // Resetear filtro a 'todas' cuando no hay parámetro
     if (!filtroParam) {
@@ -129,7 +136,15 @@ export default function Documentos() {
     setGenerandoPDF(true);
     try {
       const plantilla = await getPlantillaPDF();
-      await generarYCompartirPDF(facturaDetalle, itemsDetalle, isPremium, plantilla);
+      const itemsConCalculos = itemsDetalle.map((item: any) => ({
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precio_unitario: item.precio_unitario,
+        descuento: item.descuento,
+        subtotal: item.subtotal,
+      }));
+      await generarYCompartirPDF(facturaDetalle, itemsConCalculos, isPremium, plantilla);
     } catch (e) {
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
@@ -142,11 +157,11 @@ export default function Documentos() {
     setGenerandoPDF(true);
     try {
       const plantilla = await getPlantillaPDF();
-      await generarYCompartirPDF(facturaDetalle, itemsDetalle, isPremium, plantilla);
+      await generarYCompartirPDF(facturaDetalle, itemsDetalle, isPremium, plantilla, simboloMoneda);
     } catch (e) {
       try {
         await Share.share({
-          message: `Factura ${facturaDetalle.numero} — ${Number(facturaDetalle.total).toFixed(2)}€\nGenerada con InvoiceRapid Pro.`,
+          message: `Factura ${facturaDetalle.numero} — ${Number(facturaDetalle.total).toFixed(2)}${simboloMoneda}\nGenerada con InvoiceRapid Pro.`,
         });
       } catch {
         Alert.alert(t('error'), t('no_se_pudo_compartir'));
@@ -197,13 +212,25 @@ export default function Documentos() {
       filtradas = filtradas.filter(f => {
         const fechaFormateada = f.fecha ? formatearFechaSync(f.fecha) : '';
         return (
-          f.numero.toLowerCase().includes(busqueda.toLowerCase()) ||
+          f.numero.toLowerCase() === busqueda.toLowerCase() ||
           f.cliente_nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
           fechaFormateada === busqueda
         );
       });
     }
-    
+
+    // Filtrar por importe mínimo
+    if (importeMinimo) {
+      const min = parseFloat(importeMinimo);
+      filtradas = filtradas.filter(f => f.total >= min);
+    }
+
+    // Filtrar por importe máximo
+    if (importeMaximo) {
+      const max = parseFloat(importeMaximo);
+      filtradas = filtradas.filter(f => f.total <= max);
+    }
+
     return filtradas;
   })();
 
@@ -230,42 +257,42 @@ export default function Documentos() {
   };
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.container}>
-          <Text style={styles.titulo}>{t('documentos')}</Text>
-          <View style={styles.busquedaContainer}>
-            <Ionicons name="search" size={18} color="#888" style={styles.busquedaIcono} />
+          <Text style={[styles.titulo, { color: currentTheme.colors.text }]}>{t('documentos')}</Text>
+          <View style={[styles.busquedaContainer, { backgroundColor: currentTheme.colors.card }]}>
+            <Ionicons name="search" size={18} color={currentTheme.colors.textSecondary} style={styles.busquedaIcono} />
             <TextInput
-              style={styles.busquedaInput}
+              style={[styles.busquedaInput, { color: currentTheme.colors.text }]}
               placeholder="Buscar factura o cliente"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={currentTheme.colors.textSecondary}
               value={busqueda}
               onChangeText={setBusqueda}
             />
             {busqueda.length > 0 && (
               <TouchableOpacity onPress={() => setBusqueda('')}>
-                <Ionicons name="close-circle" size={18} color="#888" />
+                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
               </TouchableOpacity>
             )}
             <TouchableOpacity onPress={() => setMostrarDatePicker(true)} style={styles.fechaBtn}>
-              <Ionicons name="calendar-outline" size={18} color="#6C47FF" />
+              <Ionicons name="calendar-outline" size={18} color={currentTheme.colors.primary} />
             </TouchableOpacity>
           </View>
-          <View style={styles.filtroDropdownContainer}>
+          <View style={[styles.filtroDropdownContainer, { backgroundColor: currentTheme.colors.card }]}>
             <TouchableOpacity style={styles.filtroDropdownBtn} onPress={() => setMostrarFiltro(!mostrarFiltro)}>
-              <Text style={styles.filtroDropdownLabel}>Filtro:</Text>
-              <Text style={styles.filtroDropdownValue}>
+              <Text style={[styles.filtroDropdownLabel, { color: currentTheme.colors.textSecondary }]}>Filtro:</Text>
+              <Text style={[styles.filtroDropdownValue, { color: currentTheme.colors.text }]}>
                 {filtrosSeleccionados.includes('todas') ? 'Todas' : filtrosSeleccionados.map(e => estadoLabel(e)).join(', ')}
               </Text>
-              <Ionicons name="chevron-down" size={20} color="#888" />
+              <Ionicons name="chevron-down" size={20} color={currentTheme.colors.textSecondary} />
             </TouchableOpacity>
             {mostrarFiltro && (
-              <View style={styles.filtroDropdownMenu}>
+              <View style={[styles.filtroDropdownMenu, { backgroundColor: currentTheme.colors.card }]}>
                 {ESTADOS.map(e => (
                   <TouchableOpacity
                     key={e}
-                    style={[styles.filtroDropdownItem, filtrosSeleccionados.includes(e) && styles.filtroDropdownItemActivo]}
+                    style={[styles.filtroDropdownItem, filtrosSeleccionados.includes(e) && { backgroundColor: currentTheme.colors.primaryLight }]}
                     onPress={() => {
                       if (e === 'todas') {
                         setFiltrosSeleccionados(['todas']);
@@ -286,7 +313,7 @@ export default function Documentos() {
                       }
                     }}
                   >
-                    <Text style={[styles.filtroDropdownItemText, filtrosSeleccionados.includes(e) && styles.filtroDropdownItemTextActivo]}>
+                    <Text style={[styles.filtroDropdownItemText, { color: currentTheme.colors.text }, filtrosSeleccionados.includes(e) && { color: currentTheme.colors.primary }]}>
                       {estadoLabel(e)}
                     </Text>
                   </TouchableOpacity>
@@ -295,11 +322,52 @@ export default function Documentos() {
             )}
           </View>
 
+          <View style={[styles.filtroImporteContainer, { backgroundColor: currentTheme.colors.card }]}>
+            <TouchableOpacity style={styles.filtroImporteBtn} onPress={() => setMostrarFiltroImporte(!mostrarFiltroImporte)}>
+              <Ionicons name="cash-outline" size={18} color={currentTheme.colors.primary} />
+              <Text style={[styles.filtroImporteLabel, { color: currentTheme.colors.text }]}>
+                {importeMinimo || importeMaximo ? `Importe: ${importeMinimo || '0'} - ${importeMaximo || '∞'}` : 'Filtrar por importe'}
+              </Text>
+              {(importeMinimo || importeMaximo) && (
+                <TouchableOpacity onPress={() => { setImporteMinimo(''); setImporteMaximo(''); }}>
+                  <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
+                </TouchableOpacity>
+              )}
+              <Ionicons name="chevron-down" size={20} color={currentTheme.colors.textSecondary} />
+            </TouchableOpacity>
+            {mostrarFiltroImporte && (
+              <View style={[styles.filtroImporteMenu, { backgroundColor: currentTheme.colors.card }]}>
+                <View style={styles.filtroImporteRow}>
+                  <Text style={[styles.filtroImporteInputLabel, { color: currentTheme.colors.textSecondary }]}>Mínimo:</Text>
+                  <TextInput
+                    style={[styles.filtroImporteInput, { color: currentTheme.colors.text, backgroundColor: currentTheme.colors.background }]}
+                    placeholder="0"
+                    placeholderTextColor={currentTheme.colors.textSecondary}
+                    value={importeMinimo}
+                    onChangeText={setImporteMinimo}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+                <View style={styles.filtroImporteRow}>
+                  <Text style={[styles.filtroImporteInputLabel, { color: currentTheme.colors.textSecondary }]}>Máximo:</Text>
+                  <TextInput
+                    style={[styles.filtroImporteInput, { color: currentTheme.colors.text, backgroundColor: currentTheme.colors.background }]}
+                    placeholder="Sin límite"
+                    placeholderTextColor={currentTheme.colors.textSecondary}
+                    value={importeMaximo}
+                    onChangeText={setImporteMaximo}
+                    keyboardType="decimal-pad"
+                  />
+                </View>
+              </View>
+            )}
+          </View>
+
         {facturasFiltradas.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={60} color="#ddd" />
-            <Text style={styles.emptyTexto}>{t('no_facturas')}</Text>
-            <Text style={styles.emptySub}>
+          <View style={[styles.emptyState, { backgroundColor: currentTheme.colors.card }]}>
+            <Ionicons name="document-text-outline" size={60} color={currentTheme.colors.textSecondary} />
+            <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{t('no_facturas')}</Text>
+            <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>
               {filtrosSeleccionados.includes('todas') ? t('pulsa_crear') : t('no_facturas')}
             </Text>
           </View>
@@ -310,15 +378,15 @@ export default function Documentos() {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={{ paddingBottom: 100 }}
             renderItem={({ item }) => (
-              <TouchableOpacity style={styles.facturaCard} onPress={() => abrirDetalle(item)}>
+              <TouchableOpacity style={[styles.facturaCard, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]} onPress={() => abrirDetalle(item)}>
                 <View style={[styles.estadoBarra, { backgroundColor: estadoColor(item.estado) }]} />
                 <View style={styles.facturaInfo}>
-                  <Text style={styles.facturaNumero}>{item.numero}</Text>
-                  <Text style={styles.facturaCliente}>{item.cliente_nombre}</Text>
-                  <Text style={styles.facturaFecha}>{item.fecha ? formatearFechaSync(item.fecha) : ''}</Text>
+                  <Text style={[styles.facturaNumero, { color: currentTheme.colors.text }]}>{item.numero}</Text>
+                  <Text style={[styles.facturaCliente, { color: currentTheme.colors.textSecondary }]}>{item.cliente_nombre}</Text>
+                  <Text style={[styles.facturaFecha, { color: currentTheme.colors.textSecondary }]}>{item.fecha ? formatearFechaSync(item.fecha) : ''}</Text>
                 </View>
                 <View style={styles.facturaRight}>
-                  <Text style={styles.facturaTotal}>{Number(item.total).toFixed(2)}€</Text>
+                  <Text style={[styles.facturaTotal, { color: currentTheme.colors.text }]}>{Number(item.total).toFixed(2)}{simboloMoneda}</Text>
                   <View style={[styles.estadoPill, { backgroundColor: estadoColor(item.estado) + '20' }]}>
                     <Text style={[styles.estadoTexto, { color: estadoColor(item.estado) }]}>{estadoLabel(item.estado)}</Text>
                   </View>
@@ -330,19 +398,19 @@ export default function Documentos() {
       </View>
       </TouchableWithoutFeedback>
 
-      <TouchableOpacity style={styles.fab} onPress={() => router.push("/(tabs)/nueva-factura")}>
+      <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => router.push("/(tabs)/nueva-factura")}>
         <Ionicons name="add" size={22} color="#fff" />
         <Text style={styles.fabTexto}>{t('nueva_factura')}</Text>
       </TouchableOpacity>
 
       <Modal visible={mostrarDetalle} animationType="slide" presentationStyle="pageSheet">
         {facturaDetalle && (
-          <View style={styles.detalleWrapper}>
-            <View style={styles.detalleHeader}>
+          <View style={[styles.detalleWrapper, { backgroundColor: currentTheme.colors.background }]}>
+            <View style={[styles.detalleHeader, { backgroundColor: currentTheme.colors.card }]}>
               <TouchableOpacity style={styles.detalleCloseBtn} onPress={() => setMostrarDetalle(false)}>
-                <Ionicons name="close" size={22} color="#1a1a1a" />
+                <Ionicons name="close" size={22} color={currentTheme.colors.text} />
               </TouchableOpacity>
-              <Text style={styles.detalleTitulo}>{facturaDetalle.numero}</Text>
+              <Text style={[styles.detalleTitulo, { color: currentTheme.colors.text }]}>{facturaDetalle.numero}</Text>
               <TouchableOpacity style={styles.deleteBtn} onPress={handleEliminar}>
                 <Ionicons name="trash-outline" size={20} color="#FF4757" />
               </TouchableOpacity>
@@ -352,100 +420,108 @@ export default function Documentos() {
                 <View style={[styles.estadoDot, { backgroundColor: estadoColor(facturaDetalle.estado) }]} />
                 <Text style={[styles.estadoBannerTexto, { color: estadoColor(facturaDetalle.estado) }]}>{estadoLabel(facturaDetalle.estado)}</Text>
               </View>
-              <View style={styles.detalleSeccion}>
-                <Text style={styles.detalleSeccionTitulo}>{t('cliente')}</Text>
-                <Text style={styles.detalleClienteNombre}>{facturaDetalle.cliente_nombre}</Text>
+              <View style={[styles.detalleSeccion, { backgroundColor: currentTheme.colors.card }]}>
+                <Text style={[styles.detalleSeccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('cliente')}</Text>
+                <Text style={[styles.detalleClienteNombre, { color: currentTheme.colors.text }]}>{facturaDetalle.cliente_nombre}</Text>
               </View>
               <View style={styles.detalleFechas}>
-                <View style={styles.detalleFechaBox}>
-                  <Text style={styles.detalleFechaLabel}>{t('emision')}</Text>
-                  <Text style={styles.detalleFechaValor}>{facturaDetalle.fecha ? formatearFechaSync(facturaDetalle.fecha) : ''}</Text>
+                <View style={[styles.detalleFechaBox, { backgroundColor: currentTheme.colors.card }]}>
+                  <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
+                  <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{facturaDetalle.fecha ? formatearFechaSync(facturaDetalle.fecha) : ''}</Text>
                 </View>
                 {facturaDetalle.fecha_vencimiento ? (
-                  <View style={styles.detalleFechaBox}>
-                    <Text style={styles.detalleFechaLabel}>{t('vencimiento')}</Text>
-                    <Text style={styles.detalleFechaValor}>{formatearFechaSync(facturaDetalle.fecha_vencimiento)}</Text>
+                  <View style={[styles.detalleFechaBox, { backgroundColor: currentTheme.colors.card }]}>
+                    <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('vencimiento')}</Text>
+                    <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{formatearFechaSync(facturaDetalle.fecha_vencimiento)}</Text>
                   </View>
                 ) : null}
               </View>
-              <View style={styles.detalleSeccion}>
-                <Text style={styles.detalleSeccionTitulo}>{t('articulos')}</Text>
+              <View style={[styles.detalleSeccion, { backgroundColor: currentTheme.colors.card }]}>
+                <Text style={[styles.detalleSeccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('articulos')}</Text>
                 {itemsDetalle.map((item, i) => (
                   <View key={i} style={styles.detalleItem}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.detalleItemDesc}>{item.descripcion}</Text>
-                      <Text style={styles.detalleItemSub}>
-                        {item.cantidad} {item.unidad} × {Number(item.precio_unitario).toFixed(2)}€
+                      <Text style={[styles.detalleItemDesc, { color: currentTheme.colors.text }]}>{item.descripcion}</Text>
+                      <Text style={[styles.detalleItemSub, { color: currentTheme.colors.textSecondary }]}>
+                        {item.cantidad} {item.unidad} × {Number(item.precio_unitario).toFixed(2)}{simboloMoneda}
                         {Number(item.descuento) > 0 ? ` (-${item.descuento}%)` : ''}
                       </Text>
                     </View>
-                    <Text style={styles.detalleItemTotal}>{Number(item.subtotal).toFixed(2)}€</Text>
+                    <Text style={[styles.detalleItemTotal, { color: currentTheme.colors.text }]}>{Number(item.subtotal).toFixed(2)}{simboloMoneda}</Text>
                   </View>
                 ))}
               </View>
-              <View style={styles.detalleTotalesBox}>
+              <View style={[styles.detalleTotalesBox, { backgroundColor: currentTheme.colors.card }]}>
                 <View style={styles.detalleTotalFila}>
-                  <Text style={styles.detalleTotalLabel}>{t('subtotal')}</Text>
-                  <Text style={styles.detalleTotalValor}>{Number(facturaDetalle.subtotal).toFixed(2)} €</Text>
+                  <Text style={[styles.detalleTotalLabel, { color: currentTheme.colors.textSecondary }]}>{t('subtotal')}</Text>
+                  <Text style={[styles.detalleTotalValor, { color: currentTheme.colors.text }]}>{Number(facturaDetalle.subtotal).toFixed(2)} {simboloMoneda}</Text>
                 </View>
                 <View style={styles.detalleTotalFila}>
-                  <Text style={styles.detalleTotalLabel}>{t('iva')} ({facturaDetalle.iva_porcentaje}%)</Text>
-                  <Text style={styles.detalleTotalValor}>+{Number(facturaDetalle.iva_importe).toFixed(2)} €</Text>
+                  <Text style={[styles.detalleTotalLabel, { color: currentTheme.colors.textSecondary }]}>{t('iva')} ({facturaDetalle.iva_porcentaje}%)</Text>
+                  <Text style={[styles.detalleTotalValor, { color: currentTheme.colors.text }]}>+{Number(facturaDetalle.iva_importe).toFixed(2)} {simboloMoneda}</Text>
                 </View>
                 {Number(facturaDetalle.irpf_porcentaje) > 0 && (
                   <View style={styles.detalleTotalFila}>
-                    <Text style={styles.detalleTotalLabel}>{t('irpf')} ({facturaDetalle.irpf_porcentaje}%)</Text>
-                    <Text style={[styles.detalleTotalValor, { color: '#FF4757' }]}>-{Number(facturaDetalle.irpf_importe).toFixed(2)} €</Text>
+                    <Text style={[styles.detalleTotalLabel, { color: currentTheme.colors.textSecondary }]}>{t('irpf')} ({facturaDetalle.irpf_porcentaje}%)</Text>
+                    <Text style={[styles.detalleTotalValor, { color: '#FF4757' }]}>-{Number(facturaDetalle.irpf_importe).toFixed(2)} {simboloMoneda}</Text>
                   </View>
                 )}
                 <View style={[styles.detalleTotalFila, styles.detalleTotalFilaFinal]}>
-                  <Text style={styles.detalleTotalLabelFinal}>{t('total')}</Text>
-                  <Text style={styles.detalleTotalValorFinal}>{Number(facturaDetalle.total).toFixed(2)} €</Text>
+                  <Text style={[styles.detalleTotalLabelFinal, { color: currentTheme.colors.primary }]}>{t('total')}</Text>
+                  <Text style={[styles.detalleTotalValorFinal, { color: currentTheme.colors.primary }]}>{Number(facturaDetalle.total).toFixed(2)} {simboloMoneda}</Text>
                 </View>
               </View>
               {facturaDetalle.metodo_pago && (
-                <View style={styles.detalleSeccion}>
-                  <Text style={styles.detalleSeccionTitulo}>{t('metodo_pago')}</Text>
-                  <Text style={styles.detalleTexto}>{t(facturaDetalle.metodo_pago) || facturaDetalle.metodo_pago}</Text>
+                <View style={[styles.detalleSeccion, { backgroundColor: currentTheme.colors.card }]}>
+                  <Text style={[styles.detalleSeccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('metodo_pago')}</Text>
+                  <Text style={[styles.detalleMetodoPago, { color: currentTheme.colors.text }]}>{facturaDetalle.metodo_pago.charAt(0).toUpperCase() + facturaDetalle.metodo_pago.slice(1)}</Text>
                 </View>
               )}
-              {facturaDetalle.notas ? (
-                <View style={styles.detalleSeccion}>
-                  <Text style={styles.detalleSeccionTitulo}>{t('notas')}</Text>
-                  <Text style={styles.detalleTexto}>{facturaDetalle.notas}</Text>
+              {facturaDetalle.notas && (
+                <View style={[styles.detalleSeccion, { backgroundColor: currentTheme.colors.card }]}>
+                  <Text style={[styles.detalleSeccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('notas')}</Text>
+                  <Text style={[styles.detalleNotas, { color: currentTheme.colors.textSecondary }]}>{facturaDetalle.notas}</Text>
                 </View>
-              ) : null}
-              <View style={styles.detalleSeccion}>
-                <Text style={styles.detalleSeccionTitulo}>{t('cambiar_estado')}</Text>
-                <View style={styles.estadoBtns}>
-                  {['pagada', 'pendiente', 'impagada', 'no_enviada'].map(e => (
-                    <TouchableOpacity key={e} style={[styles.estadoBtn, { borderColor: estadoColor(e) }, facturaDetalle.estado === e && { backgroundColor: estadoColor(e) }]} onPress={() => handleCambiarEstado(e)}>
-                      <Text style={[styles.estadoBtnTexto, { color: facturaDetalle.estado === e ? '#fff' : estadoColor(e) }]}>{estadoLabel(e)}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
+              )}
+              <View style={styles.detalleEstadoAcciones}>
+                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { backgroundColor: currentTheme.colors.card, borderColor: facturaDetalle?.estado === 'no_enviada' ? '#FF9F43' : currentTheme.colors.border, borderWidth: 2 }]} onPress={() => handleCambiarEstado('no_enviada')}>
+                  <Ionicons name="send-outline" size={16} color={facturaDetalle?.estado === 'no_enviada' ? '#FF9F43' : '#FF9F43'} />
+                  <Text style={[styles.detalleEstadoBtnTextoCompact, { color: facturaDetalle?.estado === 'no_enviada' ? '#FF9F43' : currentTheme.colors.text }]}>{t('no_enviada')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { backgroundColor: currentTheme.colors.card, borderColor: facturaDetalle?.estado === 'pendiente' ? '#6C47FF' : currentTheme.colors.border, borderWidth: 2 }]} onPress={() => handleCambiarEstado('pendiente')}>
+                  <Ionicons name="time-outline" size={16} color={facturaDetalle?.estado === 'pendiente' ? '#6C47FF' : '#6C47FF'} />
+                  <Text style={[styles.detalleEstadoBtnTextoCompact, { color: facturaDetalle?.estado === 'pendiente' ? '#6C47FF' : currentTheme.colors.text }]}>{t('por_cobrar')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { backgroundColor: currentTheme.colors.card, borderColor: facturaDetalle?.estado === 'pagada' ? '#26de81' : currentTheme.colors.border, borderWidth: 2 }]} onPress={() => handleCambiarEstado('pagada')}>
+                  <Ionicons name="checkmark-circle-outline" size={16} color={facturaDetalle?.estado === 'pagada' ? '#26de81' : '#26de81'} />
+                  <Text style={[styles.detalleEstadoBtnTextoCompact, { color: facturaDetalle?.estado === 'pagada' ? '#26de81' : currentTheme.colors.text }]}>{t('pagada')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { backgroundColor: currentTheme.colors.card, borderColor: facturaDetalle?.estado === 'impagada' ? '#FF4757' : currentTheme.colors.border, borderWidth: 2 }]} onPress={() => handleCambiarEstado('impagada')}>
+                  <Ionicons name="alert-circle-outline" size={16} color={facturaDetalle?.estado === 'impagada' ? '#FF4757' : '#FF4757'} />
+                  <Text style={[styles.detalleEstadoBtnTextoCompact, { color: facturaDetalle?.estado === 'impagada' ? '#FF4757' : currentTheme.colors.text }]}>{t('impagada')}</Text>
+                </TouchableOpacity>
               </View>
-              <TouchableOpacity style={styles.exportarBtn} onPress={handleCompartirConPDF} disabled={generandoPDF}>
-                <Ionicons name="download-outline" size={20} color="#6C47FF" />
-                <Text style={styles.exportarBtnTexto}>{generandoPDF ? t('generando') : isPremium ? t('exportar_pdf') : t('pdf_marca')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.exportarBtn, { backgroundColor: '#6C47FF' }]} onPress={() => {
-                setMostrarDetalle(false);
-                router.push(`/(tabs)/nueva-factura?id=${facturaDetalle.id}` as any);
-              }}>
-                <Ionicons name="create-outline" size={20} color="#fff" />
-                <Text style={[styles.exportarBtnTexto, { color: '#fff' }]}>{t('editar')}</Text>
-              </TouchableOpacity>
+              <View style={styles.detalleAcciones}>
+                <TouchableOpacity style={[styles.detalleAccionBtn, { backgroundColor: currentTheme.colors.card }]} onPress={handleExportarPDF} disabled={generandoPDF}>
+                  <Ionicons name="document-text-outline" size={20} color={currentTheme.colors.primary} />
+                  <Text style={[styles.detalleAccionBtnTexto, { color: currentTheme.colors.primary }]}>{t('exportar_pdf')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.detalleAccionBtn, { backgroundColor: currentTheme.colors.card }]} onPress={() => { setMostrarDetalle(false); setTimeout(() => router.push({ pathname: '/(tabs)/nueva-factura', params: { id: facturaDetalle.id.toString() } }), 100); }}>
+                  <Ionicons name="create-outline" size={20} color={currentTheme.colors.primary} />
+                  <Text style={[styles.detalleAccionBtnTexto, { color: currentTheme.colors.primary }]}>{t('editar')}</Text>
+                </TouchableOpacity>
+              </View>
               {!isPremium && (
-                <TouchableOpacity style={styles.premiumBanner} onPress={() => {
-                  setMostrarDetalle(false);
-                  router.push('/ajustes?paywall=true');
-                }}>
-                  <Ionicons name="star-outline" size={16} color="#fff" />
-                  <Text style={styles.premiumBannerTexto}>{t('hazte_premium')}</Text>
+                <TouchableOpacity style={[styles.detallePremiumBanner, { backgroundColor: "#6C47FF" }]} onPress={() => { setMostrarDetalle(false); setTimeout(() => setMostrarPaywall(true), 100); }}>
+                  <Ionicons name="diamond-outline" size={20} color="#fff" />
+                  <View style={styles.detallePremiumBannerTextoContainer}>
+                    <Text style={styles.detallePremiumBannerTitulo}>Desbloquear PDF PRO</Text>
+                    <Text style={styles.detallePremiumBannerSub}>Ilimitadas y sin marcas de agua</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#fff" />
                 </TouchableOpacity>
               )}
-              <View style={{ height: 60 }} />
+              <View style={{ height: 30 }} />
             </ScrollView>
           </View>
         )}
@@ -617,7 +693,7 @@ const styles = StyleSheet.create({
   fechaBtn: { padding: 6, marginLeft: 8 },
   fechaSeleccionadaContainer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", backgroundColor: "#6C47FF", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 },
   fechaSeleccionadaTexto: { fontSize: 14, fontWeight: "600", color: "#fff" },
-  filtroDropdownContainer: { marginBottom: 16 },
+  filtroDropdownContainer: { marginBottom: 16, borderRadius: 12, overflow: "hidden" },
   filtroDropdownBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1.5, borderColor: "#e8e8e8" },
   filtroDropdownLabel: { fontSize: 16, fontWeight: "700", color: "#1a1a1a", marginRight: 12 },
   filtroDropdownValue: { flex: 1, fontSize: 15, fontWeight: "600", color: "#6C47FF" },
@@ -627,6 +703,13 @@ const styles = StyleSheet.create({
   filtroCheckbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: "#e8e8e8", backgroundColor: "#fff", marginRight: 12, alignItems: "center", justifyContent: "center" },
   filtroDropdownItemText: { fontSize: 15, fontWeight: "600", color: "#1a1a1a" },
   filtroDropdownItemTextActivo: { color: "#fff" },
+  filtroImporteContainer: { marginBottom: 16, borderRadius: 12, overflow: "hidden" },
+  filtroImporteBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1.5, borderColor: "#e8e8e8" },
+  filtroImporteLabel: { flex: 1, fontSize: 15, fontWeight: "600", color: "#6C47FF", marginLeft: 8 },
+  filtroImporteMenu: { backgroundColor: "#fff", marginTop: 8, borderWidth: 1.5, borderColor: "#e8e8e8", padding: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
+  filtroImporteRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
+  filtroImporteInputLabel: { fontSize: 14, fontWeight: "600", width: 70 },
+  filtroImporteInput: { flex: 1, fontSize: 15, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1.5, borderColor: "#e8e8e8", backgroundColor: "#fafafa" },
   emptyState: { flex: 1, justifyContent: "center", alignItems: "center", paddingBottom: 100 },
   emptyTexto: { fontSize: 18, fontWeight: "600", color: "#aaa", marginTop: 16 },
   emptySub: { fontSize: 14, color: "#ccc", marginTop: 6, textAlign: "center" },
@@ -669,6 +752,21 @@ const styles = StyleSheet.create({
   detalleTotalFilaFinal: { borderTopWidth: 1.5, borderTopColor: "#f0f0f0", paddingTop: 14, marginTop: 4 },
   detalleTotalLabelFinal: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
   detalleTotalValorFinal: { fontSize: 22, fontWeight: "900", color: "#6C47FF" },
+  detalleMetodoPago: { fontSize: 16, fontWeight: "600", color: "#1a1a1a" },
+  detalleNotas: { fontSize: 14, color: "#888", lineHeight: 20 },
+  detalleAcciones: { flexDirection: "row", gap: 12, marginHorizontal: 16, marginTop: 16 },
+  detalleAccionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: 12, gap: 8 },
+  detalleAccionBtnTexto: { fontSize: 14, fontWeight: "700" },
+  detallePremiumBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginHorizontal: 16, marginTop: 12, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  detallePremiumBannerTextoContainer: { flex: 1 },
+  detallePremiumBannerTitulo: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  detallePremiumBannerSub: { color: "rgba(255,255,255,0.8)", fontSize: 11 },
+  detallePremiumBannerTexto: { color: "#fff", fontWeight: "600", fontSize: 13 },
+  detalleEstadoAcciones: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginHorizontal: 16, marginTop: 12 },
+  detalleEstadoBtnCompact: { width: "48%", flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 8, gap: 4 },
+  detalleEstadoBtnTextoCompact: { fontSize: 12, fontWeight: "600" },
+  detalleEstadoBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 12, gap: 8 },
+  detalleEstadoBtnTexto: { fontSize: 14, fontWeight: "600" },
   detalleTexto: { fontSize: 14, color: "#555", lineHeight: 22 },
   estadoBtns: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   estadoBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },

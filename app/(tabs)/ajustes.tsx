@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useLocalSearchParams } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -7,7 +8,7 @@ import {
     Text, TextInput, TouchableOpacity, View
 } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
-import { cambiarIdioma } from "../../utils/i18n";
+import { useTheme } from "../../contexts/ThemeContext";
 import {
     DatosEmpresa,
     FormatoFecha,
@@ -17,17 +18,22 @@ import {
     PLANTILLAS_PDF,
     setDatosEmpresa, setFormatoFecha, setMoneda, setPlantillaPDF
 } from "../../utils/settings";
+import { PrimaryColor, primaryColors } from "../../utils/themes";
 
 export default function Ajustes() {
   const { t, i18n } = useTranslation();
   const { isPremium, offerings, comprar, restaurar, activarPremiumTest, desactivarPremiumTest, aumentarLimiteFacturas } = useSubscription();
+  const { currentTheme, primaryColor, mode, setPrimaryColor, setMode } = useTheme();
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
   const [mostrarDatos, setMostrarDatos] = useState(false);
   const [mostrarMoneda, setMostrarMoneda] = useState(false);
   const [mostrarPlantilla, setMostrarPlantilla] = useState(false);
+  const [mostrarTemas, setMostrarTemas] = useState(false);
+  const [mostrarIdiomas, setMostrarIdiomas] = useState(false);
   const [comprando, setComprando] = useState(false);
+  const [notificacionesSuscripcion, setNotificacionesSuscripcion] = useState(true);
   const [monedaActual, setMonedaActual] = useState<Moneda>(MONEDAS[0]);
   const [plantillaActual, setPlantillaActual] = useState<PlantillaPDF>('default');
   const [formatoFechaActual, setFormatoFechaActual] = useState<FormatoFecha>('DD/MM/YYYY');
@@ -44,6 +50,9 @@ export default function Ajustes() {
     getDatosEmpresa().then(setDatos);
     getPlantillaPDF().then(setPlantillaActual);
     getFormatoFecha().then(setFormatoFechaActual);
+    AsyncStorage.getItem('notificaciones_suscripcion').then(value => {
+      setNotificacionesSuscripcion(value !== 'false');
+    });
     if (params.paywall === 'true') {
       setMostrarPaywall(true);
     }
@@ -90,73 +99,83 @@ export default function Ajustes() {
     setMostrarPlantilla(false);
   }
 
+  async function toggleNotificacionesSuscripcion() {
+    const nuevoValor = !notificacionesSuscripcion;
+    setNotificacionesSuscripcion(nuevoValor);
+    await AsyncStorage.setItem('notificaciones_suscripcion', nuevoValor ? 'true' : 'false');
+    Alert.alert('✅', nuevoValor ? t('notificaciones_activadas') : t('notificaciones_desactivadas'));
+  }
+
   const idiomaActual = i18n.language;
 
+  const idiomas = [
+    { code: 'es', nombre: 'Español' },
+    { code: 'en', nombre: 'English' },
+    { code: 'fr', nombre: 'Français' },
+    { code: 'de', nombre: 'Deutsch' },
+    { code: 'it', nombre: 'Italiano' },
+    { code: 'pt', nombre: 'Português' },
+    { code: 'ar', nombre: 'العربية' },
+  ];
+
+  const idiomaSeleccionado = idiomas.find(i => i.code === idiomaActual)?.nombre || idiomaActual;
+
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
       <ScrollView ref={scrollViewRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={styles.titulo}>{t('ajustes_titulo')}</Text>
+        <Text style={[styles.titulo, { color: currentTheme.colors.text }]}>{t('ajustes_titulo')}</Text>
 
         {/* Banner premium */}
         {!isPremium ? (
-          <TouchableOpacity style={styles.premiumBanner} onPress={() => setMostrarPaywall(true)}>
+          <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: currentTheme.colors.primary }]} onPress={() => setMostrarPaywall(true)}>
             <View style={styles.premiumBannerLeft}>
-              <Text style={styles.premiumBannerTitulo}>✨ {t('unlock_premium')}</Text>
-              <Text style={styles.premiumBannerSub}>{t('pdf_sin_marca')} · {t('logo_personalizado')} · {t('sin_anuncios')}</Text>
-            </View>
-            <View style={styles.premiumBannerBtn}>
-              <Ionicons name="chevron-forward" size={18} color="#6C47FF" />
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="diamond-outline" size={20} color="#fff" />
+                <Text style={styles.premiumBannerTitulo}>{t('unlock_premium')}</Text>
+              </View>
+              <Text style={styles.premiumBannerSub}>{t('facturas_ilimitadas')} · {t('pdf_sin_marca')} · {t('sin_anuncios')}</Text>
             </View>
           </TouchableOpacity>
         ) : (
-          <View style={[styles.premiumBanner, { backgroundColor: '#1a1a2e' }]}>
+          <View style={[styles.premiumBanner, { backgroundColor: currentTheme.colors.card }]}>
             <View style={styles.premiumBannerLeft}>
-              <Text style={styles.premiumBannerTitulo}>✨ {t('plan_premium')}</Text>
-              <Text style={styles.premiumBannerSub}>Todas las funciones desbloqueadas</Text>
+              <Text style={[styles.premiumBannerTitulo, { color: currentTheme.colors.text }]}>{t('plan_premium')}</Text>
+              <Text style={[styles.premiumBannerSub, { color: currentTheme.colors.textSecondary }]}>{t('funciones_desbloqueadas')}</Text>
             </View>
             <Ionicons name="checkmark-circle" size={28} color="#26de81" />
           </View>
         )}
 
         {/* Idioma */}
-        <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>{t('idioma')}</Text>
-          <View style={styles.idiomaOpciones}>
-            {(['es', 'en'] as const).map(lang => (
-              <TouchableOpacity
-                key={lang}
-                style={[styles.idiomaBtn, idiomaActual === lang && styles.idiomaBtnActivo]}
-                onPress={() => cambiarIdioma(lang)}
-              >
-                <Text style={styles.idiomaFlag}>{lang === 'es' ? '🇪🇸' : '🇬🇧'}</Text>
-                <Text style={[styles.idiomaBtnTexto, idiomaActual === lang && styles.idiomaBtnTextoActivo]}>
-                  {lang === 'es' ? t('espanol') : t('ingles')}
-                </Text>
-                {idiomaActual === lang && <Ionicons name="checkmark" size={16} color="#6C47FF" />}
-              </TouchableOpacity>
-            ))}
-          </View>
+        <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('idioma')}</Text>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarIdiomas(true)}>
+            <Ionicons name="language-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('idioma')}</Text>
+            <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>{idiomaSeleccionado}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Configuración */}
-        <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>{t('configuracion')}</Text>
+        <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('configuracion')}</Text>
 
           {/* Moneda */}
           <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarMoneda(true)}>
-            <Ionicons name="cash-outline" size={20} color="#6C47FF" />
-            <Text style={styles.opcionTexto}>{t('moneda')}</Text>
-            <Text style={styles.opcionValor}>{monedaActual.simbolo} {monedaActual.codigo}</Text>
-            <Ionicons name="chevron-forward" size={16} color="#ccc" />
+            <Ionicons name="cash-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('moneda')}</Text>
+            <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>{monedaActual.simbolo} {monedaActual.codigo}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
 
           {/* Mis datos */}
           <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarDatos(true)}>
-            <Ionicons name="business-outline" size={20} color="#6C47FF" />
+            <Ionicons name="business-outline" size={20} color={currentTheme.colors.primary} />
             <View style={{ flexDirection: 'row', flex: 1 }}>
-              <Text style={styles.opcionTexto}>{t('mis_datos')}</Text>
+              <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('mis_datos')}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#ccc" />
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
 
           {/* Formato de fecha */}
@@ -166,85 +185,95 @@ export default function Ajustes() {
             setFormatoFechaActual(nuevoFormato);
             Alert.alert('✅', t('formato_fecha_actualizado'));
           }}>
-            <Ionicons name="calendar-outline" size={20} color="#6C47FF" />
+            <Ionicons name="calendar-outline" size={20} color={currentTheme.colors.primary} />
             <View style={{ flexDirection: 'row', flex: 1 }}>
-              <Text style={styles.opcionTexto}>{t('formato_fecha')}</Text>
-              <Text style={styles.opcionValor}>{formatoFechaActual}</Text>
+              <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('formato_fecha')}</Text>
+              <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>{formatoFechaActual}</Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#ccc" />
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
 
           {/* Plantilla PDF (solo premium) */}
           {isPremium && (
             <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarPlantilla(true)}>
-              <Ionicons name="document-text-outline" size={20} color="#6C47FF" />
-              <Text style={styles.opcionTexto}>Plantilla PDF</Text>
-              <Text style={styles.opcionValor}>{PLANTILLAS_PDF.find(p => p.id === plantillaActual)?.nombre || 'Estándar'}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#ccc" />
+              <Ionicons name="document-text-outline" size={20} color={currentTheme.colors.primary} />
+              <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('plantilla_pdf')}</Text>
+              <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>{PLANTILLAS_PDF.find(p => p.id === plantillaActual)?.nombre || t('estandar')}</Text>
+              <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
             </TouchableOpacity>
           )}
 
-          <View style={styles.opcion}>
-            <Ionicons name="notifications-outline" size={20} color="#6C47FF" />
-            <Text style={styles.opcionTexto}>{t('notificaciones')}</Text>
-          </View>
+          {/* Tema (solo premium) */}
+          {isPremium && (
+            <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarTemas(true)}>
+              <Ionicons name="color-palette-outline" size={20} color={currentTheme.colors.primary} />
+              <View style={{ flexDirection: 'row', flex: 1 }}>
+                <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('tema')}</Text>
+                <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>{t(primaryColor)} - {t(mode)}</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+            </TouchableOpacity>
+          )}
+
+          <TouchableOpacity style={[styles.opcionBoton, { paddingVertical: 16 }]} onPress={toggleNotificacionesSuscripcion}>
+            <Ionicons name="notifications-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text, flex: 1, lineHeight: 20 }]} numberOfLines={2}>{t('notificaciones_suscripcion')}</Text>
+            <View style={[styles.switchBtn, notificacionesSuscripcion && styles.switchBtnActivo]}>
+              <View style={[styles.switchCircle, notificacionesSuscripcion && styles.switchCircleActivo]} />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Suscripción */}
-        <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>{t('suscripcion')}</Text>
+        <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('suscripcion')}</Text>
           <View style={styles.opcion}>
-            <Ionicons name="star-outline" size={20} color="#6C47FF" />
-            <Text style={styles.opcionTexto}>{t('plan_actual')}</Text>
-            <Text style={[styles.opcionValor, isPremium && { color: '#6C47FF' }]}>
+            <Ionicons name="star-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('plan_actual')}</Text>
+            <Text style={[styles.opcionValor, isPremium && { color: currentTheme.colors.primary }, { color: currentTheme.colors.textSecondary }]}>
               {isPremium ? t('plan_premium') : t('plan_gratis')}
             </Text>
           </View>
           {!isPremium && (
             <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarPaywall(true)}>
-              <Ionicons name="rocket-outline" size={20} color="#6C47FF" />
-              <Text style={styles.opcionTexto}>{t('unlock_premium')}</Text>
-              <Ionicons name="chevron-forward" size={16} color="#ccc" />
+              <Ionicons name="rocket-outline" size={20} color={currentTheme.colors.primary} />
+              <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('unlock_premium')}</Text>
+              <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
             </TouchableOpacity>
           )}
-          <TouchableOpacity style={styles.opcionBoton} onPress={handleRestaurar}>
-            <Ionicons name="refresh-outline" size={20} color="#6C47FF" />
-            <Text style={styles.opcionTexto}>{t('restaurar_compra')}</Text>
-            <Ionicons name="chevron-forward" size={16} color="#ccc" />
-          </TouchableOpacity>
         </View>
 
         {/* Cuenta */}
-        <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>{t('cuenta')}</Text>
+        <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('cuenta')}</Text>
           <View style={styles.opcion}>
-            <Ionicons name="person-outline" size={20} color="#6C47FF" />
-            <Text style={styles.opcionTexto}>{t('mi_perfil')}</Text>
+            <Ionicons name="person-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('mi_perfil')}</Text>
           </View>
           <View style={styles.opcion}>
-            <Ionicons name="information-circle-outline" size={20} color="#6C47FF" />
-            <Text style={styles.opcionTexto}>{t('version')}</Text>
-            <Text style={styles.opcionValor}>1.0.0</Text>
+            <Ionicons name="information-circle-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('version')}</Text>
+            <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>1.0.0</Text>
           </View>
         </View>
 
         {/* Modo desarrollo */}
-        <View style={[styles.seccion, { borderWidth: 1.5, borderColor: '#FF9F43', borderStyle: 'dashed' }]}>
-          <Text style={[styles.seccionTitulo, { color: '#FF9F43' }]}>🛠 Modo desarrollo</Text>
+        <View style={[styles.seccion, { borderWidth: 1.5, borderColor: '#FF9F43', borderStyle: 'dashed', backgroundColor: currentTheme.colors.card }]}>
+          <Text style={[styles.seccionTitulo, { color: '#FF9F43' }]}>🛠 {t('modo_desarrollo')}</Text>
           <TouchableOpacity style={styles.opcionBoton} onPress={activarPremiumTest}>
             <Ionicons name="flash-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Activar Premium (test)</Text>
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('activar_premium_test')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.opcionBoton} onPress={desactivarPremiumTest}>
             <Ionicons name="flash-off-outline" size={20} color="#FF4757" />
-            <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>Desactivar Premium (test)</Text>
+            <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>{t('desactivar_premium_test')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.opcionBoton} onPress={() => {
             aumentarLimiteFacturas();
             Alert.alert('✅', t('limite_aumentado'));
           }}>
             <Ionicons name="add-circle-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Aumentar 1 factura (test)</Text>
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('aumentar_factura_test')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -363,7 +392,117 @@ export default function Ajustes() {
         </View>
       </Modal>
 
-      {/* Paywall Modal */}
+      {/* Modal Temas */}
+      <Modal visible={mostrarTemas} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalWrapper}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMostrarTemas(false)}>
+              <Ionicons name="close" size={26} color="#1a1a1a" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitulo}>Tema</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <ScrollView style={{ padding: 20 }}>
+            {/* Toggle Modo Oscuro/Claro */}
+            <View style={{ marginBottom: 24, padding: 16, backgroundColor: '#f5f5f5', borderRadius: 12 }}>
+              <Text style={{ fontSize: 14, fontWeight: '700', color: '#888', marginBottom: 12 }}>{t('modo')}</Text>
+              <View style={{ flexDirection: 'row', gap: 12 }}>
+                <TouchableOpacity
+                  style={[
+                    { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: '#e8e8e8', backgroundColor: '#fafafa', alignItems: 'center' },
+                    mode === 'light' && { borderColor: currentTheme.colors.primary, backgroundColor: currentTheme.colors.primaryLight }
+                  ]}
+                  onPress={async () => {
+                    await setMode('light');
+                  }}
+                >
+                  <Ionicons name="sunny-outline" size={20} color={mode === 'light' ? currentTheme.colors.primary : '#999'} />
+                  <Text style={[{ fontSize: 15, fontWeight: '600', marginTop: 4 }, mode === 'light' && { color: currentTheme.colors.primary }]}>
+                    {t('light')}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    { flex: 1, padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: '#e8e8e8', backgroundColor: '#fafafa', alignItems: 'center' },
+                    mode === 'dark' && { borderColor: currentTheme.colors.primary, backgroundColor: currentTheme.colors.primaryLight }
+                  ]}
+                  onPress={async () => {
+                    await setMode('dark');
+                  }}
+                >
+                  <Ionicons name="moon-outline" size={20} color={mode === 'dark' ? currentTheme.colors.primary : '#999'} />
+                  <Text style={[{ fontSize: 15, fontWeight: '600', marginTop: 4 }, mode === 'dark' && { color: currentTheme.colors.primary }]}>
+                    {t('dark')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Selección de Color */}
+            <Text style={{ fontSize: 14, fontWeight: '700', color: '#888', marginBottom: 12, paddingHorizontal: 4 }}>{t('color_principal')}</Text>
+            {(Object.keys(primaryColors) as PrimaryColor[]).map((colorName) => (
+              <TouchableOpacity
+                key={colorName}
+                style={[
+                  styles.plantillaItem,
+                  primaryColor === colorName && styles.plantillaItemActivo
+                ]}
+                onPress={async () => {
+                  await setPrimaryColor(colorName);
+                }}
+              >
+                <View style={[styles.plantillaIcono, { backgroundColor: primaryColors[colorName].color + '20' }]}>
+                  <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: primaryColors[colorName].color }} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.plantillaNombre, primaryColor === colorName && styles.plantillaNombreActivo]}>
+                    {t(colorName)}
+                  </Text>
+                </View>
+                {primaryColor === colorName && (
+                  <Ionicons name="checkmark-circle" size={22} color={currentTheme.colors.primary} />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Modal Idiomas */}
+      <Modal visible={mostrarIdiomas} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalWrapper}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMostrarIdiomas(false)}>
+              <Ionicons name="close" size={26} color="#1a1a1a" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitulo}>{t('idioma')}</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <ScrollView style={{ padding: 20 }}>
+            {idiomas.map((idioma) => (
+              <TouchableOpacity
+                key={idioma.code}
+                style={[
+                  styles.monedaItem,
+                  idiomaActual === idioma.code && styles.monedaItemActivo
+                ]}
+                onPress={async () => {
+                  await i18n.changeLanguage(idioma.code as any);
+                  await AsyncStorage.setItem('idioma', idioma.code);
+                  setMostrarIdiomas(false);
+                }}
+              >
+                <Text style={styles.idiomaNombre}>{idioma.nombre}</Text>
+                {idiomaActual === idioma.code && (
+                  <Ionicons name="checkmark-circle" size={22} color="#6C47FF" />
+                )}
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Modal Paywall */}
       <Modal visible={mostrarPaywall} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.paywallWrapper}>
           <View style={styles.paywallHeader}>
@@ -474,9 +613,11 @@ const styles = StyleSheet.create({
   switchFila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#f0f0f0', marginTop: 8 },
   switchLabel: { fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
   monedaItem: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
+  monedaItemActivo: { backgroundColor: '#F8F7FF' },
   monedaSimbolo: { fontSize: 20, fontWeight: '700', color: '#6C47FF', width: 40 },
   monedaNombre: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
   monedaCodigo: { fontSize: 12, color: '#888' },
+  idiomaNombre: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', flex: 1 },
   paywallWrapper: { flex: 1, backgroundColor: '#fff', paddingTop: 20 },
   paywallHeader: { paddingHorizontal: 20, marginBottom: 10 },
   paywallTop: { alignItems: 'center', paddingHorizontal: 30, paddingVertical: 24 },

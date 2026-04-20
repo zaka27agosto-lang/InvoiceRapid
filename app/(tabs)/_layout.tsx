@@ -36,6 +36,10 @@ export default function TabsLayout() {
           tabBarLabel: t('clientes'),
           tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
         }} />
+        <Tabs.Screen name="productos" options={{
+          tabBarLabel: t('productos'),
+          tabBarIcon: ({ color, size }) => <Ionicons name="pricetag-outline" size={size} color={color} />,
+        }} />
         <Tabs.Screen name="informes" options={{
           tabBarLabel: t('informes'),
           tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,

@@ -17,10 +17,13 @@ import {
     View,
 } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
-import { getMoneda } from "../../utils/settings";
+import { useTheme } from "../../contexts/ThemeContext";
+import { generarYCompartirPDF } from "../../utils/pdf";
+import { getMoneda, getPlantillaPDF } from "../../utils/settings";
 import { checkInvoiceLimitAsync, incrementInvoiceCounter } from "../../utils/subscription";
 import { getClientes } from "../db/clientes";
 import { deleteFacturaItems, getFactura, getFacturaItems, getFacturas, getNextNumeroFactura, insertFactura, insertFacturaItem, updateFactura } from "../db/facturas";
+import { getProductos } from "../db/productos";
 
 type Item = {
   id: string;
@@ -29,6 +32,7 @@ type Item = {
   unidad: string;
   precio: string;
   descuento: string;
+  descuentoTipo: 'porcentaje' | 'moneda';
 };
 
 const UNIDADES = ["ud", "kg", "g", "l", "ml", "m", "m²", "h", "día", "mes"];
@@ -38,15 +42,24 @@ export default function NuevaFactura() {
   const navigation = useNavigation();
   const { id: facturaId } = useLocalSearchParams<{ id?: string }>();
   const { t } = useTranslation();
-  const { isPremium } = useSubscription();
+  const { isPremium, offerings, comprar, restaurar } = useSubscription();
+  const { currentTheme } = useTheme();
   const esModoEdicion = !!facturaId;
 
+  const [mostrarPaywall, setMostrarPaywall] = useState(false);
+  const [comprando, setComprando] = useState(false);
+  const [generandoPDF, setGenerandoPDF] = useState(false);
+  const [planSeleccionado, setPlanSeleccionado] = useState<any>(null);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
   const [mostrarClientes, setMostrarClientes] = useState(false);
   const [clientes, setClientes] = useState<any[]>([]);
   const [busquedaCliente, setBusquedaCliente] = useState("");
   const [items, setItems] = useState<Item[]>([nuevoItem()]);
   const [mostrarUnidades, setMostrarUnidades] = useState<string | null>(null);
+  const [mostrarProductos, setMostrarProductos] = useState(false);
+  const [productos, setProductos] = useState<any[]>([]);
+  const [busquedaProducto, setBusquedaProducto] = useState("");
+  const [itemSeleccionadoParaProducto, setItemSeleccionadoParaProducto] = useState<string | null>(null);
   const [ivaPorcentaje, setIvaPorcentaje] = useState(21);
   const [irpfPorcentaje, setIrpfPorcentaje] = useState(0);
   const [notas, setNotas] = useState("");
@@ -95,6 +108,9 @@ export default function NuevaFactura() {
       // Scroll al inicio sin animación
       scrollRef.current?.scrollTo({ y: 0, animated: false });
 
+      // Recargar moneda
+      getMoneda().then(m => setSimboloMoneda(m.simbolo));
+
       if (facturaId) {
         cargarFactura(parseInt(facturaId));
       } else {
@@ -112,11 +128,16 @@ export default function NuevaFactura() {
       unidad: "ud",
       precio: "",
       descuento: "0",
+      descuentoTipo: "porcentaje",
     };
   }
 
   function actualizarItem(id: string, campo: keyof Item, valor: string) {
     setItems(prev => prev.map(item => (item.id === id ? { ...item, [campo]: valor } : item)));
+  }
+
+  function cambiarTipoDescuento(id: string, tipo: 'porcentaje' | 'moneda') {
+    setItems(prev => prev.map(item => (item.id === id ? { ...item, descuentoTipo: tipo } : item)));
   }
 
   function eliminarItem(id: string) {
@@ -128,7 +149,15 @@ export default function NuevaFactura() {
     const cant = parseFloat(item.cantidad) || 0;
     const precio = parseFloat(item.precio) || 0;
     const desc = parseFloat(item.descuento) || 0;
-    return cant * precio * (1 - desc / 100);
+    const subtotalBruto = cant * precio;
+    
+    if (item.descuentoTipo === 'moneda') {
+      // Descuento en moneda: restar el importe del descuento
+      return Math.max(0, subtotalBruto - desc);
+    } else {
+      // Descuento porcentaje: aplicar porcentaje
+      return subtotalBruto * (1 - desc / 100);
+    }
   }
 
   const subtotalBruto = items.reduce((acc, item) => acc + calcularSubtotalItem(item), 0);
@@ -140,6 +169,23 @@ export default function NuevaFactura() {
     setClientes(getClientes() as any[]);
     setBusquedaCliente("");
     setMostrarClientes(true);
+  }
+
+  function abrirSelectorProductos(itemId: string) {
+    setProductos(getProductos() as any[]);
+    setBusquedaProducto("");
+    setItemSeleccionadoParaProducto(itemId);
+    setMostrarProductos(true);
+  }
+
+  function seleccionarProducto(producto: any) {
+    if (itemSeleccionadoParaProducto) {
+      actualizarItem(itemSeleccionadoParaProducto, "descripcion", producto.descripcion);
+      actualizarItem(itemSeleccionadoParaProducto, "precio", producto.precio.toString());
+      actualizarItem(itemSeleccionadoParaProducto, "unidad", producto.unidad);
+    }
+    setMostrarProductos(false);
+    setItemSeleccionadoParaProducto(null);
   }
 
   function reiniciarFormulario() {
@@ -177,13 +223,14 @@ export default function NuevaFactura() {
     setMetodoPago(factura.metodo_pago || "efectivo");
     setFechaVencimiento(factura.fecha_vencimiento || "");
 
-    const itemsCargados = facturaItems.map((item: any) => ({
+    const itemsCargados: Item[] = facturaItems.map((item: any) => ({
       id: Math.random().toString(),
       descripcion: item.descripcion,
       cantidad: item.cantidad.toString(),
       unidad: item.unidad,
       precio: item.precio_unitario.toString(),
       descuento: item.descuento.toString(),
+      descuentoTipo: "porcentaje",
     }));
     setItems(itemsCargados.length > 0 ? itemsCargados : [nuevoItem()]);
   }
@@ -193,6 +240,78 @@ export default function NuevaFactura() {
     await AsyncStorage.setItem('ultimo_iva', valor.toString());
   }
 
+  async function handleComprar(pkg: any) {
+    setComprando(true);
+    const result = await comprar(pkg);
+    setComprando(false);
+    if (result.success) {
+      setMostrarPaywall(false);
+      Alert.alert('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
+    } else if (!result.cancelled) {
+      Alert.alert(t('error'), result.error || 'Error al procesar la compra');
+    }
+  }
+
+  async function handleRestaurar() {
+    const result = await restaurar();
+    if (result.isPremium) {
+      Alert.alert('✅', t('compra_restaurada'));
+    } else {
+      Alert.alert('Info', t('no_compras_previas'));
+    }
+  }
+
+  async function handleExportarPDF() {
+    if (!clienteSeleccionado) {
+      Alert.alert(t('cliente_requerido'), t('selecciona_cliente'));
+      return;
+    }
+
+    const itemsValidos = items.filter(i => i.descripcion.trim() && parseFloat(i.precio) > 0);
+    if (itemsValidos.length === 0) {
+      Alert.alert(t('sin_articulos'), t('anadir_articulo_valido'));
+      return;
+    }
+
+    setGenerandoPDF(true);
+    try {
+      const facturaTemporal = {
+        id: esModoEdicion ? parseInt(facturaId!) : 0,
+        numero: numeroFactura || getNextNumeroFactura(),
+        cliente_id: clienteSeleccionado.id,
+        cliente_nombre: clienteSeleccionado.nombre,
+        subtotal: subtotalBruto,
+        descuento: 0,
+        iva_porcentaje: ivaPorcentaje,
+        iva_importe: ivaImporte,
+        irpf_porcentaje: irpfPorcentaje,
+        irpf_importe: irpfImporte,
+        total,
+        notas,
+        metodo_pago: metodoPago,
+        fecha_vencimiento: fechaVencimiento,
+        fecha: new Date().toISOString(),
+        estado: 'pendiente',
+      };
+
+      const itemsConCalculos = itemsValidos.map(item => ({
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precio_unitario: item.precio,
+        descuento: item.descuento,
+        subtotal: calcularSubtotalItem(item),
+      }));
+
+      const plantilla = await getPlantillaPDF();
+      await generarYCompartirPDF(facturaTemporal, itemsConCalculos, isPremium, plantilla, simboloMoneda);
+    } catch (e) {
+      Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
+    } finally {
+      setGenerandoPDF(false);
+    }
+  }
+
   async function guardarFactura() {
     if (!esModoEdicion && !isPremium && !limiteInfo.canCreate) {
       Alert.alert(
@@ -200,7 +319,7 @@ export default function NuevaFactura() {
         t('limite_desc'),
         [
           { text: t('cancelar'), style: 'cancel' },
-          { text: '✨ Premium', onPress: () => router.push('/(tabs)/ajustes') }
+          { text: t('unlock_premium'), onPress: () => router.push('/(tabs)/ajustes') }
         ]
       );
       return;
@@ -327,14 +446,14 @@ export default function NuevaFactura() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <View style={styles.wrapper}>
+      <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
 
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: currentTheme.colors.card }]}>
           <TouchableOpacity style={styles.backBtn} onPress={handleSalir}>
-            <Ionicons name="arrow-back" size={22} color="#6C47FF" />
+            <Ionicons name="arrow-back" size={22} color={currentTheme.colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{esModoEdicion ? t('editar') : t('nueva_factura_titulo')}</Text>
-          <TouchableOpacity style={styles.saveBtn} onPress={guardarFactura}>
+          <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>{esModoEdicion ? t('editar') : t('nueva_factura_titulo')}</Text>
+          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: currentTheme.colors.primary }]} onPress={guardarFactura}>
             <Text style={styles.saveBtnTexto}>{t('guardar')}</Text>
           </TouchableOpacity>
         </View>
@@ -342,8 +461,8 @@ export default function NuevaFactura() {
         <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
 
           {/* Número de factura */}
-          <View style={styles.seccion}>
-            <Text style={styles.seccionTitulo}>{t('numero_factura')}</Text>
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('numero_factura')}</Text>
             <TextInput
               style={styles.input}
               placeholder="F-0001"
@@ -354,8 +473,8 @@ export default function NuevaFactura() {
           </View>
 
           {/* Cliente */}
-          <View style={styles.seccion}>
-            <Text style={styles.seccionTitulo}>{t('cliente')}</Text>
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('cliente')}</Text>
             {clienteSeleccionado ? (
               <View>
                 <TouchableOpacity style={styles.clienteSeleccionado} activeOpacity={0.7} onPress={abrirSelectorClientes}>
@@ -396,8 +515,8 @@ export default function NuevaFactura() {
           </View>
 
           {/* Artículos */}
-          <View style={styles.seccion}>
-            <Text style={styles.seccionTitulo}>{t('articulos')}</Text>
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('articulos')}</Text>
             {items.map((item, index) => (
               <View key={item.id} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
@@ -408,14 +527,22 @@ export default function NuevaFactura() {
                     </TouchableOpacity>
                   )}
                 </View>
-                <TextInput
-                  style={styles.input}
-                  placeholder={t('descripcion')}
-                  placeholderTextColor="#bbb"
-                  value={item.descripcion}
-                  onChangeText={v => actualizarItem(item.id, "descripcion", v)}
-                  multiline
-                />
+                <View style={styles.descripcionContainer}>
+                  <TextInput
+                    style={styles.inputDescripcion}
+                    placeholder={t('descripcion')}
+                    placeholderTextColor="#bbb"
+                    value={item.descripcion}
+                    onChangeText={v => actualizarItem(item.id, "descripcion", v)}
+                    multiline
+                  />
+                  <TouchableOpacity
+                    style={styles.botonProducto}
+                    onPress={() => abrirSelectorProductos(item.id)}
+                  >
+                    <Ionicons name="cube-outline" size={20} color="#6C47FF" />
+                  </TouchableOpacity>
+                </View>
                 <View style={styles.fila}>
                   <View style={styles.campoChico}>
                     <Text style={styles.campoLabel}>{t('cantidad')}</Text>
@@ -457,7 +584,12 @@ export default function NuevaFactura() {
                       value={item.descuento}
                       onChangeText={v => actualizarItem(item.id, "descuento", v)}
                     />
-                    <Text style={styles.descuentoSymbol}>%</Text>
+                    <TouchableOpacity
+                      style={styles.descuentoTipoBtn}
+                      onPress={() => cambiarTipoDescuento(item.id, item.descuentoTipo === 'porcentaje' ? 'moneda' : 'porcentaje')}
+                    >
+                      <Text style={styles.descuentoSymbol}>{item.descuentoTipo === 'porcentaje' ? '%' : simboloMoneda}</Text>
+                    </TouchableOpacity>
                   </View>
                   <Text style={styles.subtotalItem}>= {calcularSubtotalItem(item).toFixed(2)} {simboloMoneda}</Text>
                 </View>
@@ -470,8 +602,8 @@ export default function NuevaFactura() {
           </View>
 
           {/* Impuestos */}
-          <View style={styles.seccion}>
-            <Text style={styles.seccionTitulo}>{t('impuestos')}</Text>
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('impuestos')}</Text>
             <Text style={styles.campoLabel}>{t('iva')} (%)</Text>
             <View style={styles.ivaOpciones}>
               {[0, 4, 10, 21].map(opcion => (
@@ -506,7 +638,7 @@ export default function NuevaFactura() {
           </View>
 
           {/* Totales */}
-          <View style={styles.seccionTotales}>
+          <View style={[styles.seccionTotales, { backgroundColor: currentTheme.colors.card }]}>
             <View style={styles.totalFila}>
               <Text style={styles.totalLabel}>{t('subtotal')}</Text>
               <Text style={styles.totalValor}>{subtotalBruto.toFixed(2)} {simboloMoneda}</Text>
@@ -528,14 +660,14 @@ export default function NuevaFactura() {
           </View>
 
           {/* Método de pago */}
-          <View style={styles.seccion}>
-            <Text style={styles.seccionTitulo}>{t('metodo_pago')}</Text>
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('metodo_pago')}</Text>
             <View style={styles.pagoOpciones}>
               {[
-                { id: "efectivo", label: t('efectivo'), icon: "cash-outline" },
-                { id: "transferencia", label: t('transferencia'), icon: "swap-horizontal-outline" },
-                { id: "bizum", label: t('bizum'), icon: "phone-portrait-outline" },
-                { id: "tarjeta", label: t('tarjeta'), icon: "card-outline" },
+                { id: "efectivo", label: t('efectivo').charAt(0).toUpperCase() + t('efectivo').slice(1), icon: "cash-outline" },
+                { id: "transferencia", label: t('transferencia').charAt(0).toUpperCase() + t('transferencia').slice(1), icon: "swap-horizontal-outline" },
+                { id: "bizum", label: t('bizum').charAt(0).toUpperCase() + t('bizum').slice(1), icon: "phone-portrait-outline" },
+                { id: "tarjeta", label: t('tarjeta').charAt(0).toUpperCase() + t('tarjeta').slice(1), icon: "card-outline" },
               ].map(op => (
                 <TouchableOpacity
                   key={op.id}
@@ -552,8 +684,8 @@ export default function NuevaFactura() {
           </View>
 
           {/* Notas */}
-          <View style={styles.seccion}>
-            <Text style={styles.seccionTitulo}>{t('notas')}</Text>
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('notas')}</Text>
             <TextInput
               style={[styles.input, styles.inputNotas]}
               placeholder={t('notas_placeholder')}
@@ -569,6 +701,24 @@ export default function NuevaFactura() {
             <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
             <Text style={styles.botonGuardarTexto}>{t('guardar_factura')}</Text>
           </TouchableOpacity>
+
+          <View style={styles.accionesRow}>
+            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: currentTheme.colors.card }]} onPress={handleExportarPDF} disabled={generandoPDF}>
+              <Ionicons name="document-text-outline" size={20} color={currentTheme.colors.primary} />
+              <Text style={[styles.accionBtnTexto, { color: currentTheme.colors.primary }]}>{t('exportar_pdf')}</Text>
+            </TouchableOpacity>
+          </View>
+
+          {!isPremium && (
+            <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: "#6C47FF" }]} onPress={() => setMostrarPaywall(true)}>
+              <Ionicons name="diamond-outline" size={20} color="#fff" />
+              <View style={styles.premiumBannerTextoContainer}>
+                <Text style={styles.premiumBannerTitulo}>Desbloquear PDF PRO</Text>
+                <Text style={styles.premiumBannerSub}>Ilimitadas y sin marcas de agua</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
 
           <View style={{ height: 60 }} />
         </ScrollView>
@@ -638,6 +788,130 @@ export default function NuevaFactura() {
             ))}
           </View>
         </Modal>
+
+        {/* Modal productos */}
+        <Modal visible={mostrarProductos} animationType="slide" presentationStyle="pageSheet">
+          <View style={styles.modalWrapper}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitulo}>{t('seleccionar_producto')}</Text>
+              <TouchableOpacity onPress={() => setMostrarProductos(false)}>
+                <Ionicons name="close" size={26} color="#1a1a1a" />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.modalSearch}>
+              <Ionicons name="search" size={18} color="#888" />
+              <TextInput
+                style={styles.modalSearchInput}
+                placeholder={t('buscar_producto')}
+                placeholderTextColor="#aaa"
+                value={busquedaProducto}
+                onChangeText={setBusquedaProducto}
+              />
+            </View>
+            <ScrollView>
+              {productos.filter(p => p.descripcion.toLowerCase().includes(busquedaProducto.toLowerCase())).length === 0 ? (
+                <View style={styles.modalEmpty}>
+                  <Text style={styles.modalEmptyTexto}>{t('no_productos')}</Text>
+                </View>
+              ) : (
+                productos
+                  .filter(p => p.descripcion.toLowerCase().includes(busquedaProducto.toLowerCase()))
+                  .map(p => (
+                    <TouchableOpacity
+                      key={p.id}
+                      style={styles.modalProductoItem}
+                      onPress={() => seleccionarProducto(p)}
+                    >
+                      <View style={styles.productoIcono}>
+                        <Ionicons name="cube-outline" size={24} color="#6C47FF" />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.modalProductoNombre}>{p.descripcion}</Text>
+                        <Text style={styles.modalProductoInfo}>{p.precio} {simboloMoneda} / {p.unidad}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))
+              )}
+            </ScrollView>
+          </View>
+        </Modal>
+
+        {/* Modal paywall premium */}
+        <Modal visible={mostrarPaywall} animationType="slide" presentationStyle="pageSheet">
+          <View style={styles.paywallWrapper}>
+            <View style={styles.paywallHeader}>
+              <TouchableOpacity onPress={() => setMostrarPaywall(false)}>
+                <Ionicons name="close" size={26} color="#1a1a1a" />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.paywallTop}>
+                <View style={styles.paywallIcono}>
+                  <Ionicons name="diamond" size={48} color="#6C47FF" />
+                </View>
+                <Text style={styles.paywallTitulo}>{t('premium_titulo')}</Text>
+                <Text style={styles.paywallSub}>{t('premium_sub')}</Text>
+              </View>
+              <View style={styles.paywallCaracteristicas}>
+                <View style={styles.paywallCaracteristica}>
+                  <Ionicons name="checkmark-circle" size={20} color="#26de81" />
+                  <Text style={styles.paywallCaracteristicaTexto}>{t('facturas_ilimitadas')}</Text>
+                </View>
+                <View style={styles.paywallCaracteristica}>
+                  <Ionicons name="checkmark-circle" size={20} color="#26de81" />
+                  <Text style={styles.paywallCaracteristicaTexto}>{t('pdf_sin_marca')}</Text>
+                </View>
+                <View style={styles.paywallCaracteristica}>
+                  <Ionicons name="checkmark-circle" size={20} color="#26de81" />
+                  <Text style={styles.paywallCaracteristicaTexto}>{t('logo_personalizado')}</Text>
+                </View>
+                <View style={styles.paywallCaracteristica}>
+                  <Ionicons name="checkmark-circle" size={20} color="#26de81" />
+                  <Text style={styles.paywallCaracteristicaTexto}>{t('plantillas_premium')}</Text>
+                </View>
+                <View style={styles.paywallCaracteristica}>
+                  <Ionicons name="checkmark-circle" size={20} color="#26de81" />
+                  <Text style={styles.paywallCaracteristicaTexto}>{t('sin_anuncios')}</Text>
+                </View>
+              </View>
+              {offerings && offerings.availablePackages && offerings.availablePackages.length > 0 ? (
+                <View style={styles.paywallPlanes}>
+                  {offerings.availablePackages.map((pkg: any) => (
+                    <TouchableOpacity
+                      key={pkg.identifier}
+                      style={[styles.paywallPlan, { borderColor: planSeleccionado?.identifier === pkg.identifier ? '#6C47FF' : pkg.packageType === 'ANNUAL' ? '#6C47FF' : '#e8e8e8', backgroundColor: planSeleccionado?.identifier === pkg.identifier ? '#6C47FF10' : '#fff' }]}
+                      onPress={() => setPlanSeleccionado(pkg)}
+                      disabled={comprando}
+                    >
+                      <Text style={[styles.paywallPlanTitulo, { color: planSeleccionado?.identifier === pkg.identifier ? '#6C47FF' : '#1a1a1a' }]}>{pkg.packageType === 'ANNUAL' ? t('anual') : pkg.packageType === 'MONTHLY' ? t('mensual') : t('lifetime')}</Text>
+                      <Text style={[styles.paywallPlanPrecio, { color: planSeleccionado?.identifier === pkg.identifier ? '#6C47FF' : '#1a1a1a' }]}>{pkg.product.priceString}</Text>
+                      {pkg.packageType === 'ANNUAL' && (
+                        <Text style={styles.paywallPlanRecomendado}>{t('recomendado')}</Text>
+                      )}
+                      {planSeleccionado?.identifier === pkg.identifier && (
+                        <View style={styles.checkmarkContainer}>
+                          <Ionicons name="checkmark-circle" size={24} color="#6C47FF" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+              <TouchableOpacity 
+                style={[styles.paywallDesbloquear, { opacity: planSeleccionado ? 1 : 0.5 }]} 
+                onPress={() => planSeleccionado && handleComprar(planSeleccionado)}
+                disabled={!planSeleccionado || comprando}
+              >
+                <Text style={styles.paywallDesbloquearTexto}>{t('desbloquear')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.paywallRestaurar} onPress={handleRestaurar}>
+                <Text style={styles.paywallRestaurarTexto}>{t('restaurar')}</Text>
+              </TouchableOpacity>
+              <View style={{ height: 30 }} />
+            </ScrollView>
+          </View>
+        </Modal>
+
       </View>
     </KeyboardAvoidingView>
   );
@@ -667,6 +941,9 @@ const styles = StyleSheet.create({
   itemCard: { backgroundColor: "#F8F7FF", borderRadius: 12, padding: 14, marginBottom: 12 },
   itemHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
   itemNumero: { fontSize: 13, fontWeight: "700", color: "#6C47FF" },
+  descripcionContainer: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 10 },
+  inputDescripcion: { flex: 1, borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, padding: 12, fontSize: 15, color: "#1a1a1a", backgroundColor: "#fff", minHeight: 44 },
+  botonProducto: { width: 44, height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: "#6C47FF", backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },
   input: { borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, padding: 12, fontSize: 15, color: "#1a1a1a", backgroundColor: "#fff", marginBottom: 10 },
   inputNotas: { minHeight: 90, textAlignVertical: "top" },
   fila: { flexDirection: "row", gap: 8, marginBottom: 8 },
@@ -676,7 +953,8 @@ const styles = StyleSheet.create({
   filaDescuento: { flexDirection: "row", alignItems: "center", gap: 10 },
   descuentoInput: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, backgroundColor: "#fff", paddingHorizontal: 10, flex: 1 },
   inputDescuento: { flex: 1, fontSize: 15, color: "#1a1a1a", paddingVertical: 10 },
-  descuentoSymbol: { fontSize: 15, color: "#aaa", fontWeight: "600" },
+  descuentoTipoBtn: { paddingHorizontal: 6, paddingVertical: 6, backgroundColor: "#f5f5f5", borderRadius: 6, marginLeft: 8 },
+  descuentoSymbol: { fontSize: 15, color: "#6C47FF", fontWeight: "700" },
   subtotalItem: { fontSize: 14, fontWeight: "700", color: "#6C47FF", minWidth: 80, textAlign: "right" },
   addItemBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: "#6C47FF", borderStyle: "dashed", borderRadius: 12, paddingVertical: 14, marginTop: 4 },
   addItemTexto: { color: "#6C47FF", fontWeight: "600", fontSize: 14 },
@@ -699,6 +977,14 @@ const styles = StyleSheet.create({
   pagoBtnTextoActivo: { color: "#6C47FF" },
   botonGuardar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "#6C47FF", marginHorizontal: 16, borderRadius: 16, paddingVertical: 18, shadowColor: "#6C47FF", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12 },
   botonGuardarTexto: { color: "#fff", fontWeight: "800", fontSize: 17 },
+  accionesRow: { flexDirection: "row", gap: 12, marginHorizontal: 16, marginTop: 12 },
+  accionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: 12, gap: 8 },
+  accionBtnTexto: { fontSize: 14, fontWeight: "700" },
+  premiumBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginHorizontal: 16, marginTop: 12, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 },
+  premiumBannerTextoContainer: { flex: 1 },
+  premiumBannerTitulo: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  premiumBannerSub: { color: "rgba(255,255,255,0.8)", fontSize: 11 },
+  premiumBannerTexto: { color: "#fff", fontWeight: "600", fontSize: 13 },
   modalWrapper: { flex: 1, backgroundColor: "#fff", paddingTop: 20 },
   modalHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 16 },
   modalTitulo: { fontSize: 20, fontWeight: "800", color: "#1a1a1a" },
@@ -711,4 +997,27 @@ const styles = StyleSheet.create({
   modalClienteEmail: { fontSize: 12, color: "#888", marginTop: 2 },
   unidadItem: { paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: "#f5f5f5" },
   unidadTexto: { fontSize: 16, color: "#1a1a1a", fontWeight: "500" },
+  modalProductoItem: { flexDirection: "row", alignItems: "center", gap: 14, paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: "#f5f5f5" },
+  productoIcono: { width: 44, height: 44, borderRadius: 12, backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },
+  modalProductoNombre: { fontSize: 15, fontWeight: "700", color: "#1a1a1a" },
+  modalProductoInfo: { fontSize: 13, color: "#888", marginTop: 2 },
+  paywallWrapper: { flex: 1, backgroundColor: "#fff", paddingTop: 20 },
+  paywallHeader: { flexDirection: "row", justifyContent: "flex-end", paddingHorizontal: 20, marginBottom: 16 },
+  paywallTop: { alignItems: "center", paddingTop: 40, paddingBottom: 30 },
+  paywallIcono: { width: 80, height: 80, borderRadius: 40, backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center", marginBottom: 20 },
+  paywallTitulo: { fontSize: 28, fontWeight: "900", color: "#1a1a1a", marginBottom: 8 },
+  paywallSub: { fontSize: 16, color: "#888", textAlign: "center", paddingHorizontal: 40 },
+  paywallCaracteristicas: { paddingHorizontal: 20, marginTop: 20 },
+  paywallCaracteristica: { flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 16 },
+  paywallCaracteristicaTexto: { fontSize: 16, color: "#1a1a1a", fontWeight: "500" },
+  paywallPlanes: { paddingHorizontal: 20, marginTop: 30, gap: 12 },
+  paywallPlan: { borderWidth: 2, borderRadius: 16, padding: 20, alignItems: "center", backgroundColor: "#fff", position: "relative" },
+  paywallPlanTitulo: { fontSize: 18, fontWeight: "700", color: "#1a1a1a", marginBottom: 8 },
+  paywallPlanPrecio: { fontSize: 24, fontWeight: "800", color: "#6C47FF", marginBottom: 4 },
+  paywallPlanRecomendado: { fontSize: 11, fontWeight: "700", color: "#6C47FF", textTransform: "uppercase" },
+  checkmarkContainer: { position: "absolute", top: 10, right: 10 },
+  paywallDesbloquear: { backgroundColor: "#6C47FF", marginHorizontal: 20, marginTop: 20, borderRadius: 16, paddingVertical: 16, alignItems: "center" },
+  paywallDesbloquearTexto: { color: "#fff", fontSize: 16, fontWeight: "800" },
+  paywallRestaurar: { alignItems: "center", paddingVertical: 20 },
+  paywallRestaurarTexto: { fontSize: 15, color: "#6C47FF", fontWeight: "600" },
 });

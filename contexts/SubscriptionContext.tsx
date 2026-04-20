@@ -15,6 +15,7 @@ interface SubscriptionContextType {
   desactivarPremiumTest: () => Promise<void>;
   checkPremiumStatus: () => Promise<void>;
   aumentarLimiteFacturas: () => Promise<void>;
+  onPremiumExpired: () => void;
 }
 
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
@@ -27,6 +28,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     initPurchases();
   }, []);
+
+  useEffect(() => {
+    // Si isPremium cambia a false, resetear el color a morado
+    if (!isPremium) {
+      onPremiumExpired();
+    }
+  }, [isPremium]);
 
   async function initPurchases() {
     try {
@@ -96,6 +104,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  async function onPremiumExpired() {
+    // Resetear el color a morado cuando expire premium
+    try {
+      await AsyncStorage.setItem('primaryColor', 'purple');
+    } catch (e) {
+      console.log('Error reseteando color:', e);
+    }
+  }
+
   return (
     <SubscriptionContext.Provider
       value={{
@@ -108,6 +125,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         desactivarPremiumTest,
         checkPremiumStatus,
         aumentarLimiteFacturas,
+        onPremiumExpired,
       }}
     >
       {children}

@@ -5,7 +5,8 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
-import { FormatoFecha, getFormatoFecha } from "../../utils/settings";
+import { useTheme } from "../../contexts/ThemeContext";
+import { FormatoFecha, getFormatoFecha, getMoneda } from "../../utils/settings";
 import { checkInvoiceLimitAsync } from "../../utils/subscription";
 import { getFacturas } from "../db/facturas";
 
@@ -14,9 +15,11 @@ export default function Inicio() {
   const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 15 });
   const [esPrimeraVez, setEsPrimeraVez] = useState(true);
   const [formatoFecha, setFormatoFecha] = useState<FormatoFecha>('DD/MM/YYYY');
+  const [simboloMoneda, setSimboloMoneda] = useState('€');
   const router = useRouter();
   const { t } = useTranslation();
   const { isPremium } = useSubscription();
+  const { currentTheme } = useTheme();
 
   const formatearFechaSync = (fecha: string | Date) => {
     const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
@@ -37,6 +40,8 @@ export default function Inicio() {
     setFacturas(getFacturas() as any[]);
     checkInvoiceLimitAsync().then(setLimiteInfo);
     getFormatoFecha().then(setFormatoFecha);
+    getMoneda().then(m => setSimboloMoneda(m.simbolo));
+    getFormatoFecha().then(setFormatoFecha);
     
     // Cargar estado de primera vez
     AsyncStorage.getItem('ha_creado_primera_factura').then((value: string | null) => {
@@ -55,36 +60,36 @@ export default function Inicio() {
   };
 
   const tarjetas = [
-    { label: t('por_cobrar'), valor: stats.porCobrar.toFixed(2) + " €", count: facturas.filter(f => f.estado === 'pendiente').length, icono: "time-outline", color: "#6C47FF", filtro: "pendiente" },
-    { label: t('impagadas'), valor: stats.impagadas.toFixed(2) + " €", count: facturas.filter(f => f.estado === 'impagada').length, icono: "alert-circle-outline", color: "#FF4757", filtro: "impagada" },
-    { label: t('no_enviadas'), valor: stats.noEnviadas.toFixed(2) + " €", count: facturas.filter(f => f.estado === 'no_enviada').length, icono: "paper-plane-outline", color: "#FF9F43", filtro: "no_enviada" },
-    { label: t('pagadas'), valor: stats.pagadas.toFixed(2) + " €", count: facturas.filter(f => f.estado === 'pagada').length, icono: "checkmark-circle-outline", color: "#26de81", filtro: "pagada" },
+    { label: t('por_cobrar'), valor: stats.porCobrar.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'pendiente').length, icono: "time-outline", color: "#6C47FF", filtro: "pendiente" },
+    { label: t('impagadas'), valor: stats.impagadas.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'impagada').length, icono: "alert-circle-outline", color: "#FF4757", filtro: "impagada" },
+    { label: t('no_enviada'), valor: stats.noEnviadas.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'no_enviada').length, icono: "paper-plane-outline", color: "#FF9F43", filtro: "no_enviada" },
+    { label: t('pagadas'), valor: stats.pagadas.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'pagada').length, icono: "checkmark-circle-outline", color: "#26de81", filtro: "pagada" },
   ];
 
   return (
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
       <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
         <View style={styles.header}>
-          <TouchableOpacity style={styles.iconBtn} onPress={() => router.push("/(tabs)/ajustes")}>
-            <Ionicons name="settings-outline" size={22} color="#6C47FF" />
+          <TouchableOpacity style={[styles.iconBtn, { backgroundColor: currentTheme.colors.primaryLight }]} onPress={() => router.push("/(tabs)/ajustes")}>
+            <Ionicons name="settings-outline" size={22} color={currentTheme.colors.primary} />
           </TouchableOpacity>
           <View style={styles.logoWrap}>
-            <Text style={styles.logoZKR}>InvoiceRapid</Text>
+            <Text style={[styles.logoZKR, { color: currentTheme.colors.primary }]}>InvoiceRapid</Text>
             {isPremium && <Text style={styles.logoPro}> Pro</Text>}
           </View>
-          <TouchableOpacity style={styles.iconBtn}>
-            <Ionicons name="help-circle-outline" size={22} color="#6C47FF" />
+          <TouchableOpacity style={[styles.iconBtn, { backgroundColor: currentTheme.colors.primaryLight }]}>
+            <Ionicons name="help-circle-outline" size={22} color={currentTheme.colors.primary} />
           </TouchableOpacity>
         </View>
 
         {esPrimeraVez && facturas.length === 0 ? (
-          <View style={styles.banner}>
+          <View style={[styles.banner, { backgroundColor: currentTheme.colors.primary }]}>
             <View style={styles.bannerTexto}>
               <Text style={styles.bannerTitulo}>{t('crea_primera_factura')}</Text>
               <Text style={styles.bannerSub}>{t('rapido_profesional')}</Text>
               <TouchableOpacity style={styles.bannerBoton} onPress={() => router.push("/(tabs)/nueva-factura")}>
-                <Text style={styles.bannerBotonTexto}>{t('empezar')}</Text>
+                <Text style={[styles.bannerBotonTexto, { color: currentTheme.colors.primary }]}>{t('empezar')}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.bannerDeco}>
@@ -101,44 +106,51 @@ export default function Inicio() {
                 <Text style={styles.contadorLimiteTexto}>{t('limite_alcanzado')} {t('limite_desc')}</Text>
               </TouchableOpacity>
             ) : (
-              <View style={styles.contadorCard}>
+              <View style={[styles.contadorCard, { backgroundColor: currentTheme.colors.card }]}>
                 <View style={styles.contadorTop}>
-                  <Text style={styles.contadorTexto}>
-                    <Text style={styles.contadorNum}>{restantes}</Text> {t('facturas_restantes')}
+                  <Text style={[styles.contadorTexto, { color: currentTheme.colors.textSecondary }]}>
+                    <Text style={[styles.contadorNum, { color: currentTheme.colors.primary }]}>{restantes}</Text> {t('facturas_restantes')}
                   </Text>
-                  <Text style={styles.contadorTotal}>{limiteInfo.currentCount}/{limiteInfo.limit}</Text>
+                  <Text style={[styles.contadorTotal, { color: currentTheme.colors.textSecondary }]}>{limiteInfo.currentCount}/{limiteInfo.limit}</Text>
                 </View>
                 <View style={styles.contadorBarra}>
                   <View style={[styles.contadorBarraRelleno, {
                     width: `${porcentajeUsado * 100}%` as any,
-                    backgroundColor: restantes <= 3 ? '#FF4757' : restantes <= 7 ? '#FF9F43' : '#6C47FF'
+                    backgroundColor: restantes <= 3 ? '#FF4757' : restantes <= 7 ? '#FF9F43' : currentTheme.colors.primary
                   }]} />
                 </View>
-                {restantes <= 5 && (
-                  <TouchableOpacity onPress={() => router.push("/(tabs)/ajustes")}>
-                    <Text style={styles.contadorPremiumLink}>{t('hazte_premium')}</Text>
-                  </TouchableOpacity>
-                )}
               </View>
             )}
           </View>
         )}
 
+        {!isPremium && (
+          <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: currentTheme.colors.primary, marginHorizontal: 16 }]} onPress={() => router.push("/(tabs)/ajustes")}>
+            <View style={styles.premiumBannerLeft}>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="diamond-outline" size={20} color="#fff" />
+                <Text style={styles.premiumBannerTitulo}>{t('unlock_premium')}</Text>
+              </View>
+              <Text style={styles.premiumBannerSub}>{t('facturas_ilimitadas')} · {t('pdf_sin_marca')} · {t('sin_anuncios')}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
         <View style={styles.seccionHeader}>
-          <Text style={styles.seccionTitulo}>{t('resumen')}</Text>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.text }]}>{t('resumen')}</Text>
           <TouchableOpacity onPress={() => router.push("/(tabs)/informes")}>
-            <Text style={styles.verTodo}>{t('ver_informes')}</Text>
+            <Text style={[styles.verTodo, { color: currentTheme.colors.primary }]}>{t('ver_informes')}</Text>
           </TouchableOpacity>
         </View>
 
         <View style={styles.grid}>
           {tarjetas.map((tarjeta, i) => (
-            <TouchableOpacity key={i} style={styles.tarjeta} onPress={() => router.push(`/(tabs)/documentos?filtro=${tarjeta.filtro}` as any)}>
+            <TouchableOpacity key={i} style={[styles.tarjeta, { backgroundColor: currentTheme.colors.card }]} onPress={() => router.push(`/(tabs)/documentos?filtro=${tarjeta.filtro}` as any)}>
               <View style={[styles.tarjetaIcono, { backgroundColor: tarjeta.color + "18" }]}>
                 <Ionicons name={tarjeta.icono as any} size={20} color={tarjeta.color} />
               </View>
-              <Text style={styles.tarjetaValor}>{tarjeta.valor}</Text>
-              <Text style={styles.tarjetaLabel}>{tarjeta.label}</Text>
+              <Text style={[styles.tarjetaValor, { color: currentTheme.colors.text }]}>{tarjeta.valor}</Text>
+              <Text style={[styles.tarjetaLabel, { color: currentTheme.colors.textSecondary }]}>{tarjeta.label}</Text>
               {tarjeta.count > 0 && (
                 <View style={[styles.badge, { backgroundColor: tarjeta.color }]}>
                   <Text style={styles.badgeTexto}>{tarjeta.count}</Text>
@@ -149,19 +161,19 @@ export default function Inicio() {
         </View>
 
         <View style={styles.seccionHeader}>
-          <Text style={styles.seccionTitulo}>{t('actividad_reciente')}</Text>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.text }]}>{t('actividad_reciente')}</Text>
           {facturas.length > 0 && (
             <TouchableOpacity onPress={() => router.push("/(tabs)/documentos")}>
-              <Text style={styles.verTodo}>{t('ver_todas')}</Text>
+              <Text style={[styles.verTodo, { color: currentTheme.colors.primary }]}>{t('ver_todas')}</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {facturas.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="document-outline" size={40} color="#ddd" />
-            <Text style={styles.emptyTexto}>{t('sin_facturas')}</Text>
-            <Text style={styles.emptySub}>{t('facturas_apareceran')}</Text>
+          <View style={[styles.emptyState, { backgroundColor: currentTheme.colors.card }]}>
+            <Ionicons name="document-outline" size={40} color={currentTheme.colors.textSecondary} />
+            <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{t('sin_facturas')}</Text>
+            <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>{t('facturas_apareceran')}</Text>
           </View>
         ) : (
           <View style={styles.listaFacturas}>
@@ -170,24 +182,24 @@ export default function Inicio() {
               keyExtractor={(item) => item.id.toString()}
               scrollEnabled={false}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.facturaMiniCard} onPress={() => router.push(`/(tabs)/documentos?facturaId=${item.id}` as any)}>
+                <TouchableOpacity style={[styles.facturaMiniCard, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]} onPress={() => router.push(`/(tabs)/documentos?facturaId=${item.id}` as any)}>
                   <View style={[styles.estadoBarra, {
                     backgroundColor: item.estado === "pagada" ? "#26de81" : item.estado === "impagada" ? "#FF4757" : "#FF9F43"
                   }]} />
                   <View style={styles.facturaMiniInfo}>
-                    <Text style={styles.facturaMiniNumero}>#{item.numero}</Text>
-                    <Text style={styles.facturaMiniCliente}>{item.cliente_nombre}</Text>
-                    <Text style={styles.facturaMiniFecha}>{item.fecha ? formatearFechaSync(item.fecha) : ''}</Text>
+                    <Text style={[styles.facturaMiniNumero, { color: currentTheme.colors.text }]}>{item.numero}</Text>
+                    <Text style={[styles.facturaMiniCliente, { color: currentTheme.colors.textSecondary }]}>{item.cliente_nombre}</Text>
+                    <Text style={[styles.facturaMiniFecha, { color: currentTheme.colors.textSecondary }]}>{item.fecha ? formatearFechaSync(item.fecha) : ''}</Text>
                   </View>
                   <View style={styles.facturaMiniRight}>
-                    <Text style={styles.facturaMiniTotal}>{Number(item.total).toFixed(2)}€</Text>
+                    <Text style={[styles.facturaMiniTotal, { color: currentTheme.colors.text }]}>{Number(item.total).toFixed(2)}{simboloMoneda}</Text>
                     <View style={[styles.estadoMiniPill, {
                       backgroundColor: item.estado === "pagada" ? "#26de8120" : item.estado === "impagada" ? "#FF475720" : "#FF9F4320"
                     }]}>
                       <Text style={[styles.estadoMiniTexto, {
                         color: item.estado === "pagada" ? "#26de81" : item.estado === "impagada" ? "#FF4757" : "#FF9F43"
                       }]}>
-                        {item.estado === "pagada" ? t('pagada') : item.estado === "impagada" ? t('impagada') : t('no_enviadas')}
+                        {item.estado === "pagada" ? t('pagada') : item.estado === "impagada" ? t('impagada') : t('no_enviada')}
                       </Text>
                     </View>
                   </View>
@@ -200,7 +212,7 @@ export default function Inicio() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      <TouchableOpacity style={styles.fab} onPress={() => router.push("/(tabs)/nueva-factura")}>
+      <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => router.push("/(tabs)/nueva-factura")}>
         <Ionicons name="add" size={22} color="#fff" />
         <Text style={styles.fabTexto}>{t('nueva_factura')}</Text>
       </TouchableOpacity>
@@ -235,6 +247,13 @@ const styles = StyleSheet.create({
   contadorPremiumLink: { fontSize: 13, color: "#6C47FF", fontWeight: "700", marginTop: 10, textAlign: "center" },
   contadorLimite: { backgroundColor: "#FF4757", borderRadius: 16, padding: 16, flexDirection: "row", gap: 10, alignItems: "center" },
   contadorLimiteTexto: { color: "#fff", fontSize: 13, fontWeight: "600", flex: 1, lineHeight: 18 },
+  contadorCardSimple: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16 },
+  contadorCardSimpleTexto: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  premiumBanner: { backgroundColor: '#6C47FF', borderRadius: 16, padding: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  premiumBannerLeft: { flex: 1 },
+  premiumBannerTitulo: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 4 },
+  premiumBannerSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)' },
+  premiumBannerBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginLeft: 12 },
   seccionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 14 },
   seccionTitulo: { fontSize: 17, fontWeight: "700", color: "#1a1a1a" },
   verTodo: { fontSize: 14, color: "#6C47FF", fontWeight: "500" },

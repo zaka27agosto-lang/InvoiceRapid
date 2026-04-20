@@ -3,6 +3,7 @@ import { useFocusEffect } from "expo-router";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { getMoneda } from "../../utils/settings";
 import { getFacturas } from "../db/facturas";
 
 const { width } = Dimensions.get('window');
@@ -11,9 +12,11 @@ export default function Informes() {
   const { t } = useTranslation();
   const [facturas, setFacturas] = useState<any[]>([]);
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState<'mes' | 'trimestre' | 'año'>('mes');
+  const [simboloMoneda, setSimboloMoneda] = useState('€');
 
   useFocusEffect(useCallback(() => {
     setFacturas(getFacturas() as any[]);
+    getMoneda().then(m => setSimboloMoneda(m.simbolo));
   }, []));
 
   const ahora = new Date();
@@ -73,12 +76,12 @@ export default function Informes() {
         <View style={styles.kpiGrid}>
           <View style={[styles.kpiCard, { backgroundColor: '#6C47FF' }]}>
             <Ionicons name="trending-up-outline" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.kpiValor}>{totalMes.toFixed(2)} €</Text>
+            <Text style={styles.kpiValor}>{totalMes.toFixed(2)} {simboloMoneda}</Text>
             <Text style={styles.kpiLabel}>{t('ingresos_mes')}</Text>
           </View>
           <View style={[styles.kpiCard, { backgroundColor: '#1a1a2e' }]}>
             <Ionicons name="stats-chart-outline" size={22} color="rgba(255,255,255,0.8)" />
-            <Text style={styles.kpiValor}>{totalGeneral.toFixed(2)} €</Text>
+            <Text style={styles.kpiValor}>{totalGeneral.toFixed(2)} {simboloMoneda}</Text>
             <Text style={styles.kpiLabel}>{t('total_facturado')}</Text>
           </View>
         </View>
@@ -86,12 +89,12 @@ export default function Informes() {
         <View style={styles.kpiGrid}>
           <View style={[styles.kpiCard, styles.kpiCardLight]}>
             <Ionicons name="time-outline" size={22} color="#FF9F43" />
-            <Text style={[styles.kpiValor, { color: '#FF9F43' }]}>{pendienteCobro.toFixed(2)} €</Text>
+            <Text style={[styles.kpiValor, { color: '#FF9F43' }]}>{pendienteCobro.toFixed(2)} {simboloMoneda}</Text>
             <Text style={[styles.kpiLabel, { color: '#888' }]}>{t('pendiente_cobro')}</Text>
           </View>
           <View style={[styles.kpiCard, styles.kpiCardLight]}>
             <Ionicons name="checkmark-circle-outline" size={22} color="#26de81" />
-            <Text style={[styles.kpiValor, { color: '#26de81' }]}>{totalPagadas.toFixed(2)} €</Text>
+            <Text style={[styles.kpiValor, { color: '#26de81' }]}>{totalPagadas.toFixed(2)} {simboloMoneda}</Text>
             <Text style={[styles.kpiLabel, { color: '#888' }]}>{t('pagadas')}</Text>
           </View>
         </View>
@@ -109,7 +112,7 @@ export default function Informes() {
               {ultimos6.map((mes, i) => (
                 <View key={i} style={styles.barraCol}>
                   <Text style={styles.barraValor}>
-                    {mes.total > 0 ? `${mes.total.toFixed(2)}€` : ''}
+                    {mes.total > 0 ? `${mes.total.toFixed(2)}${simboloMoneda}` : ''}
                   </Text>
                   <View style={styles.barraWrapper}>
                     <View
@@ -143,7 +146,7 @@ export default function Informes() {
                   borderColor: e.color,
                 }]} />
               </View>
-              <Text style={styles.estadoValor}>{e.valor.toFixed(2)}€</Text>
+              <Text style={styles.estadoValor}>{e.valor.toFixed(2)}{simboloMoneda}</Text>
               <View style={[styles.estadoBadge, { backgroundColor: e.color + '20' }]}>
                 <Text style={[styles.estadoBadgeTexto, { color: e.color }]}>{e.count}</Text>
               </View>
@@ -161,7 +164,7 @@ export default function Informes() {
                   <Text style={styles.clienteRankNum}>{i + 1}</Text>
                 </View>
                 <Text style={styles.clienteNombre} numberOfLines={1}>{nombre}</Text>
-                <Text style={styles.clienteTotal}>{total.toFixed(2)} €</Text>
+                <Text style={styles.clienteTotal}>{total.toFixed(2)} {simboloMoneda}</Text>
               </View>
             ))}
           </View>

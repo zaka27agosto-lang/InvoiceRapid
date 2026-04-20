@@ -31,8 +31,6 @@ export const MONEDAS: Moneda[] = [
   { simbolo: '€', codigo: 'EUR', nombre: 'Euro' },
   { simbolo: '$', codigo: 'USD', nombre: 'Dólar' },
   { simbolo: '£', codigo: 'GBP', nombre: 'Libra' },
-  { simbolo: 'CHF', codigo: 'CHF', nombre: 'Franco suizo' },
-  { simbolo: 'MXN$', codigo: 'MXN', nombre: 'Peso mexicano' },
 ];
 
 export const LIMITE_FACTURAS_GRATIS = 15;

@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   emptySub: { fontSize: 14, color: "#ccc", marginTop: 6, textAlign: "center" },
   seccion: { marginBottom: 24 },
   letraTitulo: { fontSize: 20, fontWeight: "700", color: "#6C47FF", marginBottom: 12 },
-  clienteCard: { backgroundColor: "#fff", borderRadius: 12, marginBottom: 12, flexDirection: "row", padding: 16, borderWidth: 1, borderColor: "#f0f0f0" },
+  clienteCard: { backgroundColor: "#fff", borderRadius: 12, marginBottom: 12, flexDirection: "row", padding: 16, borderWidth: 1, borderColor: "#f0f0f0", alignItems: "center" },
   clienteInfo: { flex: 1 },
   clienteNombre: { fontSize: 16, fontWeight: "700", color: "#1a1a1a", marginBottom: 4 },
   clienteDato: { fontSize: 14, color: "#666", marginBottom: 2 },
