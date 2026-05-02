@@ -1,16 +1,19 @@
 import db from './database';
 
 export function getFacturas() {
+  if (!db) return [];
   return db.getAllSync(`
     SELECT * FROM facturas ORDER BY fecha DESC
   `);
 }
 
 export function getFactura(id: number) {
+  if (!db) return null;
   return db.getFirstSync(`SELECT * FROM facturas WHERE id = ?`, [id]);
 }
 
 export function getFacturaItems(factura_id: number) {
+  if (!db) return [];
   return db.getAllSync(`SELECT * FROM factura_items WHERE factura_id = ?`, [factura_id]);
 }
 
@@ -60,15 +63,18 @@ export function insertFacturaItem(item: {
 }
 
 export function deleteFacturaItems(factura_id: number) {
+  if (!db) return;
   return db.runSync(`DELETE FROM factura_items WHERE factura_id = ?`, [factura_id]);
 }
 
 export function deleteFactura(id: number) {
+  if (!db) return;
   db.runSync(`DELETE FROM factura_items WHERE factura_id = ?`, [id]);
   return db.runSync(`DELETE FROM facturas WHERE id = ?`, [id]);
 }
 
 export function updateEstadoFactura(id: number, estado: string) {
+  if (!db) return;
   return db.runSync(`UPDATE facturas SET estado = ? WHERE id = ?`, [estado, id]);
 }
 
@@ -125,6 +131,7 @@ export function updateFacturaItem(item: {
 }
 
 export function getNextNumeroFactura(): string {
+  if (!db) return `F-0001`;
   // Obtener la última factura para detectar su número
   const lastFactura = db.getFirstSync(`SELECT numero FROM facturas ORDER BY id DESC LIMIT 1`) as any;
   

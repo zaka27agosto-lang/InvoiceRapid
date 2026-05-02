@@ -3,6 +3,7 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useTheme } from "../../contexts/ThemeContext";
 import { deleteCliente, getClientes, insertCliente, updateCliente } from "../db/clientes";
 
 type Cliente = {
@@ -24,6 +25,7 @@ type Cliente = {
 
 export default function Clientes() {
   const { t } = useTranslation();
+  const { currentTheme } = useTheme();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -174,7 +176,7 @@ export default function Clientes() {
         <View style={styles.container}>
           <View style={styles.header}>
             <TouchableOpacity style={styles.backBtn} onPress={() => setMostrarFormulario(false)}>
-              <Ionicons name="arrow-back" size={24} color="#6C47FF" />
+              <Ionicons name="arrow-back" size={24} color={currentTheme.colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{editando ? t('editar_cliente') : t('nuevo_cliente')}</Text>
             <View style={{ width: 40 }} />
@@ -201,7 +203,7 @@ export default function Clientes() {
               <TextInput style={styles.input} placeholder={t('provincia')} placeholderTextColor="#888" value={formulario.provincia} onChangeText={v => setFormulario({...formulario, provincia: v})} />
             </View>
 
-            <TouchableOpacity style={styles.boton} onPress={guardarCliente}>
+            <TouchableOpacity style={[styles.boton, { backgroundColor: currentTheme.colors.primary }]} onPress={guardarCliente}>
               <Text style={styles.botonTexto}>{editando ? t('actualizar_cliente') : t('crear_cliente')}</Text>
             </TouchableOpacity>
 
@@ -244,7 +246,7 @@ export default function Clientes() {
             keyExtractor={(letra) => letra}
             renderItem={({ item: letra }) => (
               <View style={styles.seccion}>
-                <Text style={styles.letraTitulo}>{letra}</Text>
+                <Text style={[styles.letraTitulo, { color: currentTheme.colors.primary }]}>{letra}</Text>
                 {clientesAgrupados[letra].map(cliente => (
                   <TouchableOpacity 
                     key={cliente.id} 
@@ -263,7 +265,7 @@ export default function Clientes() {
                     </View>
                     <View style={styles.clienteActions}>
                       <TouchableOpacity style={styles.actionBtn} onPress={() => abrirFormulario(cliente)}>
-                        <Ionicons name="create-outline" size={20} color="#6C47FF" />
+                        <Ionicons name="create-outline" size={20} color={currentTheme.colors.primary} />
                       </TouchableOpacity>
                       <TouchableOpacity style={styles.actionBtn} onPress={() => eliminarCliente(cliente)}>
                         <Ionicons name="trash-outline" size={20} color="#FF4757" />
@@ -278,7 +280,7 @@ export default function Clientes() {
         )}
       </View>
 
-      <TouchableOpacity style={styles.fab} onPress={() => abrirFormulario()}>
+      <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => abrirFormulario()}>
         <Ionicons name="add" size={22} color="#fff" />
         <Text style={styles.fabTexto}>{t('nuevo_cliente')}</Text>
       </TouchableOpacity>
@@ -297,14 +299,14 @@ const styles = StyleSheet.create({
   emptyTexto: { fontSize: 18, fontWeight: "600", color: "#aaa", marginTop: 16 },
   emptySub: { fontSize: 14, color: "#ccc", marginTop: 6, textAlign: "center" },
   seccion: { marginBottom: 24 },
-  letraTitulo: { fontSize: 20, fontWeight: "700", color: "#6C47FF", marginBottom: 12 },
+  letraTitulo: { fontSize: 20, fontWeight: "700", marginBottom: 12 },
   clienteCard: { backgroundColor: "#fff", borderRadius: 12, marginBottom: 12, flexDirection: "row", padding: 16, borderWidth: 1, borderColor: "#f0f0f0", alignItems: "center" },
   clienteInfo: { flex: 1 },
   clienteNombre: { fontSize: 16, fontWeight: "700", color: "#1a1a1a", marginBottom: 4 },
   clienteDato: { fontSize: 14, color: "#666", marginBottom: 2 },
   clienteActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   actionBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: "#f8f9fa", justifyContent: "center", alignItems: "center" },
-  fab: { position: "absolute", bottom: 30, right: 20, backgroundColor: "#6C47FF", borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowColor: "#6C47FF", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fab: { position: "absolute", bottom: 30, right: 20, borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
   fabTexto: { color: "#fff", fontWeight: "700", fontSize: 15 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },
@@ -312,6 +314,6 @@ const styles = StyleSheet.create({
   formSection: { marginBottom: 32 },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: "#1a1a1a", marginBottom: 16 },
   input: { borderWidth: 1.5, borderColor: "#aaa", borderRadius: 10, padding: 14, marginBottom: 12, fontSize: 16, backgroundColor: "#fff", color: "#1a1a1a" },
-  boton: { backgroundColor: "#6C47FF", padding: 15, borderRadius: 10, alignItems: "center", marginBottom: 20 },
+  boton: { padding: 15, borderRadius: 10, alignItems: "center", marginBottom: 20 },
   botonTexto: { color: "#fff", fontWeight: "bold", fontSize: 16 },
 });

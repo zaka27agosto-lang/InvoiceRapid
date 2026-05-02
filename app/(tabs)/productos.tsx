@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
+import { convertirDeEurosParaMostrar } from "../../utils/currency";
 import { getMoneda } from "../../utils/settings";
 import { deleteProducto, getProductos, insertProducto, updateProducto } from "../db/productos";
 
@@ -27,17 +28,31 @@ export default function Productos() {
     unidad: "ud"
   });
   const [simboloMoneda, setSimboloMoneda] = useState('€');
+  const [codigoMoneda, setCodigoMoneda] = useState('EUR');
+  const [productosConvertidos, setProductosConvertidos] = useState<Producto[]>([]);
 
   useFocusEffect(useCallback(() => {
-    setProductos(getProductos());
+    const productosData = getProductos();
+    setProductos(productosData);
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo);
+      setCodigoMoneda(m.codigo);
+      
+      // Convertir precios de productos a la moneda seleccionada
+      const productosConPreciosConvertidos = Promise.all(
+        productosData.map(async producto => ({
+          ...producto,
+          precio: await convertirDeEurosParaMostrar(producto.precio, m.codigo),
+        }))
+      );
+      
+      productosConPreciosConvertidos.then(setProductosConvertidos);
     }).catch(err => {
       console.error('Error al cargar moneda en productos:', err);
     });
   }, []));
 
-  const productosFiltrados = productos.filter(producto => 
+  const productosFiltrados = (productosConvertidos.length > 0 ? productosConvertidos : productos).filter(producto => 
     producto.descripcion.toLowerCase().includes(busqueda.toLowerCase())
   );
 

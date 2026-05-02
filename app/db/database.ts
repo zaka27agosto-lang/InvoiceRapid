@@ -1,8 +1,21 @@
-import * as SQLite from 'expo-sqlite';
+import { Platform } from 'react-native';
 
-const db = SQLite.openDatabaseSync('facturas2.db');
+// Solo importar SQLite en plataformas nativas
+let db: any = null;
+let SQLite: any = null;
+
+if (Platform.OS !== 'web') {
+  SQLite = require('expo-sqlite');
+  db = SQLite.openDatabaseSync('facturas2.db');
+}
 
 export function initDB() {
+  // No inicializar SQLite en web
+  if (Platform.OS === 'web' || !db) {
+    console.log('SQLite no está disponible en web');
+    return;
+  }
+
   db.execSync(`
     CREATE TABLE IF NOT EXISTS clientes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

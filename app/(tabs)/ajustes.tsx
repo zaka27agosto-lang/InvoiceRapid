@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useFocusEffect, useLocalSearchParams } from "expo-router";
+import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -24,6 +24,7 @@ export default function Ajustes() {
   const { t, i18n } = useTranslation();
   const { isPremium, offerings, comprar, restaurar, activarPremiumTest, desactivarPremiumTest, aumentarLimiteFacturas } = useSubscription();
   const { currentTheme, primaryColor, mode, setPrimaryColor, setMode } = useTheme();
+  const router = useRouter();
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
@@ -104,6 +105,43 @@ export default function Ajustes() {
     setNotificacionesSuscripcion(nuevoValor);
     await AsyncStorage.setItem('notificaciones_suscripcion', nuevoValor ? 'true' : 'false');
     Alert.alert('✅', nuevoValor ? t('notificaciones_activadas') : t('notificaciones_desactivadas'));
+  }
+
+  async function handleExportData() {
+    try {
+      const exportData = {
+        datosEmpresa: datos,
+        moneda: monedaActual,
+        plantilla: plantillaActual,
+        formatoFecha: formatoFechaActual,
+        exportDate: new Date().toISOString(),
+      };
+      // TODO: Implementar la exportación de datos
+      Alert.alert('✅', t('datos_exportados'));
+    } catch (error) {
+      Alert.alert(t('error'), t('error_exportar_datos'));
+    }
+  }
+
+  async function handleDeleteAccount() {
+    Alert.alert(
+      t('borrar_cuenta'),
+      t('confirmar_borrar_cuenta'),
+      [
+        { text: t('cancelar'), style: 'cancel' },
+        { 
+          text: t('borrar'), 
+          style: 'destructive',
+          onPress: async () => {
+            Alert.alert('⚠️', t('funcionalidad_proximamente'));
+          }
+        }
+      ]
+    );
+  }
+
+  async function handleChangeConsent() {
+    Alert.alert('⚠️', t('funcionalidad_proximamente'));
   }
 
   const idiomaActual = i18n.language;
@@ -226,35 +264,62 @@ export default function Ajustes() {
 
         {/* Suscripción */}
         <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('suscripcion')}</Text>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>Suscripción</Text>
           <View style={styles.opcion}>
             <Ionicons name="star-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('plan_actual')}</Text>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Plan actual</Text>
             <Text style={[styles.opcionValor, isPremium && { color: currentTheme.colors.primary }, { color: currentTheme.colors.textSecondary }]}>
-              {isPremium ? t('plan_premium') : t('plan_gratis')}
+              {isPremium ? 'Premium' : 'Gratis'}
             </Text>
           </View>
-          {!isPremium && (
-            <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarPaywall(true)}>
-              <Ionicons name="rocket-outline" size={20} color={currentTheme.colors.primary} />
-              <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('unlock_premium')}</Text>
-              <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarPaywall(true)}>
+            <Ionicons name="card-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Gestionar suscripción</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.opcionBoton} onPress={handleRestaurar}>
+            <Ionicons name="refresh-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Restaurar compras</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Cuenta */}
         <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
           <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('cuenta')}</Text>
-          <View style={styles.opcion}>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/auth/profile')}>
             <Ionicons name="person-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('mi_perfil')}</Text>
-          </View>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Mi perfil</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
           <View style={styles.opcion}>
             <Ionicons name="information-circle-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('version')}</Text>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Versión</Text>
             <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>1.0.0</Text>
           </View>
+        </View>
+
+        {/* Privacidad y Datos */}
+        <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>Privacidad y Datos</Text>
+          
+          <TouchableOpacity style={styles.opcionBoton} onPress={handleExportData}>
+            <Ionicons name="download-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Exportar datos</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.opcionBoton} onPress={handleDeleteAccount}>
+            <Ionicons name="trash-outline" size={20} color="#FF4757" />
+            <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>Borrar cuenta</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.opcionBoton} onPress={handleChangeConsent}>
+            <Ionicons name="shield-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Consentimiento de anuncios</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Modo desarrollo */}

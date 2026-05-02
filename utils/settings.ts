@@ -111,3 +111,15 @@ export async function formatearFecha(fecha: string | Date): Promise<string> {
     return typeof fecha === 'string' ? fecha : fecha.toISOString().split('T')[0];
   }
 }
+
+/**
+ * Actualiza los tipos de cambio al abrir la app
+ */
+export async function actualizarTiposDeCambio(): Promise<void> {
+  try {
+    const { getExchangeRates } = await import('./currency');
+    await getExchangeRates();
+  } catch (error) {
+    console.error('Error al actualizar tipos de cambio:', error);
+  }
+}

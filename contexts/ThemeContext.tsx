@@ -13,9 +13,9 @@ export interface ThemeContextType {
 export const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [primaryColor, setPrimaryColorState] = useState<PrimaryColor>('purple');
+  const [primaryColor, setPrimaryColorState] = useState<PrimaryColor>('teal');
   const [mode, setModeState] = useState<ThemeMode>('light');
-  const [currentTheme, setCurrentTheme] = useState<Theme>(getTheme('purple', 'light'));
+  const [currentTheme, setCurrentTheme] = useState<Theme>(getTheme('teal', 'light'));
 
   useEffect(() => {
     loadThemeSettings();

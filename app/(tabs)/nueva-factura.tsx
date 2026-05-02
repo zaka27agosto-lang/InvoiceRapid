@@ -5,19 +5,20 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
 } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { convertirAEurosParaGuardar } from "../../utils/currency";
 import { generarYCompartirPDF } from "../../utils/pdf";
 import { getMoneda, getPlantillaPDF } from "../../utils/settings";
 import { checkInvoiceLimitAsync, incrementInvoiceCounter } from "../../utils/subscription";
@@ -66,6 +67,7 @@ export default function NuevaFactura() {
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [fechaVencimiento, setFechaVencimiento] = useState("");
   const [simboloMoneda, setSimboloMoneda] = useState("€");
+  const [codigoMoneda, setCodigoMoneda] = useState("EUR");
   const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 15 });
   const [totalFacturas, setTotalFacturas] = useState(0);
   const [numeroFactura, setNumeroFactura] = useState("");
@@ -74,7 +76,10 @@ export default function NuevaFactura() {
 
   useEffect(() => {
     setTotalFacturas((getFacturas() as any[]).length);
-    getMoneda().then(m => setSimboloMoneda(m.simbolo));
+    getMoneda().then(m => {
+      setSimboloMoneda(m.simbolo);
+      setCodigoMoneda(m.codigo);
+    });
     checkInvoiceLimitAsync().then(setLimiteInfo);
     // Cargar IVA guardado
     AsyncStorage.getItem('ultimo_iva').then(iva => {
@@ -91,11 +96,11 @@ export default function NuevaFactura() {
       e.preventDefault();
 
       Alert.alert(
-        t('salir_sin_guardar'),
-        t('cambios_sin_guardar'),
+        'Tienes cambios sin guardar',
+        'Si sales, perderás los datos no guardados.',
         [
-          { text: t('cancelar'), style: 'cancel' },
-          { text: t('salir_sin_guardar'), style: 'destructive', onPress: () => navigation.dispatch(e.data.action) }
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salir sin guardar', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) }
         ]
       );
     });
@@ -109,7 +114,10 @@ export default function NuevaFactura() {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
 
       // Recargar moneda
-      getMoneda().then(m => setSimboloMoneda(m.simbolo));
+      getMoneda().then(m => {
+        setSimboloMoneda(m.simbolo);
+        setCodigoMoneda(m.codigo);
+      });
 
       if (facturaId) {
         cargarFactura(parseInt(facturaId));
@@ -325,6 +333,19 @@ export default function NuevaFactura() {
       return;
     }
 
+    // Para usuarios gratuitos en modo edición, verificar límite antes de editar
+    if (esModoEdicion && !isPremium && !limiteInfo.canCreate) {
+      Alert.alert(
+        t('limite_alcanzado'),
+        t('limite_desc'),
+        [
+          { text: t('cancelar'), style: 'cancel' },
+          { text: t('unlock_premium'), onPress: () => router.push('/(tabs)/ajustes') }
+        ]
+      );
+      return;
+    }
+
     if (!clienteSeleccionado) {
       Alert.alert(t('cliente_requerido'), t('selecciona_cliente'));
       return;
@@ -339,54 +360,110 @@ export default function NuevaFactura() {
     try {
       const numero = numeroFactura || getNextNumeroFactura();
 
+      // Convertir importes a euros para guardar en la base de datos
+      const subtotalEnEuros = await convertirAEurosParaGuardar(subtotalBruto, codigoMoneda);
+      const ivaEnEuros = await convertirAEurosParaGuardar(ivaImporte, codigoMoneda);
+      const irpfEnEuros = await convertirAEurosParaGuardar(irpfImporte, codigoMoneda);
+      const totalEnEuros = await convertirAEurosParaGuardar(total, codigoMoneda);
+
       if (esModoEdicion) {
-        // Modo edición: actualizar factura existente
-        updateFactura(parseInt(facturaId!), {
-          numero,
-          cliente_id: clienteSeleccionado.id,
-          cliente_nombre: clienteSeleccionado.nombre,
-          subtotal: subtotalBruto,
-          descuento: 0,
-          iva_porcentaje: ivaPorcentaje,
-          iva_importe: ivaImporte,
-          irpf_porcentaje: irpfPorcentaje,
-          irpf_importe: irpfImporte,
-          total,
-          notas,
-          metodo_pago: metodoPago,
-          fecha_vencimiento: fechaVencimiento,
-        });
-
-        // Eliminar items existentes y insertar nuevos
-        deleteFacturaItems(parseInt(facturaId!));
-        itemsValidos.forEach(item => {
-          insertFacturaItem({
-            factura_id: parseInt(facturaId!),
-            descripcion: item.descripcion,
-            cantidad: parseFloat(item.cantidad) || 1,
-            unidad: item.unidad,
-            precio_unitario: parseFloat(item.precio) || 0,
-            descuento: parseFloat(item.descuento) || 0,
-            subtotal: calcularSubtotalItem(item),
+        if (isPremium) {
+          // Modo edición premium: actualizar factura existente
+          updateFactura(parseInt(facturaId!), {
+            numero,
+            cliente_id: clienteSeleccionado.id,
+            cliente_nombre: clienteSeleccionado.nombre,
+            subtotal: subtotalEnEuros,
+            descuento: 0,
+            iva_porcentaje: ivaPorcentaje,
+            iva_importe: ivaEnEuros,
+            irpf_porcentaje: irpfPorcentaje,
+            irpf_importe: irpfEnEuros,
+            total: totalEnEuros,
+            notas,
+            metodo_pago: metodoPago,
+            fecha_vencimiento: fechaVencimiento,
           });
-        });
 
-        Alert.alert(`✅ ${t('factura_actualizada')}`, `${numero} ${t('factura_guardada')}`, [
-          { text: "OK", onPress: () => router.back() }
-        ]);
+          // Eliminar items existentes y insertar nuevos
+          deleteFacturaItems(parseInt(facturaId!));
+          for (const item of itemsValidos) {
+            const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
+            const descuentoEnEuros = await convertirAEurosParaGuardar(parseFloat(item.descuento) || 0, codigoMoneda);
+            const subtotalItemEnEuros = await convertirAEurosParaGuardar(calcularSubtotalItem(item), codigoMoneda);
+            
+            insertFacturaItem({
+              factura_id: parseInt(facturaId!),
+              descripcion: item.descripcion,
+              cantidad: parseFloat(item.cantidad) || 1,
+              unidad: item.unidad,
+              precio_unitario: precioEnEuros,
+              descuento: descuentoEnEuros,
+              subtotal: subtotalItemEnEuros,
+            });
+          }
+
+          Alert.alert(`✅ ${t('factura_actualizada')}`, `${numero} ${t('factura_guardada')}`, [
+            { text: "OK", onPress: () => router.back() }
+          ]);
+        } else {
+          // Modo edición gratis: crear nueva factura en lugar de actualizar
+          const nuevoNumero = getNextNumeroFactura();
+          const nuevaFacturaId = insertFactura({
+            numero: nuevoNumero,
+            cliente_id: clienteSeleccionado.id,
+            cliente_nombre: clienteSeleccionado.nombre,
+            subtotal: subtotalEnEuros,
+            descuento: 0,
+            iva_porcentaje: ivaPorcentaje,
+            iva_importe: ivaEnEuros,
+            irpf_porcentaje: irpfPorcentaje,
+            irpf_importe: irpfEnEuros,
+            total: totalEnEuros,
+            notas,
+            metodo_pago: metodoPago,
+            fecha_vencimiento: fechaVencimiento,
+          });
+
+          // Guardar flag de primera factura creada
+          await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
+
+          for (const item of itemsValidos) {
+            const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
+            const descuentoEnEuros = await convertirAEurosParaGuardar(parseFloat(item.descuento) || 0, codigoMoneda);
+            const subtotalItemEnEuros = await convertirAEurosParaGuardar(calcularSubtotalItem(item), codigoMoneda);
+            
+            insertFacturaItem({
+              factura_id: nuevaFacturaId as number,
+              descripcion: item.descripcion,
+              cantidad: parseFloat(item.cantidad) || 1,
+              unidad: item.unidad,
+              precio_unitario: precioEnEuros,
+              descuento: descuentoEnEuros,
+              subtotal: subtotalItemEnEuros,
+            });
+          }
+
+          // Incrementar contador acumulativo de facturas
+          incrementInvoiceCounter();
+
+          Alert.alert(t('factura_creada'), `${nuevoNumero} ${t('factura_guardada')}`, [
+            { text: t('ok'), onPress: () => router.back() }
+          ]);
+        }
       } else {
         // Modo creación: insertar nueva factura
         const facturaId = insertFactura({
           numero,
           cliente_id: clienteSeleccionado.id,
           cliente_nombre: clienteSeleccionado.nombre,
-          subtotal: subtotalBruto,
+          subtotal: subtotalEnEuros,
           descuento: 0,
           iva_porcentaje: ivaPorcentaje,
-          iva_importe: ivaImporte,
+          iva_importe: ivaEnEuros,
           irpf_porcentaje: irpfPorcentaje,
-          irpf_importe: irpfImporte,
-          total,
+          irpf_importe: irpfEnEuros,
+          total: totalEnEuros,
           notas,
           metodo_pago: metodoPago,
           fecha_vencimiento: fechaVencimiento,
@@ -395,17 +472,21 @@ export default function NuevaFactura() {
         // Guardar flag de primera factura creada
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
 
-        itemsValidos.forEach(item => {
+        for (const item of itemsValidos) {
+          const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
+          const descuentoEnEuros = await convertirAEurosParaGuardar(parseFloat(item.descuento) || 0, codigoMoneda);
+          const subtotalItemEnEuros = await convertirAEurosParaGuardar(calcularSubtotalItem(item), codigoMoneda);
+          
           insertFacturaItem({
             factura_id: facturaId as number,
             descripcion: item.descripcion,
             cantidad: parseFloat(item.cantidad) || 1,
             unidad: item.unidad,
-            precio_unitario: parseFloat(item.precio) || 0,
-            descuento: parseFloat(item.descuento) || 0,
-            subtotal: calcularSubtotalItem(item),
+            precio_unitario: precioEnEuros,
+            descuento: descuentoEnEuros,
+            subtotal: subtotalItemEnEuros,
           });
-        });
+        }
 
         // Incrementar contador acumulativo de facturas
         incrementInvoiceCounter();
@@ -432,11 +513,11 @@ export default function NuevaFactura() {
   function handleSalir() {
     if (hayCambiosSinGuardar()) {
       Alert.alert(
-        t('salir_sin_guardar'),
-        t('cambios_sin_guardar'),
+        'Tienes cambios sin guardar',
+        'Si sales, perderás los datos no guardados.',
         [
-          { text: t('cancelar'), style: 'cancel' },
-          { text: t('salir_sin_guardar'), style: 'destructive', onPress: () => router.back() }
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() }
         ]
       );
     } else {
@@ -498,17 +579,17 @@ export default function NuevaFactura() {
               </View>
             ) : (
               <View style={styles.clienteBtns}>
-                <TouchableOpacity style={styles.clienteBtn} activeOpacity={0.7} onPress={abrirSelectorClientes}>
-                  <Ionicons name="person-outline" size={16} color="#6C47FF" />
-                  <Text style={styles.clienteBtnTexto}>{t('seleccionar_cliente')}</Text>
+                <TouchableOpacity style={[styles.clienteBtn, { borderColor: currentTheme.colors.primary }]} activeOpacity={0.7} onPress={abrirSelectorClientes}>
+                  <Ionicons name="person-outline" size={16} color={currentTheme.colors.primary} />
+                  <Text style={[styles.clienteBtnTexto, { color: currentTheme.colors.primary }]}>{t('seleccionar_cliente')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.clienteBtn, styles.clienteBtnSecundario]}
+                  style={[styles.clienteBtn, styles.clienteBtnSecundario, { borderColor: currentTheme.colors.primary }]}
                   activeOpacity={0.7}
                   onPress={() => router.push("/(tabs)/clientes")}
                 >
-                  <Ionicons name="person-add-outline" size={16} color="#6C47FF" />
-                  <Text style={styles.clienteBtnTexto}>{t('anadir_cliente')}</Text>
+                  <Ionicons name="person-add-outline" size={16} color={currentTheme.colors.primary} />
+                  <Text style={[styles.clienteBtnTexto, { color: currentTheme.colors.primary }]}>{t('anadir_cliente')}</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -520,7 +601,7 @@ export default function NuevaFactura() {
             {items.map((item, index) => (
               <View key={item.id} style={styles.itemCard}>
                 <View style={styles.itemHeader}>
-                  <Text style={styles.itemNumero}>{t('articulo')} {index + 1}</Text>
+                  <Text style={[styles.itemNumero, { color: currentTheme.colors.primary }]}>{t('articulo')} {index + 1}</Text>
                   {items.length > 1 && (
                     <TouchableOpacity onPress={() => eliminarItem(item.id)}>
                       <Ionicons name="trash-outline" size={18} color="#FF4757" />
@@ -537,10 +618,10 @@ export default function NuevaFactura() {
                     multiline
                   />
                   <TouchableOpacity
-                    style={styles.botonProducto}
+                    style={[styles.botonProducto, { borderColor: currentTheme.colors.primary }]}
                     onPress={() => abrirSelectorProductos(item.id)}
                   >
-                    <Ionicons name="cube-outline" size={20} color="#6C47FF" />
+                    <Ionicons name="cube-outline" size={20} color={currentTheme.colors.primary} />
                   </TouchableOpacity>
                 </View>
                 <View style={styles.fila}>
@@ -588,16 +669,16 @@ export default function NuevaFactura() {
                       style={styles.descuentoTipoBtn}
                       onPress={() => cambiarTipoDescuento(item.id, item.descuentoTipo === 'porcentaje' ? 'moneda' : 'porcentaje')}
                     >
-                      <Text style={styles.descuentoSymbol}>{item.descuentoTipo === 'porcentaje' ? '%' : simboloMoneda}</Text>
+                      <Text style={[styles.descuentoSymbol, { color: currentTheme.colors.primary }]}>{item.descuentoTipo === 'porcentaje' ? '%' : simboloMoneda}</Text>
                     </TouchableOpacity>
                   </View>
-                  <Text style={styles.subtotalItem}>= {calcularSubtotalItem(item).toFixed(2)} {simboloMoneda}</Text>
+                  <Text style={[styles.subtotalItem, { color: currentTheme.colors.primary }]}>= {calcularSubtotalItem(item).toFixed(2)} {simboloMoneda}</Text>
                 </View>
               </View>
             ))}
-            <TouchableOpacity style={styles.addItemBtn} onPress={() => setItems(prev => [...prev, nuevoItem()])}>
-              <Ionicons name="add-circle-outline" size={20} color="#6C47FF" />
-              <Text style={styles.addItemTexto}>{t('anadir_articulo')}</Text>
+            <TouchableOpacity style={[styles.addItemBtn, { borderColor: currentTheme.colors.primary }]} onPress={() => setItems(prev => [...prev, nuevoItem()])}>
+              <Ionicons name="add-circle-outline" size={20} color={currentTheme.colors.primary} />
+              <Text style={[styles.addItemTexto, { color: currentTheme.colors.primary }]}>{t('anadir_articulo')}</Text>
             </TouchableOpacity>
           </View>
 
@@ -609,12 +690,10 @@ export default function NuevaFactura() {
               {[0, 4, 10, 21].map(opcion => (
                 <TouchableOpacity
                   key={opcion}
-                  style={[styles.ivaBtn, ivaPorcentaje === opcion && styles.ivaBtnActivo]}
+                  style={[styles.ivaBtn, opcion === ivaPorcentaje && { backgroundColor: currentTheme.colors.primary, borderColor: currentTheme.colors.primary }]}
                   onPress={() => handleCambiarIva(opcion)}
                 >
-                  <Text style={[styles.ivaBtnTexto, ivaPorcentaje === opcion && styles.ivaBtnTextoActivo]}>
-                    {opcion}%
-                  </Text>
+                  <Text style={[styles.ivaBtnTexto, opcion === ivaPorcentaje && styles.ivaBtnTextoActivo]}>{opcion}%</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -650,12 +729,12 @@ export default function NuevaFactura() {
             {irpfPorcentaje > 0 && (
               <View style={styles.totalFila}>
                 <Text style={styles.totalLabel}>{t('irpf')} ({irpfPorcentaje}%)</Text>
-                <Text style={[styles.totalValor, { color: "#FF4757" }]}>-{irpfImporte.toFixed(2)} {simboloMoneda}</Text>
+                <Text style={[styles.totalValor, { color: currentTheme.colors.error }]}>-{irpfImporte.toFixed(2)} {simboloMoneda}</Text>
               </View>
             )}
             <View style={[styles.totalFila, styles.totalFilaFinal]}>
               <Text style={styles.totalLabelFinal}>{t('total')}</Text>
-              <Text style={styles.totalValorFinal}>{total.toFixed(2)} {simboloMoneda}</Text>
+              <Text style={[styles.totalValorFinal, { color: currentTheme.colors.primary }]}>{total.toFixed(2)} {simboloMoneda}</Text>
             </View>
           </View>
 
@@ -674,7 +753,7 @@ export default function NuevaFactura() {
                   style={[styles.pagoBtn, metodoPago === op.id && styles.pagoBtnActivo]}
                   onPress={() => setMetodoPago(op.id)}
                 >
-                  <Ionicons name={op.icon as any} size={20} color={metodoPago === op.id ? "#6C47FF" : "#aaa"} />
+                  <Ionicons name={op.icon as any} size={20} color={metodoPago === op.id ? currentTheme.colors.primary : "#aaa"} />
                   <Text style={[styles.pagoBtnTexto, metodoPago === op.id && styles.pagoBtnTextoActivo]}>
                     {op.label}
                   </Text>
@@ -710,7 +789,7 @@ export default function NuevaFactura() {
           </View>
 
           {!isPremium && (
-            <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: "#6C47FF" }]} onPress={() => setMostrarPaywall(true)}>
+            <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: currentTheme.colors.primary }]} onPress={() => setMostrarPaywall(true)}>
               <Ionicons name="diamond-outline" size={20} color="#fff" />
               <View style={styles.premiumBannerTextoContainer}>
                 <Text style={styles.premiumBannerTitulo}>Desbloquear PDF PRO</Text>
@@ -823,7 +902,7 @@ export default function NuevaFactura() {
                       onPress={() => seleccionarProducto(p)}
                     >
                       <View style={styles.productoIcono}>
-                        <Ionicons name="cube-outline" size={24} color="#6C47FF" />
+                        <Ionicons name="cube-outline" size={24} color={currentTheme.colors.primary} />
                       </View>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.modalProductoNombre}>{p.descripcion}</Text>
@@ -847,7 +926,7 @@ export default function NuevaFactura() {
             <ScrollView showsVerticalScrollIndicator={false}>
               <View style={styles.paywallTop}>
                 <View style={styles.paywallIcono}>
-                  <Ionicons name="diamond" size={48} color="#6C47FF" />
+                  <Ionicons name="diamond" size={48} color={currentTheme.colors.primary} />
                 </View>
                 <Text style={styles.paywallTitulo}>{t('premium_titulo')}</Text>
                 <Text style={styles.paywallSub}>{t('premium_sub')}</Text>
@@ -879,18 +958,18 @@ export default function NuevaFactura() {
                   {offerings.availablePackages.map((pkg: any) => (
                     <TouchableOpacity
                       key={pkg.identifier}
-                      style={[styles.paywallPlan, { borderColor: planSeleccionado?.identifier === pkg.identifier ? '#6C47FF' : pkg.packageType === 'ANNUAL' ? '#6C47FF' : '#e8e8e8', backgroundColor: planSeleccionado?.identifier === pkg.identifier ? '#6C47FF10' : '#fff' }]}
+                      style={[styles.paywallPlan, { borderColor: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : pkg.packageType === 'ANNUAL' ? currentTheme.colors.primary : '#e8e8e8', backgroundColor: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary + '10' : '#fff' }]}
                       onPress={() => setPlanSeleccionado(pkg)}
                       disabled={comprando}
                     >
-                      <Text style={[styles.paywallPlanTitulo, { color: planSeleccionado?.identifier === pkg.identifier ? '#6C47FF' : '#1a1a1a' }]}>{pkg.packageType === 'ANNUAL' ? t('anual') : pkg.packageType === 'MONTHLY' ? t('mensual') : t('lifetime')}</Text>
-                      <Text style={[styles.paywallPlanPrecio, { color: planSeleccionado?.identifier === pkg.identifier ? '#6C47FF' : '#1a1a1a' }]}>{pkg.product.priceString}</Text>
+                      <Text style={[styles.paywallPlanTitulo, { color: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : '#1a1a1a' }]}>{pkg.packageType === 'ANNUAL' ? t('anual') : pkg.packageType === 'MONTHLY' ? t('mensual') : t('lifetime')}</Text>
+                      <Text style={[styles.paywallPlanPrecio, { color: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : '#1a1a1a' }]}>{pkg.product.priceString}</Text>
                       {pkg.packageType === 'ANNUAL' && (
                         <Text style={styles.paywallPlanRecomendado}>{t('recomendado')}</Text>
                       )}
                       {planSeleccionado?.identifier === pkg.identifier && (
                         <View style={styles.checkmarkContainer}>
-                          <Ionicons name="checkmark-circle" size={24} color="#6C47FF" />
+                          <Ionicons name="checkmark-circle" size={24} color={currentTheme.colors.primary} />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -922,17 +1001,17 @@ const styles = StyleSheet.create({
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, marginBottom: 16 },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },
   headerTitle: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
-  saveBtn: { backgroundColor: "#6C47FF", paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  saveBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
   saveBtnTexto: { color: "#fff", fontWeight: "700", fontSize: 14 },
   scroll: { flex: 1 },
   seccion: { backgroundColor: "#fff", borderRadius: 16, marginHorizontal: 16, marginBottom: 16, padding: 18 },
   seccionTitulo: { fontSize: 16, fontWeight: "700", color: "#1a1a1a", marginBottom: 14 },
   clienteBtns: { flexDirection: "row", gap: 10 },
-  clienteBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderColor: "#6C47FF", borderRadius: 12, paddingVertical: 14, paddingHorizontal: 8, backgroundColor: "#fff" },
+  clienteBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 8, backgroundColor: "#fff" },
   clienteBtnSecundario: { backgroundColor: "#fff" },
-  clienteBtnTexto: { color: "#6C47FF", fontWeight: "600", fontSize: 12 },
+  clienteBtnTexto: { fontWeight: "600", fontSize: 12 },
   clienteSeleccionado: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#F8F7FF", borderRadius: 12, padding: 12 },
-  clienteAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#6C47FF", justifyContent: "center", alignItems: "center" },
+  clienteAvatar: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center", backgroundColor: "#6C47FF" },
   clienteAvatarLetra: { color: "#fff", fontSize: 18, fontWeight: "700" },
   clienteNombre: { fontSize: 15, fontWeight: "700", color: "#1a1a1a" },
   clienteEmail: { fontSize: 12, color: "#888", marginTop: 2 },
@@ -940,10 +1019,10 @@ const styles = StyleSheet.create({
   quitarClienteTexto: { fontSize: 13, color: "#FF4757", fontWeight: "600" },
   itemCard: { backgroundColor: "#F8F7FF", borderRadius: 12, padding: 14, marginBottom: 12 },
   itemHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
-  itemNumero: { fontSize: 13, fontWeight: "700", color: "#6C47FF" },
+  itemNumero: { fontSize: 13, fontWeight: "700" },
   descripcionContainer: { flexDirection: "row", alignItems: "flex-start", gap: 8, marginBottom: 10 },
   inputDescripcion: { flex: 1, borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, padding: 12, fontSize: 15, color: "#1a1a1a", backgroundColor: "#fff", minHeight: 44 },
-  botonProducto: { width: 44, height: 44, borderRadius: 10, borderWidth: 1.5, borderColor: "#6C47FF", backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },
+  botonProducto: { width: 44, height: 44, borderRadius: 10, borderWidth: 1.5, backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },
   input: { borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, padding: 12, fontSize: 15, color: "#1a1a1a", backgroundColor: "#fff", marginBottom: 10 },
   inputNotas: { minHeight: 90, textAlignVertical: "top" },
   fila: { flexDirection: "row", gap: 8, marginBottom: 8 },
@@ -954,13 +1033,13 @@ const styles = StyleSheet.create({
   descuentoInput: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, backgroundColor: "#fff", paddingHorizontal: 10, flex: 1 },
   inputDescuento: { flex: 1, fontSize: 15, color: "#1a1a1a", paddingVertical: 10 },
   descuentoTipoBtn: { paddingHorizontal: 6, paddingVertical: 6, backgroundColor: "#f5f5f5", borderRadius: 6, marginLeft: 8 },
-  descuentoSymbol: { fontSize: 15, color: "#6C47FF", fontWeight: "700" },
-  subtotalItem: { fontSize: 14, fontWeight: "700", color: "#6C47FF", minWidth: 80, textAlign: "right" },
-  addItemBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderColor: "#6C47FF", borderStyle: "dashed", borderRadius: 12, paddingVertical: 14, marginTop: 4 },
-  addItemTexto: { color: "#6C47FF", fontWeight: "600", fontSize: 14 },
+  descuentoSymbol: { fontSize: 15, fontWeight: "700" },
+  subtotalItem: { fontSize: 14, fontWeight: "700", minWidth: 80, textAlign: "right" },
+  addItemBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderStyle: "dashed", borderRadius: 12, paddingVertical: 14, marginTop: 4 },
+  addItemTexto: { fontWeight: "600", fontSize: 14 },
   ivaOpciones: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   ivaBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: "#e8e8e8", backgroundColor: "#fff" },
-  ivaBtnActivo: { backgroundColor: "#6C47FF", borderColor: "#6C47FF" },
+  ivaBtnActivo: { borderColor: "#6C47FF" },
   ivaBtnTexto: { color: "#888", fontWeight: "600", fontSize: 14 },
   ivaBtnTextoActivo: { color: "#fff" },
   seccionTotales: { backgroundColor: "#fff", borderRadius: 16, marginHorizontal: 16, marginBottom: 16, padding: 18 },
@@ -969,7 +1048,7 @@ const styles = StyleSheet.create({
   totalValor: { fontSize: 14, fontWeight: "600", color: "#1a1a1a" },
   totalFilaFinal: { borderTopWidth: 1.5, borderTopColor: "#f0f0f0", paddingTop: 14, marginTop: 4 },
   totalLabelFinal: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
-  totalValorFinal: { fontSize: 22, fontWeight: "800", color: "#6C47FF" },
+  totalValorFinal: { fontSize: 22, fontWeight: "800" },
   pagoOpciones: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   pagoBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "#e8e8e8", backgroundColor: "#fff" },
   pagoBtnActivo: { borderColor: "#6C47FF", backgroundColor: "#EEE9FF" },

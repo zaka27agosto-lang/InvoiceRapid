@@ -1,17 +1,28 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
+import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { SubscriptionProvider } from "../../contexts/SubscriptionContext";
+import { useTheme } from "../../contexts/ThemeContext";
+import { getExchangeRates } from "../../utils/currency";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const { currentTheme } = useTheme();
+
+  useEffect(() => {
+    // Actualizar tipos de cambio al abrir la app
+    getExchangeRates().catch(err => {
+      console.error('Error al actualizar tipos de cambio al iniciar la app:', err);
+    });
+  }, []);
 
   return (
     <SubscriptionProvider>
       <Tabs
         screenOptions={{
           headerShown: false,
-          tabBarActiveTintColor: "#6C47FF",
+          tabBarActiveTintColor: currentTheme.colors.primary,
           tabBarInactiveTintColor: "#aaa",
           tabBarStyle: {
             backgroundColor: "#fff",

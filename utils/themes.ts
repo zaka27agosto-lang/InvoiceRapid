@@ -1,4 +1,4 @@
-export type PrimaryColor = 'purple' | 'blue' | 'green' | 'orange' | 'pink' | 'teal';
+export type PrimaryColor = 'purple' | 'blue' | 'green' | 'orange' | 'pink' | 'teal' | 'gold' | 'black';
 export type ThemeMode = 'light' | 'dark';
 
 export interface PrimaryColorOption {
@@ -65,6 +65,24 @@ export const primaryColors: Record<PrimaryColor, PrimaryColorOption> = {
     lightCard: '#FFFFFF',
     darkBackground: '#0A2D2A',
     darkCard: '#154A45',
+  },
+  gold: {
+    name: 'gold',
+    displayName: 'Dorado',
+    color: '#FFD700',
+    lightBackground: '#FFFAF0',
+    lightCard: '#FFFFFF',
+    darkBackground: '#1A1500',
+    darkCard: '#2D2500',
+  },
+  black: {
+    name: 'black',
+    displayName: 'Negro',
+    color: '#1a1a1a',
+    lightBackground: '#F5F5F5',
+    lightCard: '#FFFFFF',
+    darkBackground: '#000000',
+    darkCard: '#1a1a1a',
   },
 };
 
