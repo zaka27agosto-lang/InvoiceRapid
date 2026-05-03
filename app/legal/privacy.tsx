@@ -19,123 +19,120 @@ export default function Privacy() {
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={[styles.content, { backgroundColor: currentTheme.colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Introducción</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid ("nosotros", "nuestra" o "la aplicación") se compromete a proteger su privacidad. Esta Política de Privacidad explica cómo recopilamos, utilizamos y protegemos su información personal cuando utiliza nuestra aplicación móvil de facturación.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Datos que Recopilamos</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Recopilamos la siguiente información:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Datos de la cuenta:</Text> Nombre, correo electrónico, información de perfil.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Datos de facturación:</Text> Información de clientes, facturas, productos, configuraciones de moneda y plantillas.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Datos de uso:</Text> Cómo utiliza la aplicación, funciones activadas, preferencias.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Datos de dispositivo:</Text> Tipo de dispositivo, sistema operativo, identificador único del dispositivo.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Uso de Datos</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Utilizamos sus datos para:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Proporcionar y mejorar nuestros servicios de facturación.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Gestionar su cuenta y preferencias.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Procesar pagos y gestionar suscripciones.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Enviar notificaciones importantes sobre su cuenta.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Analizar el uso para mejorar la aplicación.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Compartir de Datos</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            No vendemos sus datos personales. Solo compartimos información con:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Proveedores de servicios:</Text> Procesadores de pagos (Stripe), servicios de autenticación, cuando es necesario para el funcionamiento de la aplicación.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Autoridades legales:</Text> Cuando lo requiera la ley o para proteger nuestros derechos.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Seguridad</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Implementamos medidas de seguridad robustas para proteger su información:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Cifrado de datos en tránsito y en reposo.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Almacenamiento local seguro en su dispositivo.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Acceso restringido a información sensible.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Actualizaciones regulares de seguridad.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Derechos del Usuario</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Usted tiene derecho a:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Acceder:</Text> Solicitar una copia de sus datos personales.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Corregir:</Text> Actualizar información incorrecta.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Eliminar:</Text> Solicitar la eliminación de su cuenta y datos.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Exportar:</Text> Descargar sus datos en un formato legible.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Oponerse:</Text> Oponerse al procesamiento de sus datos.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Cookies</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Utilizamos cookies y tecnologías similares para:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Recordar sus preferencias y configuraciones.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Analizar el uso de la aplicación.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Mostrar anuncios personalizados (si corresponde).
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Puede gestionar sus preferencias de cookies en la configuración de la aplicación.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Contacto</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Si tiene preguntas sobre esta Política de Privacidad o sus derechos, puede contactarnos en:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Email: support@invoicerapid.com
-          </Text>
-
+          <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>🟩 POLÍTICA DE PRIVACIDAD — InvoiceRapid PRO</Text>
+          
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 25 de abril de 2026
+            Última actualización: 02/05/2026
+          </Text>
+
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            InvoiceRapid PRO ("la Aplicación"), desarrollada por ZKR Studio, se compromete a proteger la privacidad de los usuarios. Esta Política de Privacidad explica qué datos se recopilan, cómo se utilizan y qué derechos tiene el usuario.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. Datos que recopilamos</Text>
+          
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>1.1. Datos proporcionados por el usuario</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Correo electrónico y contraseña para crear una cuenta.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Datos introducidos manualmente en la aplicación: clientes, productos, facturas y configuraciones.
+          </Text>
+
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>1.2. Datos técnicos</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Tipo de dispositivo
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Sistema operativo
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Información básica de uso para mejorar la aplicación
+          </Text>
+
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>1.3. Servicios externos</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            La aplicación utiliza Supabase como servicio de autenticación y base de datos.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>2. Uso de los datos</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Los datos se utilizan para:
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Crear y gestionar la cuenta del usuario
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Guardar y sincronizar facturas
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Mejorar la estabilidad y funcionamiento de la aplicación
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>3. Compartición de datos</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            InvoiceRapid PRO no vende datos personales.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Los datos solo se comparten con:
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Supabase, para autenticación y almacenamiento
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Autoridades legales si fuera requerido
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>4. Seguridad</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Implementamos medidas para proteger los datos:
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Conexiones cifradas (HTTPS)
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Acceso restringido mediante autenticación
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Almacenamiento seguro en Supabase
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>5. Derechos del usuario</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            El usuario puede:
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Acceder a sus datos
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Rectificar información incorrecta
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Solicitar la eliminación de su cuenta y datos enviando un correo a:
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            📧 zkrstudio.contact@gmail.com
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>6. Eliminación de datos</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Cuando el usuario solicite la eliminación de su cuenta, sus datos serán eliminados manualmente de Supabase.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>7. Cambios en esta política</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Podemos actualizar esta política ocasionalmente.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            La fecha de la última actualización se mostrará arriba.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>8. Contacto</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Para dudas sobre esta política:
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            📧 zkrstudio.contact@gmail.com
           </Text>
         </View>
 
@@ -151,7 +148,9 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '800' },
   scroll: { flex: 1, paddingHorizontal: 16 },
   content: { padding: 20, borderRadius: 16, marginBottom: 20 },
+  headerTitle: { fontSize: 20, fontWeight: '800', marginBottom: 8 },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginTop: 24, marginBottom: 8 },
+  subsectionTitle: { fontSize: 16, fontWeight: '600', marginTop: 16, marginBottom: 6 },
   text: { fontSize: 15, lineHeight: 22, marginBottom: 12 },
-  updateDate: { fontSize: 12, marginTop: 24, textAlign: 'center' },
+  updateDate: { fontSize: 12, marginTop: 16, marginBottom: 20, textAlign: 'center' },
 });

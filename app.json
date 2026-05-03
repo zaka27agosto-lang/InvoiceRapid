@@ -20,7 +20,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.APPFacturas"
+      "package": "com.zkrstudio.invoicerapidpro"
     },
     "web": {
       "output": "static",

@@ -12,15 +12,6 @@ export interface PrimaryColorOption {
 }
 
 export const primaryColors: Record<PrimaryColor, PrimaryColorOption> = {
-  purple: {
-    name: 'purple',
-    displayName: 'Púrpura',
-    color: '#6C47FF',
-    lightBackground: '#F8F7FF',
-    lightCard: '#FFFFFF',
-    darkBackground: '#1E1B4B',
-    darkCard: '#2D2A5C',
-  },
   blue: {
     name: 'blue',
     displayName: 'Azul',
@@ -29,6 +20,15 @@ export const primaryColors: Record<PrimaryColor, PrimaryColorOption> = {
     lightCard: '#FFFFFF',
     darkBackground: '#0A1628',
     darkCard: '#1A2D4A',
+  },
+  teal: {
+    name: 'teal',
+    displayName: 'Turquesa',
+    color: '#00B5AD',
+    lightBackground: '#F0F9FA',
+    lightCard: '#FFFFFF',
+    darkBackground: '#0A2D2A',
+    darkCard: '#154A45',
   },
   green: {
     name: 'green',
@@ -57,14 +57,14 @@ export const primaryColors: Record<PrimaryColor, PrimaryColorOption> = {
     darkBackground: '#2D0A15',
     darkCard: '#4A1522',
   },
-  teal: {
-    name: 'teal',
-    displayName: 'Turquesa',
-    color: '#00B5AD',
-    lightBackground: '#F0F9FA',
+  purple: {
+    name: 'purple',
+    displayName: 'Púrpura',
+    color: '#6C47FF',
+    lightBackground: '#F8F7FF',
     lightCard: '#FFFFFF',
-    darkBackground: '#0A2D2A',
-    darkCard: '#154A45',
+    darkBackground: '#1E1B4B',
+    darkCard: '#2D2A5C',
   },
   gold: {
     name: 'gold',

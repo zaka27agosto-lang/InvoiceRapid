@@ -24,17 +24,23 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [offerings, setOfferings] = useState<any>(null);
+  const [wasPremium, setWasPremium] = useState(false);
 
   useEffect(() => {
     initPurchases();
   }, []);
 
   useEffect(() => {
-    // Si isPremium cambia a false, resetear el color a morado
-    if (!isPremium) {
+    // Solo resetear color si premium cambia de true a false durante el uso
+    // No resetear al cargar inicialmente
+    if (wasPremium && !isPremium && !isLoading) {
       onPremiumExpired();
     }
-  }, [isPremium]);
+    // Actualizar wasPremium después de verificar
+    if (!isLoading) {
+      setWasPremium(isPremium);
+    }
+  }, [isPremium, isLoading]);
 
   async function initPurchases() {
     try {
@@ -105,9 +111,9 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }
 
   async function onPremiumExpired() {
-    // Resetear el color a morado cuando expire premium
+    // Resetear el color a azul cuando expire premium
     try {
-      await AsyncStorage.setItem('primaryColor', 'purple');
+      await AsyncStorage.setItem('primaryColor', 'blue');
     } catch (e) {
       console.log('Error reseteando color:', e);
     }

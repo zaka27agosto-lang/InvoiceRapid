@@ -5,16 +5,16 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  View,
+    Alert,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -529,11 +529,11 @@ export default function NuevaFactura() {
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
 
-        <View style={[styles.header, { backgroundColor: currentTheme.colors.card }]}>
+        <View style={styles.header}>
           <TouchableOpacity style={styles.backBtn} onPress={handleSalir}>
             <Ionicons name="arrow-back" size={22} color={currentTheme.colors.primary} />
           </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>{esModoEdicion ? t('editar') : t('nueva_factura_titulo')}</Text>
+          <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>{esModoEdicion ? t('editar') : t('nueva_factura')}</Text>
           <TouchableOpacity style={[styles.saveBtn, { backgroundColor: currentTheme.colors.primary }]} onPress={guardarFactura}>
             <Text style={styles.saveBtnTexto}>{t('guardar')}</Text>
           </TouchableOpacity>
@@ -998,13 +998,14 @@ export default function NuevaFactura() {
 
 const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: "#F8F7FF", paddingTop: 55 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, marginBottom: 16 },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 16 },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },
   headerTitle: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
   saveBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
   saveBtnTexto: { color: "#fff", fontWeight: "700", fontSize: 14 },
   scroll: { flex: 1 },
   seccion: { backgroundColor: "#fff", borderRadius: 16, marginHorizontal: 16, marginBottom: 16, padding: 18 },
+  seccionPrimera: { borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: 0 },
   seccionTitulo: { fontSize: 16, fontWeight: "700", color: "#1a1a1a", marginBottom: 14 },
   clienteBtns: { flexDirection: "row", gap: 10 },
   clienteBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, borderWidth: 1.5, borderRadius: 12, paddingVertical: 14, paddingHorizontal: 8, backgroundColor: "#fff" },

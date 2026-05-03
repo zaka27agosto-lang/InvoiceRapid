@@ -256,7 +256,7 @@ export default function Ajustes() {
           <TouchableOpacity style={[styles.opcionBoton, { paddingVertical: 16 }]} onPress={toggleNotificacionesSuscripcion}>
             <Ionicons name="notifications-outline" size={20} color={currentTheme.colors.primary} />
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text, flex: 1, lineHeight: 20 }]} numberOfLines={2}>{t('notificaciones_suscripcion')}</Text>
-            <View style={[styles.switchBtn, notificacionesSuscripcion && styles.switchBtnActivo]}>
+            <View style={[styles.switchBtn, notificacionesSuscripcion && { backgroundColor: currentTheme.colors.primary }]}>
               <View style={[styles.switchCircle, notificacionesSuscripcion && styles.switchCircleActivo]} />
             </View>
           </TouchableOpacity>
@@ -329,7 +329,10 @@ export default function Ajustes() {
             <Ionicons name="flash-outline" size={20} color="#FF9F43" />
             <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('activar_premium_test')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={desactivarPremiumTest}>
+          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
+            await desactivarPremiumTest();
+            await setPrimaryColor('blue');
+          }}>
             <Ionicons name="flash-off-outline" size={20} color="#FF4757" />
             <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>{t('desactivar_premium_test')}</Text>
           </TouchableOpacity>
@@ -379,11 +382,11 @@ export default function Ajustes() {
             <View style={styles.switchFila}>
               <Text style={styles.switchLabel}>{t('incluir_en_factura')}</Text>
               <TouchableOpacity
-              style={[styles.switchBtn, datos.incluirEnFactura && styles.switchBtnActivo]}
-              onPress={() => setDatos((prev: DatosEmpresa) => ({ ...prev, incluirEnFactura: !prev.incluirEnFactura }))}
-            >
-              <View style={[styles.switchCircle, datos.incluirEnFactura && styles.switchCircleActivo]} />
-            </TouchableOpacity>
+                style={[styles.switchBtn, datos.incluirEnFactura && { backgroundColor: currentTheme.colors.primary }]}
+                onPress={() => setDatos((prev: DatosEmpresa) => ({ ...prev, incluirEnFactura: !prev.incluirEnFactura }))}
+              >
+                <View style={[styles.switchCircle, datos.incluirEnFactura && styles.switchCircleActivo]} />
+              </TouchableOpacity>
             </View>
             <View style={{ height: 60 }} />
           </ScrollView>
