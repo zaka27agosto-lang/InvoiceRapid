@@ -7,9 +7,14 @@ const stripe = new Stripe(Deno.env.get('STRIPE_SECRET_KEY') || '', {
   apiVersion: '2023-10-16',
 })
 
+// ⚠️ Usamos SUPABASE_SERVICE_ROLE_KEY porque este webhook es invocado por Stripe,
+// NO por un usuario autenticado. Con la anon key, auth.uid() sería null y las
+// políticas RLS (auth.uid() = user_id) bloquearían todas las operaciones.
+// La service_role key omite RLS, lo cual es correcto aquí porque la validación
+// ya la hace Stripe mediante la firma webhook.
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') || '',
-  Deno.env.get('SUPABASE_ANON_KEY') || ''
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
 )
 
 const webhookSecret = Deno.env.get('STRIPE_WEBHOOK_SECRET') || ''

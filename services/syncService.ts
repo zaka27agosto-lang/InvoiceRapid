@@ -35,7 +35,7 @@ export class SyncService {
         return { success: false, synced: 0, errors: 0, message: 'Sin conexión' };
       }
 
-      // Get local invoices from SQLite (this would be imported from db/facturas)
+      // Get local invoices from SQLite
       const localInvoices = await this.getLocalInvoices();
       
       let synced = 0;
@@ -70,26 +70,105 @@ export class SyncService {
 
           if (error) throw error;
           synced++;
+
+          // ── Sincronizar factura_items (líneas de factura) ──
+          try {
+            const items = await this.getLocalInvoiceItems(invoice.id);
+            // Delete-and-reinsert: borramos items previos en la nube y
+            // re-insertamos los actuales para evitar tener que hacer diff.
+            const { error: delErr } = await supabase
+              .from('factura_items')
+              .delete()
+              .eq('factura_id', invoice.id)
+              .eq('user_id', userId);
+            if (delErr) {
+              console.error('Error deleting cloud items for invoice', invoice.id, ':', delErr);
+            } else if (items.length > 0) {
+              // Insertar items actuales
+              for (const item of items) {
+                const { error: insErr } = await supabase
+                  .from('factura_items')
+                  .upsert({
+                    id: item.id,
+                    factura_id: item.factura_id,
+                    user_id: userId,
+                    descripcion: item.descripcion,
+                    cantidad: item.cantidad,
+                    unidad: item.unidad,
+                    precio_unitario: item.precio_unitario,
+                    descuento: item.descuento,
+                    subtotal: item.subtotal,
+                    sync_status: 'synced',
+                    updated_at: new Date().toISOString(),
+                  });
+                if (insErr) {
+                  console.error('Error upserting item', item.id, ':', insErr);
+                  errors++;
+                } else {
+                  synced++;
+                }
+              }
+              console.log(`📦 ${items.length} items sync para factura ${invoice.id}`);
+            }
+          } catch (e) {
+            console.error('Error syncing items for invoice', invoice.id, ':', e);
+            errors++;
+          }
         } catch (e) {
           console.error('Error syncing invoice:', e);
           errors++;
         }
       }
 
-      // Sync from cloud to local
-      const { data: cloudInvoices } = await supabase
-        .from('facturas')
-        .select('*')
-        .eq('user_id', userId);
+      // Eliminar de la nube facturas borradas localmente
+      await this.deleteOrphanedCloudRecords('facturas', userId, localInvoices);
 
-      if (cloudInvoices) {
-        await this.saveLocalInvoices(cloudInvoices);
-      }
+      // 💥 NO descargamos datos de la nube a local para evitar
+      // que datos stale o no deseados aparezcan en la app.
+      // La app es UPLOAD-ONLY: solo sube datos locales a la nube.
+      // Si se necesita descargar, será una acción manual explícita.
 
       return { success: true, synced, errors };
     } catch (error) {
       console.error('Sync invoices error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar facturas' };
+    }
+  }
+
+  /** Pull-only: descarga datos de la nube SIN subir nada local (usado al iniciar sesión) */
+  async pullInvoicesOnly(userId: string): Promise<SyncResult> {
+    try {
+      if (!supabase) {
+        return { success: false, synced: 0, errors: 0, message: 'Supabase no está configurado' };
+      }
+      if (!(await this.isOnline())) {
+        return { success: false, synced: 0, errors: 0, message: 'Sin conexión' };
+      }
+
+      const { data: cloudInvoices } = await supabase
+        .from('facturas')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (cloudInvoices && cloudInvoices.length > 0) {
+        await this.saveLocalInvoices(cloudInvoices);
+      }
+
+      // ── Descargar factura_items de la nube ──
+      const { data: cloudItems } = await supabase
+        .from('factura_items')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (cloudItems && cloudItems.length > 0) {
+        await this.saveLocalInvoiceItems(cloudItems);
+      }
+
+      const totalSynced = (cloudInvoices?.length || 0) + (cloudItems?.length || 0);
+      return { success: true, synced: totalSynced, errors: 0 };
+    } catch (error) {
+      console.error('Pull invoices error:', error);
+      return { success: false, synced: 0, errors: 0, message: 'Error al descargar facturas' };
     }
   }
 
@@ -138,20 +217,41 @@ export class SyncService {
         }
       }
 
-      // Sync from cloud to local
-      const { data: cloudClients } = await supabase
-        .from('clientes')
-        .select('*')
-        .eq('user_id', userId);
+      // Eliminar de la nube clientes borrados localmente
+      await this.deleteOrphanedCloudRecords('clientes', userId, localClients);
 
-      if (cloudClients) {
-        await this.saveLocalClients(cloudClients);
-      }
+      // 💥 NO descargamos datos de la nube (upload-only)
 
       return { success: true, synced, errors };
     } catch (error) {
       console.error('Sync clients error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar clientes' };
+    }
+  }
+
+  /** Pull-only: descarga clientes de la nube SIN subir nada local */
+  async pullClientsOnly(userId: string): Promise<SyncResult> {
+    try {
+      if (!supabase) {
+        return { success: false, synced: 0, errors: 0, message: 'Supabase no está configurado' };
+      }
+      if (!(await this.isOnline())) {
+        return { success: false, synced: 0, errors: 0, message: 'Sin conexión' };
+      }
+
+      const { data: cloudClients } = await supabase
+        .from('clientes')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (cloudClients && cloudClients.length > 0) {
+        await this.saveLocalClients(cloudClients);
+      }
+
+      return { success: true, synced: cloudClients?.length || 0, errors: 0 };
+    } catch (error) {
+      console.error('Pull clients error:', error);
+      return { success: false, synced: 0, errors: 0, message: 'Error al descargar clientes' };
     }
   }
 
@@ -190,20 +290,88 @@ export class SyncService {
         }
       }
 
-      // Sync from cloud to local
-      const { data: cloudProducts } = await supabase
-        .from('productos')
-        .select('*')
-        .eq('user_id', userId);
+      // Eliminar de la nube productos borrados localmente
+      await this.deleteOrphanedCloudRecords('productos', userId, localProducts);
 
-      if (cloudProducts) {
-        await this.saveLocalProducts(cloudProducts);
-      }
+      // 💥 NO descargamos datos de la nube (upload-only)
 
       return { success: true, synced, errors };
     } catch (error) {
       console.error('Sync products error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar productos' };
+    }
+  }
+
+  /** Pull-only: descarga productos de la nube SIN subir nada local */
+  async pullProductsOnly(userId: string): Promise<SyncResult> {
+    try {
+      if (!supabase) {
+        return { success: false, synced: 0, errors: 0, message: 'Supabase no está configurado' };
+      }
+      if (!(await this.isOnline())) {
+        return { success: false, synced: 0, errors: 0, message: 'Sin conexión' };
+      }
+
+      const { data: cloudProducts } = await supabase
+        .from('productos')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (cloudProducts && cloudProducts.length > 0) {
+        await this.saveLocalProducts(cloudProducts);
+      }
+
+      return { success: true, synced: cloudProducts?.length || 0, errors: 0 };
+    } catch (error) {
+      console.error('Pull products error:', error);
+      return { success: false, synced: 0, errors: 0, message: 'Error al descargar productos' };
+    }
+  }
+
+  /** Elimina de la nube los registros que ya no existen localmente */
+  private async deleteOrphanedCloudRecords(
+    table: 'facturas' | 'clientes' | 'productos',
+    userId: string,
+    localRecords: any[]
+  ): Promise<void> {
+    if (!supabase || localRecords.length === 0) return;
+    
+    try {
+      // Obtener todos los IDs de la nube para este usuario
+      const { data: cloudRecords } = await supabase
+        .from(table)
+        .select('id')
+        .eq('user_id', userId);
+
+      if (!cloudRecords || cloudRecords.length === 0) return;
+
+      const localIds = new Set(localRecords.map((r: any) => r.id));
+      const orphanIds = cloudRecords
+        .filter((r: any) => !localIds.has(r.id))
+        .map((r: any) => r.id);
+
+      if (orphanIds.length === 0) return;
+
+      console.log(`🧹 Eliminando ${orphanIds.length} registros huérfanos de ${table} en la nube...`);
+      
+      // Eliminar en lotes para evitar URLs demasiado largas
+      const BATCH_SIZE = 50;
+      for (let i = 0; i < orphanIds.length; i += BATCH_SIZE) {
+        const batch = orphanIds.slice(i, i + BATCH_SIZE);
+        const { error } = await supabase
+          .from(table)
+          .delete()
+          .in('id', batch)
+          .eq('user_id', userId);
+        
+        if (error) {
+          console.error(`Error eliminando huérfanos de ${table}:`, error);
+        } else {
+          console.log(`✅ ${batch.length} huérfanos eliminados de ${table}`);
+        }
+      }
+    } catch (e) {
+      console.error(`Error en deleteOrphanedCloudRecords para ${table}:`, e);
     }
   }
 
@@ -250,8 +418,42 @@ export class SyncService {
   }
 
   private async saveLocalInvoices(invoices: any[]): Promise<void> {
-    // This would update the local SQLite DB
-    console.log('Saving invoices to local DB:', invoices.length);
+    try {
+      const db = (await import('../app/db/database')).default;
+      if (!db || !invoices.length) return;
+
+      for (const invoice of invoices) {
+        const existing = db.getFirstSync('SELECT id FROM facturas WHERE id = ?', [invoice.id]);
+        if (existing) {
+          db.runSync(
+            `UPDATE facturas SET numero=?, cliente_id=?, cliente_nombre=?, subtotal=?, descuento=?,
+             iva_porcentaje=?, iva_importe=?, irpf_porcentaje=?, irpf_importe=?, total=?,
+             estado=?, fecha=?, fecha_vencimiento=?, notas=?, metodo_pago=?
+             WHERE id=?`,
+            [invoice.numero, invoice.cliente_id, invoice.cliente_nombre, invoice.subtotal,
+             invoice.descuento, invoice.iva_porcentaje, invoice.iva_importe,
+             invoice.irpf_porcentaje, invoice.irpf_importe, invoice.total,
+             invoice.estado, invoice.fecha, invoice.fecha_vencimiento,
+             invoice.notas, invoice.metodo_pago, invoice.id]
+          );
+        } else {
+          db.runSync(
+            `INSERT INTO facturas (id, numero, cliente_id, cliente_nombre, subtotal, descuento,
+             iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total,
+             estado, fecha, fecha_vencimiento, notas, metodo_pago)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [invoice.id, invoice.numero, invoice.cliente_id, invoice.cliente_nombre, invoice.subtotal,
+             invoice.descuento, invoice.iva_porcentaje, invoice.iva_importe,
+             invoice.irpf_porcentaje, invoice.irpf_importe, invoice.total,
+             invoice.estado, invoice.fecha, invoice.fecha_vencimiento,
+             invoice.notas, invoice.metodo_pago]
+          );
+        }
+      }
+      console.log('✅ Facturas guardadas localmente:', invoices.length);
+    } catch (e) {
+      console.error('Error saving local invoices:', e);
+    }
   }
 
   private async getLocalClients(): Promise<any[]> {
@@ -264,7 +466,35 @@ export class SyncService {
   }
 
   private async saveLocalClients(clients: any[]): Promise<void> {
-    console.log('Saving clients to local DB:', clients.length);
+    try {
+      const db = (await import('../app/db/database')).default;
+      if (!db || !clients.length) return;
+
+      for (const client of clients) {
+        const existing = db.getFirstSync('SELECT id FROM clientes WHERE id = ?', [client.id]);
+        if (existing) {
+          db.runSync(
+            `UPDATE clientes SET nombre=?, email=?, telefono=?, movil=?, pais=?,
+             calle=?, piso=?, ciudad=?, cp=?, provincia=?, nif=?, persona_contacto=?, direccion=?
+             WHERE id=?`,
+            [client.nombre, client.email, client.telefono, client.movil, client.pais,
+             client.calle, client.piso, client.ciudad, client.cp, client.provincia,
+             client.nif, client.persona_contacto, client.direccion, client.id]
+          );
+        } else {
+          db.runSync(
+            `INSERT INTO clientes (id, nombre, email, telefono, movil, pais, calle, piso, ciudad, cp, provincia, nif, persona_contacto, direccion)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [client.id, client.nombre, client.email, client.telefono, client.movil, client.pais,
+             client.calle, client.piso, client.ciudad, client.cp, client.provincia,
+             client.nif, client.persona_contacto, client.direccion]
+          );
+        }
+      }
+      console.log('✅ Clientes guardados localmente:', clients.length);
+    } catch (e) {
+      console.error('Error saving local clients:', e);
+    }
   }
 
   private async getLocalProducts(): Promise<any[]> {
@@ -277,7 +507,60 @@ export class SyncService {
   }
 
   private async saveLocalProducts(products: any[]): Promise<void> {
-    console.log('Saving products to local DB:', products.length);
+    try {
+      const db = (await import('../app/db/database')).default;
+      if (!db || !products.length) return;
+
+      for (const product of products) {
+        const existing = db.getFirstSync('SELECT id FROM productos WHERE id = ?', [product.id]);
+        if (existing) {
+          db.runSync(
+            `UPDATE productos SET descripcion=?, precio=?, unidad=? WHERE id=?`,
+            [product.descripcion, product.precio, product.unidad, product.id]
+          );
+        } else {
+          db.runSync(
+            `INSERT INTO productos (id, descripcion, precio, unidad) VALUES (?,?,?,?)`,
+            [product.id, product.descripcion, product.precio, product.unidad]
+          );
+        }
+      }
+      console.log('✅ Productos guardados localmente:', products.length);
+    } catch (e) {
+      console.error('Error saving local products:', e);
+    }
+  }
+
+  /** Obtiene los items de una factura desde SQLite local */
+  private async getLocalInvoiceItems(facturaId: number): Promise<any[]> {
+    try {
+      const { getFacturaItems } = await import('../app/db/facturas');
+      return getFacturaItems(facturaId) as any[];
+    } catch {
+      return [];
+    }
+  }
+
+  /** Guarda items descargados de la nube en SQLite local */
+  private async saveLocalInvoiceItems(items: any[]): Promise<void> {
+    try {
+      const db = (await import('../app/db/database')).default;
+      if (!db || !items.length) return;
+
+      for (const item of items) {
+        // Borrar item existente y re-insertar (simple, evita diff)
+        db.runSync('DELETE FROM factura_items WHERE id = ?', [item.id]);
+        db.runSync(
+          `INSERT INTO factura_items (id, factura_id, descripcion, cantidad, unidad, precio_unitario, descuento, subtotal)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [item.id, item.factura_id, item.descripcion, item.cantidad,
+           item.unidad, item.precio_unitario, item.descuento, item.subtotal]
+        );
+      }
+      console.log('✅ Items guardados localmente:', items.length);
+    } catch (e) {
+      console.error('Error saving local invoice items:', e);
+    }
   }
 
   async addToQueue(operation: any): Promise<void> {
@@ -315,6 +598,81 @@ export class SyncService {
         break;
     }
   }
+
+  /** Obtiene el userId actual desde la sesión de Supabase */
+  private async getCurrentUserId(): Promise<string | null> {
+    if (!supabase) return null;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      return user?.id || null;
+    } catch {
+      return null;
+    }
+  }
+
+  /** Elimina una factura de la nube (llamar cuando se borra localmente) */
+  async deleteInvoiceFromCloud(invoiceId: number): Promise<void> {
+    if (!supabase) return;
+    const userId = await this.getCurrentUserId();
+    if (!userId) return;
+    try {
+      const { error } = await supabase
+        .from('facturas')
+        .delete()
+        .eq('id', invoiceId)
+        .eq('user_id', userId);
+      if (error) {
+        console.error('Error deleting invoice from cloud:', error);
+      } else {
+        console.log('✅ Factura eliminada de la nube:', invoiceId);
+      }
+    } catch (e) {
+      console.error('Error in deleteInvoiceFromCloud:', e);
+    }
+  }
+
+  /** Elimina un cliente de la nube (llamar cuando se borra localmente) */
+  async deleteClientFromCloud(clientId: number): Promise<void> {
+    if (!supabase) return;
+    const userId = await this.getCurrentUserId();
+    if (!userId) return;
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .delete()
+        .eq('id', clientId)
+        .eq('user_id', userId);
+      if (error) {
+        console.error('Error deleting client from cloud:', error);
+      } else {
+        console.log('✅ Cliente eliminado de la nube:', clientId);
+      }
+    } catch (e) {
+      console.error('Error in deleteClientFromCloud:', e);
+    }
+  }
+
+  /** Elimina un producto de la nube (llamar cuando se borra localmente) */
+  async deleteProductFromCloud(productId: number): Promise<void> {
+    if (!supabase) return;
+    const userId = await this.getCurrentUserId();
+    if (!userId) return;
+    try {
+      const { error } = await supabase
+        .from('productos')
+        .delete()
+        .eq('id', productId)
+        .eq('user_id', userId);
+      if (error) {
+        console.error('Error deleting product from cloud:', error);
+      } else {
+        console.log('✅ Producto eliminado de la nube:', productId);
+      }
+    } catch (e) {
+      console.error('Error in deleteProductFromCloud:', e);
+    }
+  }
+
 }
 
 export const syncService = SyncService.getInstance();

@@ -18,6 +18,47 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
+  async function verificarEmailDisponible(userEmail: string): Promise<boolean> {
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/check-account-status`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: userEmail }),
+        }
+      );
+
+      if (!response.ok) {
+        // Si no podemos verificar, permitir registro
+        return true;
+      }
+
+      const data = await response.json();
+
+      if (data.status === 'permanently_deleted') {
+        Alert.alert(t('email_no_disponible'), t('email_eliminado_permanente'));
+        return false;
+      }
+
+      if (data.status === 'pending_deletion') {
+        Alert.alert(t('email_no_disponible'), t('email_pendiente_eliminacion'));
+        return false;
+      }
+
+      if (data.status === 'grace_period_expired') {
+        Alert.alert(t('email_no_disponible'), t('periodo_restauracion_expirado'));
+        return false;
+      }
+
+      return true;
+    } catch {
+      // Error de red — permitir registro
+      return true;
+    }
+  }
+
   async function handleRegister() {
     if (!name || !email || !password || !confirmPassword) {
       Alert.alert(t('error'), t('campos_requeridos'));
@@ -34,7 +75,14 @@ export default function Register() {
       return;
     }
 
+    // Verificar que el email no esté bloqueado
     setLoading(true);
+    const emailDisponible = await verificarEmailDisponible(email);
+    if (!emailDisponible) {
+      setLoading(false);
+      return;
+    }
+
     const result = await signUpWithEmail(email, password, name);
     setLoading(false);
 
@@ -52,6 +100,12 @@ export default function Register() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={24} color={currentTheme.colors.text} />
+          </TouchableOpacity>
+          <View style={{ width: 24 }} />
+        </View>
         <View style={styles.header}>
           <Text style={[styles.logo, { color: currentTheme.colors.primary }]}>InvoiceRapid</Text>
           <Text style={[styles.subtitle, { color: currentTheme.colors.textSecondary }]}>{t('crear_cuenta')}</Text>
@@ -127,12 +181,9 @@ export default function Register() {
             <Text style={styles.buttonText}>{loading ? t('cargando') : t('registrarse')}</Text>
           </TouchableOpacity>
 
-          <View style={styles.login}>
-            <Text style={[styles.loginText, { color: currentTheme.colors.textSecondary }]}>{t('ya_cuenta')}</Text>
-            <TouchableOpacity onPress={() => router.back()}>
-              <Text style={[styles.loginLink, { color: currentTheme.colors.primary }]}>{t('iniciar_sesion')}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={[styles.loginLink, { color: currentTheme.colors.primary, textAlign: 'center', marginTop: 16 }]}>{t('iniciar_sesion')}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -152,7 +203,7 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15 },
   button: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  login: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 8 },
-  loginText: { fontSize: 14 },
   loginLink: { fontSize: 14, fontWeight: '600' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  backBtn: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
 });

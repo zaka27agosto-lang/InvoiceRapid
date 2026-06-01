@@ -33,6 +33,33 @@ export const MONEDAS: Moneda[] = [
   { simbolo: '£', codigo: 'GBP', nombre: 'Libra' },
 ];
 
+export type NumeracionConfig = {
+  prefijo: string;
+  sufijo: string;
+  digitos: number;
+  // next_number se lee de la BD directamente
+};
+
+export const DEFAULT_NUMERACION: NumeracionConfig = {
+  prefijo: 'F-',
+  sufijo: '',
+  digitos: 4,
+};
+
+export async function getNumeracionConfig(): Promise<NumeracionConfig> {
+  try {
+    const guardada = await AsyncStorage.getItem('numeracion_config');
+    if (guardada) return JSON.parse(guardada);
+  } catch {}
+  return DEFAULT_NUMERACION;
+}
+
+export async function setNumeracionConfig(config: NumeracionConfig): Promise<void> {
+  try {
+    await AsyncStorage.setItem('numeracion_config', JSON.stringify(config));
+  } catch {}
+}
+
 export const LIMITE_FACTURAS_GRATIS = 15;
 
 export async function getMoneda(): Promise<Moneda> {

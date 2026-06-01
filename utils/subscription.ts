@@ -1,69 +1,157 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import db from '../app/db/database';
 
-const LIMITE_FACTURAS_GRATIS = 15;
-const COUNTER_KEY = 'facturas_creadas_total';
+const LIMITE_FACTURAS_MENSUAL = 10;
+const MONTHLY_COUNTER_KEY = 'monthly_invoice_counter';
+const REWARDED_ADS_KEY = 'rewarded_ads_daily';
+const MAX_REWARDED_ADS_PER_DAY = 3;
 
-async function getContadorAcumulado(): Promise<number> {
+interface MonthlyCounter {
+  month: string; // "YYYY-MM" format
+  count: number;
+}
+
+function getCurrentMonth(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+}
+
+async function getMonthlyCounter(): Promise<MonthlyCounter> {
   try {
-    const valor = await AsyncStorage.getItem(COUNTER_KEY);
-    return valor ? parseInt(valor, 10) : 0;
+    const stored = await AsyncStorage.getItem(MONTHLY_COUNTER_KEY);
+    if (!stored) return { month: getCurrentMonth(), count: 0 };
+    return JSON.parse(stored);
   } catch {
-    return 0;
+    return { month: getCurrentMonth(), count: 0 };
   }
 }
 
-async function incrementarContador(): Promise<void> {
-  try {
-    const actual = await getContadorAcumulado();
-    await AsyncStorage.setItem(COUNTER_KEY, (actual + 1).toString());
-  } catch (error) {
-    console.error('Error incrementando contador:', error);
-  }
-}
-
-export function checkInvoiceLimit(): { canCreate: boolean; currentCount: number; limit: number } {
-  // Usar contador acumulativo en lugar de contar facturas existentes
-  // Por ahora, para mantener compatibilidad con el código síncrono, 
-  // usamos el conteo de facturas existentes como fallback
-  const facturas = db.getAllSync('SELECT COUNT(*) as count FROM facturas') as any[];
-  const currentCount = facturas[0]?.count || 0;
-  const limit = LIMITE_FACTURAS_GRATIS;
-  
-  return {
-    canCreate: currentCount < limit,
-    currentCount,
-    limit
-  };
-}
-
-// Nueva función que usa el contador acumulativo (asíncrona)
+/**
+ * Verifica los límites de facturas del mes actual.
+ * @returns canCreate: si puede crear más facturas, currentCount: usadas este mes, limit: límite mensual
+ */
 export async function checkInvoiceLimitAsync(): Promise<{ canCreate: boolean; currentCount: number; limit: number }> {
-  const currentCount = await getContadorAcumulado();
-  let limit = LIMITE_FACTURAS_GRATIS;
-  try {
-    const customLimit = await AsyncStorage.getItem('limite_facturas');
-    if (customLimit) {
-      limit = parseInt(customLimit, 10);
-    }
-  } catch (e) {
-    // Fallback a límite por defecto
+  let counter = await getMonthlyCounter();
+  const currentMonth = getCurrentMonth();
+
+  // Si el mes ha cambiado, resetear contador automáticamente
+  if (counter.month !== currentMonth) {
+    counter = { month: currentMonth, count: 0 };
+    await AsyncStorage.setItem(MONTHLY_COUNTER_KEY, JSON.stringify(counter));
   }
-  
+
   return {
-    canCreate: currentCount < limit,
-    currentCount,
-    limit
+    canCreate: counter.count < LIMITE_FACTURAS_MENSUAL,
+    currentCount: counter.count,
+    limit: LIMITE_FACTURAS_MENSUAL,
   };
 }
 
-// Función para incrementar el contador cuando se crea una factura
+/**
+ * Incrementa el contador mensual de facturas creadas.
+ */
 export async function incrementInvoiceCounter(): Promise<void> {
-  await incrementarContador();
+  let counter = await getMonthlyCounter();
+  const currentMonth = getCurrentMonth();
+
+  // Si el mes ha cambiado, resetear antes de incrementar
+  if (counter.month !== currentMonth) {
+    counter = { month: currentMonth, count: 1 };
+  } else {
+    counter.count += 1;
+  }
+
+  await AsyncStorage.setItem(MONTHLY_COUNTER_KEY, JSON.stringify(counter));
 }
 
-export function isProPlan(): boolean {
-  // Por ahora, asumimos que siempre es plan gratuito
-  // En el futuro, esto podría verificar un estado de suscripción real
-  return false;
+/**
+ * Resetea el contador mensual — útil para tests en desarrollo.
+ */
+export async function resetMonthlyCounter(): Promise<void> {
+  await AsyncStorage.setItem(
+    MONTHLY_COUNTER_KEY,
+    JSON.stringify({ month: getCurrentMonth(), count: 0 })
+  );
+}
+
+/**
+ * Adelanta el mes del contador al siguiente mes (simulando que pasa un mes).
+ * Útil para testear el reset mensual del límite de facturas.
+ * @returns El mes anterior y el nuevo mes.
+ */
+export async function advanceMonth(): Promise<{ oldMonth: string; newMonth: string }> {
+  const counter = await getMonthlyCounter();
+  const oldMonth = counter.month;
+
+  // Calcular el siguiente mes
+  const [year, month] = counter.month.split('-').map(Number);
+  const date = new Date(year, month, 1); // El día 2 no importa, month 0-indexed = siguiente mes
+  const newMonth = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+  counter.month = newMonth;
+  counter.count = 0;
+  await AsyncStorage.setItem(MONTHLY_COUNTER_KEY, JSON.stringify(counter));
+
+  return { oldMonth, newMonth };
+}
+
+/**
+ * Pone el contador mensual exactamente en 9 (para probar el límite en desarrollo).
+ */
+export async function setInvoiceCounterTo9(): Promise<number> {
+  await AsyncStorage.setItem(
+    MONTHLY_COUNTER_KEY,
+    JSON.stringify({ month: getCurrentMonth(), count: 9 })
+  );
+  return 9;
+}
+
+/* ────────── REWARDED ADS — tracking diario ────────── */
+
+function getTodayKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
+interface RewardedAdCounter {
+  date: string;  // "YYYY-MM-DD"
+  count: number;
+}
+
+async function getRewardedAdCounter(): Promise<RewardedAdCounter> {
+  try {
+    const stored = await AsyncStorage.getItem(REWARDED_ADS_KEY);
+    if (!stored) return { date: getTodayKey(), count: 0 };
+    return JSON.parse(stored);
+  } catch {
+    return { date: getTodayKey(), count: 0 };
+  }
+}
+
+async function resetIfDayChanged(counter: RewardedAdCounter): Promise<RewardedAdCounter> {
+  const today = getTodayKey();
+  if (counter.date !== today) {
+    const newCounter: RewardedAdCounter = { date: today, count: 0 };
+    await AsyncStorage.setItem(REWARDED_ADS_KEY, JSON.stringify(newCounter));
+    return newCounter;
+  }
+  return counter;
+}
+
+/**
+ * Devuelve cuántos rewarded ads quedan disponibles hoy (máx 3/día).
+ */
+export async function getRemainingRewardedAds(): Promise<number> {
+  let counter = await getRewardedAdCounter();
+  counter = await resetIfDayChanged(counter);
+  return Math.max(0, MAX_REWARDED_ADS_PER_DAY - counter.count);
+}
+
+/**
+ * Incrementa el contador diario de rewarded ads vistos.
+ */
+export async function incrementRewardedAdCount(): Promise<void> {
+  let counter = await getRewardedAdCounter();
+  counter = await resetIfDayChanged(counter);
+  counter.count += 1;
+  await AsyncStorage.setItem(REWARDED_ADS_KEY, JSON.stringify(counter));
 }

@@ -9,6 +9,21 @@ if (Platform.OS !== 'web') {
   db = SQLite.openDatabaseSync('facturas2.db');
 }
 
+export function clearAllData() {
+  if (!db) return;
+  try {
+    db.execSync(`
+      DELETE FROM factura_items;
+      DELETE FROM facturas;
+      DELETE FROM clientes;
+      DELETE FROM productos;
+    `);
+    console.log('✅ Datos locales eliminados correctamente');
+  } catch (error) {
+    console.error('Error al limpiar datos locales:', error);
+  }
+}
+
 export function initDB() {
   // No inicializar SQLite en web
   if (Platform.OS === 'web' || !db) {

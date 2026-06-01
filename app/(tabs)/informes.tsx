@@ -1,18 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Dimensions, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Alert, Dimensions, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from "../../contexts/ThemeContext";
+import { useSubscription } from "../../contexts/SubscriptionContext";
+import SwipeNavigation from "../../components/SwipeNavigation";
 import { convertirDeEurosParaMostrar } from "../../utils/currency";
 import { getMoneda } from "../../utils/settings";
 import { getFacturas } from "../db/facturas";
+import { useSync } from "../../hooks/useSync";
 
 const { width } = Dimensions.get('window');
 
 export default function Informes() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
+  const { isPremium } = useSubscription();
+  const { lastSync } = useSync();
+  const router = useRouter();
   const [facturas, setFacturas] = useState<any[]>([]);
   const [periodoSeleccionado, setPeriodoSeleccionado] = useState<'mes' | 'trimestre' | 'año'>('mes');
   const [simboloMoneda, setSimboloMoneda] = useState('€');
@@ -23,8 +30,25 @@ export default function Informes() {
   const [totalPagadasConvertido, setTotalPagadasConvertido] = useState(0);
   const [ultimos6Convertidos, setUltimos6Convertidos] = useState<any[]>([]);
   const [topClientesConvertidos, setTopClientesConvertidos] = useState<any[]>([]);
+  const [exportando, setExportando] = useState(false);
 
-  useFocusEffect(useCallback(() => {
+  const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(tabs)/productos', '/(tabs)/informes', '/(tabs)/ajustes'];
+
+  const navigateToNextTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/informes');
+    if (currentIndex < tabOrder.length - 1) {
+      router.push(tabOrder[currentIndex + 1] as any);
+    }
+  };
+
+  const navigateToPreviousTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/informes');
+    if (currentIndex > 0) {
+      router.push(tabOrder[currentIndex - 1] as any);
+    }
+  };
+
+  function cargarDatos() {
     const facturasData = getFacturas() as any[];
     setFacturas(facturasData);
     getMoneda().then(m => {
@@ -103,7 +127,22 @@ export default function Informes() {
         setTopClientesConvertidos(topClientesConTotalesConvertidos);
       });
     });
+  }
+
+  useFocusEffect(useCallback(() => {
+    cargarDatos();
   }, []));
+
+  // Re-cargar datos cuando la sincronización completa (lastSync cambia)
+  const lastSyncRef = useRef(lastSync);
+  useEffect(() => {
+    if (lastSync && lastSync !== lastSyncRef.current) {
+      lastSyncRef.current = lastSync;
+      cargarDatos();
+    } else {
+      lastSyncRef.current = lastSync;
+    }
+  }, [lastSync]);
 
   const ahora = new Date();
   const mesActual = ahora.getMonth();
@@ -145,6 +184,46 @@ export default function Informes() {
 
   const maxValor = Math.max(...ultimos6.map(m => m.total), 1);
 
+  async function exportarCSV() {
+    setExportando(true);
+    try {
+      const m = await getMoneda();
+      const facturas = getFacturas() as any[];
+      
+      // Cabeceras CSV
+      const headers = ['Número', 'Cliente', 'Fecha', 'Subtotal', 'IVA%', 'IVA', 'IRPF%', 'IRPF', 'Total', 'Estado', 'Método Pago'];
+      const rows = facturas.map((f: any) => [
+        f.numero,
+        `"${(f.cliente_nombre || '').replace(/"/g, '""')}"`,
+        new Date(f.fecha).toLocaleDateString('es-ES'),
+        (f.subtotal || 0).toFixed(2),
+        f.iva_porcentaje || 0,
+        (f.iva_importe || 0).toFixed(2),
+        f.irpf_porcentaje || 0,
+        (f.irpf_importe || 0).toFixed(2),
+        (f.total || 0).toFixed(2),
+        f.estado || '',
+        f.metodo_pago || ''
+      ]);
+      
+      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const fileUri = `${FileSystem.cacheDirectory}InvoiceRapid_export_${Date.now()}.csv`;
+      
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+        encoding: FileSystem.EncodingType.UTF8,
+      });
+      
+      await Share.share({
+        url: fileUri,
+        message: `Exportación InvoiceRapid - ${new Date().toLocaleDateString('es-ES')}`,
+      });
+    } catch (err) {
+      Alert.alert(t('error'), t('error_exportar_csv'));
+    } finally {
+      setExportando(false);
+    }
+  }
+
   const estados = [
     { label: t('pagadas'), valor: totalPagadasConvertido, count: facturas.filter(f => f.estado === 'pagada').length, color: '#26de81' },
     { label: t('pendiente'), valor: pendienteCobroConvertido, count: facturas.filter(f => f.estado !== 'pagada' && f.estado !== 'impagada').length, color: '#FF9F43' },
@@ -152,11 +231,24 @@ export default function Informes() {
   ];
 
   return (
+    <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
     <View style={styles.wrapper}>
-      <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
-        <View style={styles.headerTop}>
-          <Text style={styles.titulo}>{t('informes_titulo')}</Text>
-        </View>
+        <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
+          <View style={styles.headerTop}>
+            <Text style={styles.titulo}>{t('informes_titulo')}</Text>
+          </View>
+
+        {/* Botón exportar CSV */}
+          <TouchableOpacity
+            style={[styles.exportBtn, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.primary }]}
+            onPress={exportarCSV}
+            disabled={exportando}
+          >
+            <Ionicons name="download-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.exportBtnTexto, { color: currentTheme.colors.primary }]}>
+              {exportando ? t('exportando') : t('exportar_csv')}
+            </Text>
+          </TouchableOpacity>
 
         {/* KPIs */}
         <View style={styles.kpiGrid}>
@@ -185,7 +277,64 @@ export default function Informes() {
           </View>
         </View>
 
-        {/* Gráfico de barras */}
+        {/* Gráfico de evolución con SVG nativo */}
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>{t('evolucion')}</Text>
+          {facturas.length === 0 ? (
+            <View style={styles.emptyGrafico}>
+              <Ionicons name="bar-chart-outline" size={40} color="#e0e0e0" />
+              <Text style={styles.emptyTexto}>{t('sin_datos')}</Text>
+            </View>
+          ) : (
+            <View style={styles.graficoContainer}>
+              {/* Eje Y */}
+              <View style={styles.ejeY}>
+                {[100, 75, 50, 25, 0].map(pct => (
+                  <Text key={pct} style={styles.ejeYLabel}>
+                    {maxValor > 0 ? `${(maxValor * pct / 100).toFixed(0)}` : '0'}
+                  </Text>
+                ))}
+              </View>
+              {/* Barras */}
+              <View style={styles.barrasContainer}>
+                <View style={styles.lineasGuia}>
+                  {[0, 25, 50, 75, 100].map(pct => (
+                    <View key={pct} style={[styles.lineaGuia, { borderBottomColor: currentTheme.colors.border + '60' }]} />
+                  ))}
+                </View>
+                {ultimos6Convertidos.map((mes, i) => {
+                  const altura = maxValor > 0 ? (mes.total / maxValor) * 100 : 0;
+                  return (
+                    <View key={i} style={styles.barraCol}>
+                      <Text style={styles.barraValor}>
+                        {mes.total > 0 ? `${(mes.total).toFixed(0)}` : ''}
+                      </Text>
+                      <View style={styles.barraWrapper}>
+                        <View
+                          style={[
+                            styles.barra,
+                            {
+                              height: `${Math.max(altura, mes.total > 0 ? 2 : 0)}%` as any,
+                              backgroundColor: i === 5 ? currentTheme.colors.primary : currentTheme.colors.primary + '40',
+                              borderTopLeftRadius: 6,
+                              borderTopRightRadius: 6,
+                            }
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.barraLabel}>{mes.label}</Text>
+                    </View>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+        </View>
+
+        {/* Gráfico de barras (antiguo, reemplazado) */}
+        {/* Comentado: el nuevo gráfico está arriba
+        <View style={styles.seccion}>
+          <Text style={styles.seccionTitulo}>{t('evolucion')}</Text>
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>{t('evolucion')}</Text>
           {facturas.length === 0 ? (
@@ -257,8 +406,9 @@ export default function Informes() {
         )}
 
         <View style={{ height: 100 }} />
-      </ScrollView>
+        </ScrollView>
     </View>
+    </SwipeNavigation>
   );
 }
 
@@ -280,6 +430,14 @@ const styles = StyleSheet.create({
   barraWrapper: { height: 120, justifyContent: 'flex-end', width: '70%' },
   barra: { borderRadius: 6, width: '100%' },
   barraLabel: { fontSize: 11, color: '#888', fontWeight: '500' },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginBottom: 16, borderRadius: 12, paddingVertical: 14, borderWidth: 1.5 },
+  exportBtnTexto: { fontSize: 14, fontWeight: '700' },
+  graficoContainer: { flexDirection: 'row', height: 180 },
+  ejeY: { width: 50, justifyContent: 'space-between', paddingRight: 8, paddingBottom: 24 },
+  ejeYLabel: { fontSize: 10, color: '#888', fontWeight: '500', textAlign: 'right' },
+  barrasContainer: { flex: 1, flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', position: 'relative' },
+  lineasGuia: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 24, justifyContent: 'space-between' },
+  lineaGuia: { borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   emptyGrafico: { alignItems: 'center', paddingVertical: 30, gap: 10 },
   emptyTexto: { color: '#ccc', fontSize: 14 },
   estadoFila: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },

@@ -130,27 +130,28 @@ export function updateFacturaItem(item: {
   );
 }
 
-export function getNextNumeroFactura(): string {
+export function getNextNumeroFactura(config?: { prefijo: string; sufijo: string; digitos: number }): string {
   if (!db) return `F-0001`;
+  
+  const prefijo = config?.prefijo ?? 'F-';
+  const sufijo = config?.sufijo ?? '';
+  const digitos = config?.digitos ?? 4;
+  
   // Obtener la última factura para detectar su número
   const lastFactura = db.getFirstSync(`SELECT numero FROM facturas ORDER BY id DESC LIMIT 1`) as any;
   
   if (!lastFactura || !lastFactura.numero) {
-    return `F-0001`;
+    return `${prefijo}${String(1).padStart(digitos, '0')}${sufijo}`;
   }
   
   // Extraer el número del formato (ej: F-0005 -> 5)
   const match = lastFactura.numero.match(/(\d+)/);
   if (!match) {
-    return `F-0001`;
+    return `${prefijo}${String(1).padStart(digitos, '0')}${sufijo}`;
   }
   
   const lastNum = parseInt(match[1], 10);
   const nextNum = lastNum + 1;
   
-  // Mantener el mismo formato que el último
-  const prefix = lastFactura.numero.replace(/\d+$/, '');
-  const numStr = String(nextNum).padStart(match[1].length, '0');
-  
-  return `${prefix}${numStr}`;
+  return `${prefijo}${String(nextNum).padStart(digitos, '0')}${sufijo}`;
 }

@@ -1,34 +1,36 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
 
 export default function Legal() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { currentTheme } = useTheme();
 
   const legalOptions = [
     {
       id: 'privacy',
-      title: 'Política de privacidad',
+      title: t('politica_privacidad'),
       icon: 'document-text-outline',
       route: '/legal/privacy',
     },
     {
       id: 'terms',
-      title: 'Términos y condiciones',
+      title: t('terminos_condiciones'),
       icon: 'document-outline',
       route: '/legal/terms',
     },
     {
       id: 'cookies',
-      title: 'Política de cookies',
+      title: t('politica_cookies'),
       icon: 'restaurant-outline',
       route: '/legal/cookies',
     },
     {
       id: 'contact',
-      title: 'Contacto',
+      title: t('contacto'),
       icon: 'mail-outline',
       action: () => {
         // TODO: Implementar contacto
@@ -36,7 +38,7 @@ export default function Legal() {
     },
     {
       id: 'support',
-      title: 'Soporte',
+      title: t('soporte'),
       icon: 'headset-outline',
       action: () => {
         // TODO: Implementar soporte
@@ -50,14 +52,14 @@ export default function Legal() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={currentTheme.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>Legal</Text>
+        <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>{t('legal')}</Text>
         <View style={{ width: 24 }} />
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.title, { color: currentTheme.colors.text }]}>Información Legal</Text>
+        <Text style={[styles.title, { color: currentTheme.colors.text }]}>{t('informacion_legal')}</Text>
         <Text style={[styles.subtitle, { color: currentTheme.colors.textSecondary }]}>
-          Consulta nuestros documentos legales y obtén ayuda
+          {t('consulta_documentos')}
         </Text>
 
         {legalOptions.map((option) => (

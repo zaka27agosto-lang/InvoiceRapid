@@ -1,10 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { adsService } from "../../services/adsService";
+import { syncService } from "../../services/syncService";
+import SwipeNavigation from "../../components/SwipeNavigation";
 import { deleteCliente, getClientes, insertCliente, updateCliente } from "../db/clientes";
+import { useSync } from "../../hooks/useSync";
 
 type Cliente = {
   id: number;
@@ -26,6 +31,9 @@ type Cliente = {
 export default function Clientes() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
+  const { isPremium } = useSubscription();
+  const { lastSync } = useSync();
+  const router = useRouter();
   const [clientes, setClientes] = useState<Cliente[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -45,11 +53,37 @@ export default function Clientes() {
     persona_contacto: "",
     direccion: ""
   });
-  const router = useRouter();
+
+  const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(tabs)/productos', '/(tabs)/informes', '/(tabs)/ajustes'];
+
+  const navigateToNextTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/clientes');
+    if (currentIndex < tabOrder.length - 1) {
+      router.push(tabOrder[currentIndex + 1] as any);
+    }
+  };
+
+  const navigateToPreviousTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/clientes');
+    if (currentIndex > 0) {
+      router.push(tabOrder[currentIndex - 1] as any);
+    }
+  };
 
   useFocusEffect(useCallback(() => {
     setClientes(getClientes() as Cliente[]);
   }, []));
+
+  // Re-cargar datos cuando la sincronización completa (lastSync cambia)
+  const lastSyncRef = useRef(lastSync);
+  useEffect(() => {
+    if (lastSync && lastSync !== lastSyncRef.current) {
+      lastSyncRef.current = lastSync;
+      setClientes(getClientes() as Cliente[]);
+    } else {
+      lastSyncRef.current = lastSync;
+    }
+  }, [lastSync]);
 
   const clientesFiltrados = clientes.filter(cliente => 
     cliente.nombre.toLowerCase().includes(busqueda.toLowerCase()) ||
@@ -111,7 +145,7 @@ export default function Clientes() {
     setMostrarFormulario(true);
   }
 
-  function guardarCliente() {
+  async function guardarCliente() {
     if (!formulario.nombre.trim()) {
       Alert.alert(t('error'), t('nombre') + ' ' + t('es obligatorio'));
       return;
@@ -134,11 +168,12 @@ export default function Clientes() {
     try {
       if (editando) {
         updateCliente(editando.id, clienteData);
-        Alert.alert(t('exito'), t('cliente_actualizado'));
       } else {
         insertCliente(clienteData);
-        Alert.alert(t('exito'), t('cliente_creado'));
       }
+      
+      // Mostrar anuncio intersticial cada 3 acciones
+      await adsService.incrementAction(isPremium);
       
       setClientes(getClientes() as Cliente[]);
       setMostrarFormulario(false);
@@ -150,17 +185,18 @@ export default function Clientes() {
 
   function eliminarCliente(cliente: Cliente) {
     Alert.alert(t('eliminar_cliente'),
-      `¿Estás seguro de eliminar a ${cliente.nombre}?`,
+      t('confirmar_eliminar_cliente', { nombre: cliente.nombre }),
       [
         { text: t('cancelar'), style: "cancel" },
         {
           text: t('eliminar'),
           style: "destructive",
-          onPress: () => {
+          onPress: async () => {
             try {
               deleteCliente(cliente.id);
+              // Eliminar también de la nube para que no reaparezca
+              syncService.deleteClientFromCloud(cliente.id).catch((e) => console.error('Error eliminando cliente de la nube:', e));
               setClientes(getClientes() as Cliente[]);
-              Alert.alert(t('exito'), t('cliente_eliminado'));
             } catch (error) {
               Alert.alert(t('error'), t('no_se_pudo_eliminar_el_cliente'));
             }
@@ -215,9 +251,10 @@ export default function Clientes() {
   }
 
   return (
+    <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
     <View style={styles.wrapper}>
       <View style={styles.container}>
-        <Text style={styles.titulo}>{t('clientes_titulo')}</Text>
+          <Text style={styles.titulo}>{t('clientes_titulo')}</Text>
 
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
@@ -231,14 +268,16 @@ export default function Clientes() {
         </View>
 
         {clientesFiltrados.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="people-outline" size={60} color="#ddd" />
-            <Text style={styles.emptyTexto}>
-              {busqueda ? t('no_encontrados') : t('no_clientes')}
-            </Text>
-            <Text style={styles.emptySub}>
-              {busqueda ? t('otra_busqueda') : t('anadir_primer_cliente')}
-            </Text>
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <View style={[styles.emptyState, { flex: undefined }]}>
+              <Ionicons name="people-outline" size={60} color="#ddd" />
+              <Text style={styles.emptyTexto}>
+                {busqueda ? t('no_encontrados') : t('no_clientes')}
+              </Text>
+              <Text style={styles.emptySub}>
+                {busqueda ? t('otra_busqueda') : t('anadir_primer_cliente')}
+              </Text>
+            </View>
           </View>
         ) : (
           <FlatList
@@ -276,15 +315,18 @@ export default function Clientes() {
               </View>
             )}
             showsVerticalScrollIndicator={false}
+            ListHeaderComponent={() => <View style={{ paddingVertical: 8 }} />}
+            ListFooterComponent={() => <View style={{ paddingVertical: 16 }} />}
           />
         )}
-      </View>
+        </View>
 
       <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => abrirFormulario()}>
         <Ionicons name="add" size={22} color="#fff" />
         <Text style={styles.fabTexto}>{t('nuevo_cliente')}</Text>
       </TouchableOpacity>
     </View>
+    </SwipeNavigation>
   );
 }
 

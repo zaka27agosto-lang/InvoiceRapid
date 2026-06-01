@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
 export default function Terms() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { currentTheme } = useTheme();
 
   return (
@@ -13,7 +15,7 @@ export default function Terms() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={currentTheme.colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: currentTheme.colors.text }]}>Términos y Condiciones</Text>
+        <Text style={[styles.title, { color: currentTheme.colors.text }]}>{t('terminos_condiciones')}</Text>
         <View style={{ width: 24 }} />
       </View>
 

@@ -1,9 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
+import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabase';
-import { getGoogleSignin } from '../utils/googleSignIn';
 
 interface AuthContextType {
   user: User | null;
@@ -37,30 +37,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      // Configure Google Sign In (solo en plataformas nativas)
-      const { GoogleSignin: GS } = getGoogleSignin();
-      if (GS) {
-        (GS as any).configure({
-          webClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID || '',
-          offlineAccess: true,
-        });
-      }
-
       // Check for existing session
       const { data: { session } } = await supabase.auth.getSession();
       setSession(session);
       setUser(session?.user ?? null);
 
+      // ⚠️ Forzar isLoading=false DESPUÉS de obtener la sesión.
+      // El callback onAuthStateChange puede no dispararse inmediatamente,
+      // y sin esto la app se queda en el spinner de carga para siempre.
+      setIsLoading(false);
+
       // Listen for auth changes
-      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      supabase.auth.onAuthStateChange(
         async (_event: any, session: Session | null) => {
           setSession(session);
           setUser(session?.user ?? null);
-          setIsLoading(false);
         }
       );
-
-      return () => subscription.unsubscribe();
     } catch (error) {
       console.error('Auth initialization error:', error);
       setIsLoading(false);
@@ -96,6 +89,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           data: {
             name,
           },
+          emailRedirectTo: 'invoicerapid://auth/callback',
         },
       });
 
@@ -110,52 +104,110 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) {
       return { error: 'Supabase no está configurado' };
     }
-    // Google Sign-In no está disponible en web
-    const { GoogleSignin: GS, statusCodes: SC } = getGoogleSignin();
-    if (Platform.OS === 'web' || !GS) {
-      return { error: 'Google Sign-In no está disponible en este entorno' };
-    }
 
     try {
-      await GS.hasPlayServices();
-      const userInfo = await GS.signIn();
+      const redirectUrl = Linking.createURL('auth/callback');
       
-      if ((userInfo as any).idToken) {
-        const { data, error } = await supabase.auth.signInWithIdToken({
-          provider: 'google',
-          token: (userInfo as any).idToken,
-        });
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: redirectUrl,
+        },
+      });
 
-        if (error) throw error;
-        return { success: true };
+      if (error) throw error;
+      if (!data?.url) {
+        return { error: 'No se pudo obtener la URL de autenticación' };
+      }
+
+      const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
+
+      if (result.type === 'success' && result.url) {
+        // Procesar los tokens de sesión del redirect URL.
+        // Supabase redirige a: invoicerapid://auth/callback#access_token=xxx&refresh_token=xxx&...
+        // No podemos confiar en onAuthStateChange porque en React Native el cliente
+        // Supabase no procesa deep links automáticamente — debemos extraer los tokens
+        // explícitamente y llamar a setSession().
+        const fragment = result.url.split('#')[1];
+        if (fragment) {
+          const params = new URLSearchParams(fragment);
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          if (accessToken && refreshToken) {
+            await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken,
+            });
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) return { success: true };
+          }
+        }
+        return { error: 'No se pudo establecer la sesión' };
       }
       
-      return { error: 'No se pudo obtener el token de Google' };
-    } catch (error: any) {
-      if (SC && error.code === SC.SIGN_IN_CANCELLED) {
+      if (result.type === 'cancel' || result.type === 'dismiss') {
         return { error: 'Inicio de sesión cancelado' };
-      } else if (SC && error.code === SC.IN_PROGRESS) {
-        return { error: 'Inicio de sesión en progreso' };
-      } else if (SC && error.code === SC.PLAY_SERVICES_NOT_AVAILABLE) {
-        return { error: 'Google Play Services no disponible' };
       }
+
+      return { error: 'Error al iniciar sesión con Google' };
+    } catch (error: any) {
       return { error: error.message || 'Error al iniciar sesión con Google' };
-    } finally {
-      if (GS) {
-        GS.signOut();
-      }
     }
   }
 
   async function signOut() {
-    if (!supabase) {
-      return;
-    }
+    if (!supabase) return;
+
     try {
-      await supabase.auth.signOut();
-      await AsyncStorage.removeItem('user_session');
+      // 🔥 Forzar estado a null INMEDIATAMENTE.
+      // La navegación a /auth/login la gestiona RootNavigator (app/_layout.tsx)
+      // mediante useSegments + useEffect — reacciona al cambio de user sin
+      // depender de navigators condicionales.
+      setUser(null);
+      setSession(null);
+
+      console.log('🚪 Cerrando sesión...');
+
+      // 🔄 Sincronizar datos locales a la nube ANTES de limpiar la BD local.
+      // El autoSync corre cada 60s — si el usuario cierra sesión antes,
+      // los datos creados recientemente solo existen en local y se perderían.
+      // Hacemos un sync final para subirlos a la nube.
+      if (user) {
+        try {
+          const { syncService } = await import('../services/syncService');
+          const result = await syncService.syncAll(user.id);
+          console.log(`📤 Sync final antes de signOut: ${result.synced} subidos, ${result.errors} errores`);
+        } catch (e) {
+          console.warn('⚠️ Error en sync final antes de signOut:', e);
+        }
+      }
+
+      // Limpiar BD local (NO borramos datos de la nube — el usuario
+      // quiere que sus datos persistan entre sesiones)
+      try {
+        const { clearAllData } = await import('../app/db/database');
+        clearAllData();
+      } catch (e) {
+        console.error('Error limpiando BD local:', e);
+      }
+
+      // Cerrar sesión en Supabase y limpiar solo datos de auth
+      // NO usar AsyncStorage.clear() — borraría el contador mensual de facturas,
+      // rewarded ads diarios, preferencias de idioma/moneda, etc.
+      await Promise.all([
+        supabase.auth.signOut().catch(e =>
+          console.error('Error en signOut de Supabase:', e)
+        ),
+        AsyncStorage.multiRemove(['is_premium']).catch(e =>
+          console.error('Error limpiando AsyncStorage:', e)
+        ),
+      ]);
+
+      console.log('✅ Sesión cerrada correctamente');
     } catch (error) {
       console.error('Sign out error:', error);
+      setUser(null);
+      setSession(null);
     }
   }
 
@@ -165,7 +217,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'invoicerapid://auth/reset-password',
+        redirectTo: 'invoicerapid://auth/callback',
       });
 
       if (error) throw error;

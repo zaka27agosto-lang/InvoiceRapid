@@ -1,9 +1,11 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
+import { notifyPremiumChange } from '../utils/premiumEvents';
+import { resetMonthlyCounter } from '../utils/subscription';
 
-const REVENUECAT_API_KEY = 'test_VplVYrwjABypzKZDDfuMFBMvvIQ';
-const ENTITLEMENT_ID = 'entl0d048aa68b';
+const REVENUECAT_API_KEY = 'goog_LDnwkOlgqirTVPkaDRbvvGQWEHz';
+const ENTITLEMENT_ID = 'RapidInvoice Pro';
 
 interface SubscriptionContextType {
   isPremium: boolean;
@@ -48,7 +50,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       Purchases.configure({ apiKey: REVENUECAT_API_KEY });
       await checkPremiumStatus();
       const off = await Purchases.getOfferings();
-      if (off.current) setOfferings(off.current);
+      if (off.all && off.all['default']) setOfferings(off.all['default']);
     } catch (e) {
       console.log('RevenueCat error:', e);
       const cached = await AsyncStorage.getItem('is_premium');
@@ -71,10 +73,47 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   }
 
   async function comprar(packageToBuy: any) {
-    // En modo desarrollo, activar premium directamente igual que activarPremiumTest
-    await AsyncStorage.setItem('is_premium', 'true');
-    setIsPremium(true);
-    return { success: true };
+    try {
+      console.log('🎯 Comprando paquete:', packageToBuy);
+      console.log('📦 Paquete identifier:', packageToBuy?.identifier);
+      console.log('📦 Paquete product:', packageToBuy?.product);
+      
+      if (!packageToBuy || !packageToBuy.identifier) {
+        console.error('❌ Paquete inválido o sin identifier');
+        return { success: false, error: 'Paquete inválido' };
+      }
+      
+      const { customerInfo } = await Purchases.purchasePackage(packageToBuy);
+      const premium = customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
+      setIsPremium(premium);
+      await AsyncStorage.setItem('is_premium', premium ? 'true' : 'false');
+      return { success: true };
+    } catch (e: any) {
+      console.error('❌ Error en compra:', e);
+      console.error('❌ Error details:', {
+        message: e.message,
+        code: e.code,
+        userCancelled: e.userCancelled,
+        underlyingError: e.underlyingError
+      });
+      
+      if (e.userCancelled) {
+        return { success: false, cancelled: true };
+      }
+      
+      let errorMessage = e.message || 'Error al procesar la compra';
+      
+      // Mensajes específicos para errores comunes
+      if (e.message?.includes('No such product') || e.message?.includes('Product not found')) {
+        errorMessage = 'No se ha podido encontrar el elemento que intentabas comprar';
+      } else if (e.message?.includes('Purchase unavailable')) {
+        errorMessage = 'Compra no disponible en este momento';
+      } else if (e.message?.includes('Payment cancelled')) {
+        errorMessage = 'Pago cancelado';
+      }
+      
+      return { success: false, error: errorMessage };
+    }
   }
 
   async function restaurar() {
@@ -92,22 +131,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
   async function activarPremiumTest() {
     setIsPremium(true);
     await AsyncStorage.setItem('is_premium', 'true');
+    notifyPremiumChange(true);
   }
 
   async function desactivarPremiumTest() {
     setIsPremium(false);
     await AsyncStorage.setItem('is_premium', 'false');
+    notifyPremiumChange(false);
   }
 
   async function aumentarLimiteFacturas() {
-    // Aumentar el límite de facturas en 1 para pruebas
-    try {
-      const currentLimit = await AsyncStorage.getItem('limite_facturas');
-      const newLimit = currentLimit ? parseInt(currentLimit) + 1 : 16;
-      await AsyncStorage.setItem('limite_facturas', newLimit.toString());
-    } catch (e) {
-      console.log('Error aumentando límite:', e);
-    }
+    // Resetear el contador mensual para pruebas
+    await resetMonthlyCounter();
   }
 
   async function onPremiumExpired() {

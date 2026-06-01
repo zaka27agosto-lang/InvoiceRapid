@@ -1,12 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
-import { useCallback, useState } from "react";
+import { useFocusEffect, useRouter } from "expo-router";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { adsService } from "../../services/adsService";
+import { syncService } from "../../services/syncService";
+import SwipeNavigation from "../../components/SwipeNavigation";
 import { convertirDeEurosParaMostrar } from "../../utils/currency";
 import { getMoneda } from "../../utils/settings";
 import { deleteProducto, getProductos, insertProducto, updateProducto } from "../db/productos";
+import { useSync } from "../../hooks/useSync";
 
 type Producto = {
   id: number;
@@ -18,6 +23,9 @@ type Producto = {
 export default function Productos() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
+  const { isPremium } = useSubscription();
+  const { lastSync } = useSync();
+  const router = useRouter();
   const [productos, setProductos] = useState<Producto[]>([]);
   const [busqueda, setBusqueda] = useState("");
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
@@ -29,6 +37,22 @@ export default function Productos() {
   });
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [productosConvertidos, setProductosConvertidos] = useState<Producto[]>([]);
+
+  const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(tabs)/productos', '/(tabs)/informes', '/(tabs)/ajustes'];
+
+  const navigateToNextTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/productos');
+    if (currentIndex < tabOrder.length - 1) {
+      router.push(tabOrder[currentIndex + 1] as any);
+    }
+  };
+
+  const navigateToPreviousTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/productos');
+    if (currentIndex > 0) {
+      router.push(tabOrder[currentIndex - 1] as any);
+    }
+  };
 
   const cargarProductos = useCallback(async () => {
     const productosData = getProductos();
@@ -54,6 +78,17 @@ export default function Productos() {
       cargarProductos();
     }, [cargarProductos])
   );
+
+  // Re-cargar datos cuando la sincronización completa (lastSync cambia)
+  const lastSyncRef = useRef(lastSync);
+  useEffect(() => {
+    if (lastSync && lastSync !== lastSyncRef.current) {
+      lastSyncRef.current = lastSync;
+      cargarProductos();
+    } else {
+      lastSyncRef.current = lastSync;
+    }
+  }, [lastSync]);
 
   const productosFiltrados = (productosConvertidos.length > 0 ? productosConvertidos : productos).filter(
     (producto) =>
@@ -97,7 +132,7 @@ export default function Productos() {
     setMostrarFormulario(true);
   }
 
-  function guardarProducto() {
+  async function guardarProducto() {
     if (!formulario.descripcion.trim()) {
       Alert.alert(t("error"), t("descripcion") + " " + t("es obligatorio"));
       return;
@@ -117,11 +152,12 @@ export default function Productos() {
     try {
       if (editando) {
         updateProducto(editando.id, productoData);
-        Alert.alert(t("exito"), t("producto_actualizado"));
       } else {
         insertProducto(productoData);
-        Alert.alert(t("exito"), t("producto_creado"));
       }
+
+      // Mostrar anuncio intersticial cada 3 acciones
+      await adsService.incrementAction(isPremium);
 
       void cargarProductos();
       setMostrarFormulario(false);
@@ -137,11 +173,12 @@ export default function Productos() {
       {
         text: t("eliminar"),
         style: "destructive",
-        onPress: () => {
+        onPress: async () => {
           try {
             deleteProducto(producto.id);
+            // Eliminar también de la nube para que no reaparezca
+            syncService.deleteProductFromCloud(producto.id).catch((e) => console.error('Error eliminando producto de la nube:', e));
             void cargarProductos();
-            Alert.alert(t("exito"), t("producto_eliminado"));
           } catch (error) {
             Alert.alert(t("error"), t("no_se_pudo_eliminar_el_producto"));
           }
@@ -201,6 +238,7 @@ export default function Productos() {
   }
 
   return (
+    <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
     <View style={styles.wrapper}>
       <View style={styles.container}>
         <Text style={styles.titulo}>{t("productos_titulo")}</Text>
@@ -217,10 +255,12 @@ export default function Productos() {
         </View>
 
         {productosFiltrados.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="cube-outline" size={60} color="#ddd" />
-            <Text style={styles.emptyTexto}>{busqueda ? t("no_encontrados_productos") : t("no_productos")}</Text>
-            <Text style={styles.emptySub}>{busqueda ? t("otra_busqueda") : t("anadir_primer_producto")}</Text>
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <View style={[styles.emptyState, { flex: undefined }]}>
+              <Ionicons name="cube-outline" size={60} color="#ddd" />
+              <Text style={styles.emptyTexto}>{busqueda ? t("no_encontrados_productos") : t("no_productos")}</Text>
+              <Text style={styles.emptySub}>{busqueda ? t("otra_busqueda") : t("anadir_primer_producto")}</Text>
+            </View>
           </View>
         ) : (
           <FlatList
@@ -250,6 +290,8 @@ export default function Productos() {
               </View>
             )}
             showsVerticalScrollIndicator={false}
+            ListHeaderComponent={() => <View style={{ paddingVertical: 8 }} />}
+            ListFooterComponent={() => <View style={{ paddingVertical: 16 }} />}
           />
         )}
       </View>
@@ -262,6 +304,7 @@ export default function Productos() {
         <Text style={styles.fabTexto}>{t("nuevo_producto")}</Text>
       </TouchableOpacity>
     </View>
+    </SwipeNavigation>
   );
 }
 

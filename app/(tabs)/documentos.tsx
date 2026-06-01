@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
     Alert,
@@ -18,10 +18,13 @@ import {
 } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import SwipeNavigation from "../../components/SwipeNavigation";
 import { convertirDeEurosParaMostrar } from "../../utils/currency";
-import { generarYCompartirPDF } from "../../utils/pdf";
+import { generarYCompartirPDF, generarPDFPreview } from "../../utils/pdf";
 import { FormatoFecha, getFormatoFecha, getMoneda, getPlantillaPDF } from "../../utils/settings";
-import { deleteFactura, getFacturaItems, getFacturas, updateEstadoFactura } from "../db/facturas";
+import { deleteFactura, getFacturaItems, getFacturas, getNextNumeroFactura, insertFactura, insertFacturaItem, updateEstadoFactura } from "../db/facturas";
+import { syncService } from "../../services/syncService";
+import { useSync } from "../../hooks/useSync";
 
 const ESTADOS = ['todas', 'no_enviada', 'pendiente', 'pagada', 'impagada'];
 
@@ -49,10 +52,13 @@ export default function Documentos() {
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
   const [comprando, setComprando] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
+  const [generandoPreview, setGenerandoPreview] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
   const [mostrarFiltro, setMostrarFiltro] = useState(false);
   const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
   const [mostrarFiltroImporte, setMostrarFiltroImporte] = useState(false);
+  const [modoSeleccion, setModoSeleccion] = useState(false);
+  const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
   const [importeMinimo, setImporteMinimo] = useState('');
   const [importeMaximo, setImporteMaximo] = useState('');
   const [formatoFecha, setFormatoFecha] = useState<FormatoFecha>('DD/MM/YYYY');
@@ -63,6 +69,7 @@ export default function Documentos() {
   const [mesSeleccionado, setMesSeleccionado] = useState(hoy.getMonth() + 1);
   const [añoSeleccionado, setAñoSeleccionado] = useState(hoy.getFullYear());
   const router = useRouter();
+  const { lastSync } = useSync();
   const { isPremium, offerings, comprar, restaurar } = useSubscription();
 
   const formatearFechaSync = (fecha: string | Date) => {
@@ -97,7 +104,7 @@ export default function Documentos() {
     if (result.isPremium) {
       Alert.alert('✅', t('compra_restaurada'));
     } else {
-      Alert.alert('Info', t('no_compras_previas'));
+      Alert.alert(t('info'), t('no_compras_previas'));
     }
   }
 
@@ -127,8 +134,20 @@ export default function Documentos() {
     }
   }, [filtroParam, facturaIdParam, mostrarDetalle]));
 
+  // Re-cargar datos cuando la sincronización completa (lastSync cambia)
+  const lastSyncRef = useRef(lastSync);
+  useEffect(() => {
+    if (lastSync && lastSync !== lastSyncRef.current) {
+      lastSyncRef.current = lastSync;
+      cargarFacturas();
+    } else {
+      lastSyncRef.current = lastSync;
+    }
+  }, [lastSync]);
+
   function cargarFacturas() {
-    setFacturas(getFacturas() as any[]);
+    const facturasData = getFacturas() as any[];
+    setFacturas(facturasData);
   }
 
   async function abrirDetalle(factura: any, codigoMonedaParam?: string) {
@@ -204,17 +223,115 @@ export default function Documentos() {
 
   function handleCambiarEstado(estado: string) {
     if (!facturaDetalle) return;
-    Alert.alert(t('cambiar_estado'), `¿Marcar esta factura como "${estadoLabel(estado)}"?`, [
+    Alert.alert(t('cambiar_estado'), t('confirmar_cambio_estado', { estado: estadoLabel(estado) }), [
       { text: t('cancelar'), style: "cancel" },
       { text: t('confirmar'), onPress: () => { updateEstadoFactura(facturaDetalle.id, estado); setFacturaDetalle({ ...facturaDetalle, estado }); cargarFacturas(); } }
     ]);
   }
 
+  function handleDuplicarFactura() {
+    if (!facturaDetalle) return;
+    
+    const nuevoNumero = getNextNumeroFactura();
+    const itemsOriginales = getFacturaItems(facturaDetalle.id) as any[];
+
+    // Crear factura duplicada
+    const newId = insertFactura({
+      numero: nuevoNumero,
+      cliente_id: facturaDetalle.cliente_id,
+      cliente_nombre: facturaDetalle.cliente_nombre,
+      subtotal: facturaDetalle.subtotal,
+      descuento: facturaDetalle.descuento,
+      iva_porcentaje: facturaDetalle.iva_porcentaje,
+      iva_importe: facturaDetalle.iva_importe,
+      irpf_porcentaje: facturaDetalle.irpf_porcentaje,
+      irpf_importe: facturaDetalle.irpf_importe,
+      total: facturaDetalle.total,
+      notas: facturaDetalle.notas,
+      metodo_pago: facturaDetalle.metodo_pago,
+      fecha_vencimiento: facturaDetalle.fecha_vencimiento,
+    });
+
+    // Duplicar items
+    itemsOriginales.forEach((item: any) => {
+      insertFacturaItem({
+        factura_id: newId as number,
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precio_unitario: item.precio_unitario,
+        descuento: item.descuento,
+        subtotal: item.subtotal,
+      });
+    });
+
+    setMostrarDetalle(false);
+    cargarFacturas();
+    Alert.alert('✅', t('factura_duplicada'));
+  }
+
   function handleEliminar() {
     Alert.alert(t('eliminar_factura'), t('confirmar_eliminar_factura'),[
       { text: t('cancelar'), style: "cancel" },
-      { text: t('eliminar'), style: "destructive", onPress: () => { deleteFactura(facturaDetalle.id); setMostrarDetalle(false); cargarFacturas(); } }
+      { text: t('eliminar'), style: "destructive", onPress: () => { 
+        deleteFactura(facturaDetalle.id); 
+        // Eliminar también de la nube para que no reaparezca
+        syncService.deleteInvoiceFromCloud(facturaDetalle.id).catch((e) => console.error('Error eliminando factura de la nube:', e));
+        setMostrarDetalle(false); 
+        cargarFacturas(); 
+      } }
     ]);
+  }
+
+  function toggleSeleccion(id: number) {
+    setSeleccionados(prev => {
+      const nuevo = new Set(prev);
+      if (nuevo.has(id)) {
+        nuevo.delete(id);
+        // Si ya no hay seleccionados, salir del modo selección
+        if (nuevo.size === 0) {
+          setModoSeleccion(false);
+        }
+      } else {
+        nuevo.add(id);
+      }
+      return nuevo;
+    });
+  }
+
+  function activarModoSeleccion() {
+    setModoSeleccion(true);
+    setSeleccionados(new Set());
+  }
+
+  function desactivarModoSeleccion() {
+    setModoSeleccion(false);
+    setSeleccionados(new Set());
+  }
+
+  function handleEliminarSeleccionadas() {
+    const count = seleccionados.size;
+    if (count === 0) return;
+
+    Alert.alert(
+      t('eliminar_factura'),
+      t('eliminar_varias_confirm', { count }),
+      [
+        { text: t('cancelar'), style: "cancel" },
+        {
+          text: t('eliminar'),
+          style: "destructive",
+          onPress: () => {
+            seleccionados.forEach(id => {
+              deleteFactura(id);
+              syncService.deleteInvoiceFromCloud(id).catch((e) => console.error('Error eliminando factura de la nube:', e));
+            });
+            desactivarModoSeleccion();
+            cargarFacturas();
+          }
+        }
+      ]
+    );
   }
 
   function estadoLabel(estado: string) {
@@ -265,6 +382,33 @@ export default function Documentos() {
     return filtradas;
   })();
 
+  async function handleVistaPrevia() {
+    if (!facturaDetalle || !facturaDetalleConvertida) return;
+    setGenerandoPreview(true);
+    try {
+      const plantilla = await getPlantillaPDF();
+      const itemsConCalculos = itemsDetalleConvertidos.map((item: any) => ({
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precio_unitario: item.precio_unitario,
+        descuento: item.descuento,
+        subtotal: item.subtotal,
+      }));
+      const uri = await generarPDFPreview(facturaDetalleConvertida || facturaDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda);
+      if (uri) {
+        await Share.share({
+          url: uri,
+          title: `Factura ${facturaDetalle.numero}`,
+        });
+      }
+    } catch {
+      Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
+    } finally {
+      setGenerandoPreview(false);
+    }
+  }
+
   const generarDiasCalendario = () => {
     const firstDay = new Date(añoSeleccionado, mesSeleccionado - 1, 1).getDay();
     const daysInMonth = new Date(añoSeleccionado, mesSeleccionado, 0).getDate();
@@ -287,11 +431,38 @@ export default function Documentos() {
     return days;
   };
 
+const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(tabs)/productos', '/(tabs)/informes', '/(tabs)/ajustes'];
+
+  const navigateToNextTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/documentos');
+    if (currentIndex < tabOrder.length - 1) {
+      router.push(tabOrder[currentIndex + 1] as any);
+    }
+  };
+
+  const navigateToPreviousTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/documentos');
+    if (currentIndex > 0) {
+      router.push(tabOrder[currentIndex - 1] as any);
+    }
+  };
+
   return (
+    <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
     <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <View style={styles.container}>
-          <Text style={[styles.titulo, { color: currentTheme.colors.text }]}>{t('documentos')}</Text>
+          <View style={styles.headerRow}>
+            <Text style={[styles.titulo, { color: currentTheme.colors.text }]}>{t('documentos')}</Text>
+            <TouchableOpacity 
+              style={[styles.seleccionarBtn, { borderColor: currentTheme.colors.primary }]} 
+              onPress={modoSeleccion ? desactivarModoSeleccion : activarModoSeleccion}
+            >
+              <Text style={[styles.seleccionarBtnTexto, { color: currentTheme.colors.primary }]}>
+                {modoSeleccion ? t('cancelar') : t('seleccionar')}
+              </Text>
+            </TouchableOpacity>
+          </View>
           <View style={[styles.busquedaContainer, { backgroundColor: currentTheme.colors.card }]}>
             <Ionicons name="search" size={18} color={currentTheme.colors.textSecondary} style={styles.busquedaIcono} />
             <TextInput
@@ -312,9 +483,9 @@ export default function Documentos() {
           </View>
           <View style={[styles.filtroDropdownContainer, { backgroundColor: currentTheme.colors.card }]}>
             <TouchableOpacity style={styles.filtroDropdownBtn} onPress={() => setMostrarFiltro(!mostrarFiltro)}>
-              <Text style={[styles.filtroDropdownLabel, { color: currentTheme.colors.textSecondary }]}>Filtro:</Text>
+              <Text style={[styles.filtroDropdownLabel, { color: currentTheme.colors.textSecondary }]}>{t('filtro_label')}:</Text>
               <Text style={[styles.filtroDropdownValue, { color: currentTheme.colors.text }]}>
-                {filtrosSeleccionados.includes('todas') ? 'Todas' : filtrosSeleccionados.map(e => estadoLabel(e)).join(', ')}
+                {filtrosSeleccionados.includes('todas') ? t('todas') : filtrosSeleccionados.map(e => estadoLabel(e)).join(', ')}
               </Text>
               <Ionicons name="chevron-down" size={20} color={currentTheme.colors.textSecondary} />
             </TouchableOpacity>
@@ -357,7 +528,7 @@ export default function Documentos() {
             <TouchableOpacity style={styles.filtroImporteBtn} onPress={() => setMostrarFiltroImporte(!mostrarFiltroImporte)}>
               <Ionicons name="cash-outline" size={18} color={currentTheme.colors.primary} />
               <Text style={[styles.filtroImporteLabel, { color: currentTheme.colors.text }]}>
-                {importeMinimo || importeMaximo ? `Importe: ${importeMinimo || '0'} - ${importeMaximo || '∞'}` : 'Filtrar por importe'}
+                {importeMinimo || importeMaximo ? t('importe_filtro_rango', { min: importeMinimo || '0', max: importeMaximo || '∞' }) : t('filtrar_por_importe')}
               </Text>
               {(importeMinimo || importeMaximo) && (
                 <TouchableOpacity onPress={() => { setImporteMinimo(''); setImporteMaximo(''); }}>
@@ -395,21 +566,34 @@ export default function Documentos() {
           </View>
 
         {facturasFiltradas.length === 0 ? (
-          <View style={[styles.emptyState, { backgroundColor: currentTheme.colors.card }]}>
-            <Ionicons name="document-text-outline" size={60} color={currentTheme.colors.textSecondary} />
-            <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{t('no_facturas')}</Text>
-            <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>
-              {filtrosSeleccionados.includes('todas') ? t('pulsa_crear') : t('no_facturas')}
-            </Text>
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <View style={[styles.emptyState, { backgroundColor: currentTheme.colors.card, flex: undefined }]}>
+              <Ionicons name="document-text-outline" size={60} color={currentTheme.colors.textSecondary} />
+              <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{t('no_facturas')}</Text>
+              <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>
+                {filtrosSeleccionados.includes('todas') ? t('pulsa_crear') : t('no_facturas')}
+              </Text>
+            </View>
           </View>
         ) : (
           <FlatList
             data={facturasFiltradas}
             keyExtractor={(item) => item.id.toString()}
             showsVerticalScrollIndicator={false}
-            contentContainerStyle={{ paddingBottom: 100 }}
+            contentContainerStyle={{ paddingBottom: 20 }}
             renderItem={({ item }) => (
-              <TouchableOpacity style={[styles.facturaCard, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]} onPress={() => abrirDetalle(item)}>
+              <TouchableOpacity 
+                style={[styles.facturaCard, { backgroundColor: currentTheme.colors.card, borderColor: seleccionados.has(item.id) ? currentTheme.colors.primary : currentTheme.colors.border, borderWidth: seleccionados.has(item.id) ? 2 : 1 }]} 
+                onPress={() => modoSeleccion ? toggleSeleccion(item.id) : abrirDetalle(item)}
+                onLongPress={() => { if (!modoSeleccion) { activarModoSeleccion(); toggleSeleccion(item.id); } }}
+              >
+                {modoSeleccion && (
+                  <View style={[styles.checkboxContainer, { marginRight: 10, justifyContent: 'center' }]}>
+                    <View style={[styles.checkbox, seleccionados.has(item.id) && { backgroundColor: currentTheme.colors.primary, borderColor: currentTheme.colors.primary }]}>
+                      {seleccionados.has(item.id) && <Ionicons name="checkmark" size={16} color="#fff" />}
+                    </View>
+                  </View>
+                )}
                 <View style={[styles.estadoBarra, { backgroundColor: estadoColor(item.estado) }]} />
                 <View style={styles.facturaInfo}>
                   <Text style={[styles.facturaNumero, { color: currentTheme.colors.text }]}>{item.numero}</Text>
@@ -424,15 +608,26 @@ export default function Documentos() {
                 </View>
               </TouchableOpacity>
             )}
+            ListHeaderComponent={() => <View style={{ paddingVertical: 8 }} />}
+            ListFooterComponent={() => <View style={{ paddingVertical: 16 }} />}
           />
         )}
-      </View>
-      </TouchableWithoutFeedback>
+        </View>
+        </TouchableWithoutFeedback>
 
-      <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => router.push("/(tabs)/nueva-factura")}>
-        <Ionicons name="add" size={22} color="#fff" />
-        <Text style={styles.fabTexto}>{t('nueva_factura')}</Text>
-      </TouchableOpacity>
+      {!modoSeleccion && (
+        <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => { router.push("/(tabs)/nueva-factura"); }}>
+          <Ionicons name="add" size={22} color="#fff" />
+          <Text style={styles.fabTexto}>{t('nueva_factura')}</Text>
+        </TouchableOpacity>
+      )}
+
+      {modoSeleccion && seleccionados.size > 0 && (
+        <TouchableOpacity style={[styles.fabEliminar, { backgroundColor: '#FF4757', shadowColor: '#FF4757' }]} onPress={handleEliminarSeleccionadas}>
+          <Ionicons name="trash-outline" size={22} color="#fff" />
+          <Text style={styles.fabTexto}>{t('eliminar_n_facturas', { count: seleccionados.size })}</Text>
+        </TouchableOpacity>
+      )}
 
       <Modal visible={mostrarDetalle} animationType="slide" presentationStyle="pageSheet">
         {facturaDetalle && (
@@ -533,6 +728,10 @@ export default function Documentos() {
                 </TouchableOpacity>
               </View>
               <View style={styles.detalleAcciones}>
+                <TouchableOpacity style={[styles.detalleAccionBtn, { backgroundColor: currentTheme.colors.card }]} onPress={handleVistaPrevia} disabled={generandoPreview}>
+                  <Ionicons name="eye-outline" size={20} color={currentTheme.colors.primary} />
+                  <Text style={[styles.detalleAccionBtnTexto, { color: currentTheme.colors.primary }]}>{generandoPreview ? '...' : t('vista_previa')}</Text>
+                </TouchableOpacity>
                 <TouchableOpacity style={[styles.detalleAccionBtn, { backgroundColor: currentTheme.colors.card }]} onPress={handleExportarPDF} disabled={generandoPDF}>
                   <Ionicons name="document-text-outline" size={20} color={currentTheme.colors.primary} />
                   <Text style={[styles.detalleAccionBtnTexto, { color: currentTheme.colors.primary }]}>{t('exportar_pdf')}</Text>
@@ -540,6 +739,10 @@ export default function Documentos() {
                 <TouchableOpacity style={[styles.detalleAccionBtn, { backgroundColor: currentTheme.colors.card }]} onPress={() => { setMostrarDetalle(false); setTimeout(() => router.push({ pathname: '/(tabs)/nueva-factura', params: { id: facturaDetalle.id.toString() } }), 100); }}>
                   <Ionicons name="create-outline" size={20} color={currentTheme.colors.primary} />
                   <Text style={[styles.detalleAccionBtnTexto, { color: currentTheme.colors.primary }]}>{t('editar')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.detalleAccionBtn, { backgroundColor: currentTheme.colors.card }]} onPress={() => { handleDuplicarFactura(); }}>
+                  <Ionicons name="copy-outline" size={20} color={currentTheme.colors.primary} />
+                  <Text style={[styles.detalleAccionBtnTexto, { color: currentTheme.colors.primary }]}>{t('duplicar')}</Text>
                 </TouchableOpacity>
               </View>
               {!isPremium && (
@@ -687,13 +890,14 @@ export default function Documentos() {
         </View>
       </Modal>
     </View>
+    </SwipeNavigation>
   );
 }
 
 const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: "#F8F7FF" },
   container: { flex: 1, paddingTop: 55, paddingHorizontal: 20 },
-  titulo: { fontSize: 26, fontWeight: "800", color: "#1a1a1a", marginBottom: 16 },
+  titulo: { fontSize: 26, fontWeight: "800", color: "#1a1a1a" },
   paywallWrapper: { flex: 1, backgroundColor: "#F8F7FF", paddingTop: 20 },
   paywallHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "#f0f0f0", backgroundColor: "#fff" },
   paywallTop: { alignItems: "center", justifyContent: "center", paddingVertical: 20 },
@@ -722,18 +926,16 @@ const styles = StyleSheet.create({
   busquedaIcono: { marginRight: 8 },
   busquedaInput: { flex: 1, fontSize: 15, color: "#1a1a1a" },
   fechaBtn: { padding: 6, marginLeft: 8 },
-  fechaSeleccionadaContainer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8, marginBottom: 12 },
-  fechaSeleccionadaTexto: { fontSize: 14, fontWeight: "600", color: "#fff" },
+
   filtroDropdownContainer: { marginBottom: 16, borderRadius: 12, overflow: "hidden" },
   filtroDropdownBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1.5, borderColor: "#e8e8e8" },
   filtroDropdownLabel: { fontSize: 16, fontWeight: "700", color: "#1a1a1a", marginRight: 12 },
   filtroDropdownValue: { flex: 1, fontSize: 15, fontWeight: "600" },
   filtroDropdownMenu: { backgroundColor: "#fff", borderRadius: 12, marginTop: 8, borderWidth: 1.5, borderColor: "#e8e8e8", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   filtroDropdownItem: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: "#f5f5f5" },
-  filtroDropdownItemActivo: { },
-  filtroCheckbox: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: "#e8e8e8", backgroundColor: "#fff", marginRight: 12, alignItems: "center", justifyContent: "center" },
+
   filtroDropdownItemText: { fontSize: 15, fontWeight: "600", color: "#1a1a1a" },
-  filtroDropdownItemTextActivo: { color: "#fff" },
+
   filtroImporteContainer: { marginBottom: 16, borderRadius: 12, overflow: "hidden" },
   filtroImporteBtn: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1.5, borderColor: "#e8e8e8" },
   filtroImporteLabel: { flex: 1, fontSize: 15, fontWeight: "600", marginLeft: 8 },
@@ -786,30 +988,23 @@ const styles = StyleSheet.create({
   detalleTotalValorFinal: { fontSize: 22, fontWeight: "900" },
   detalleMetodoPago: { fontSize: 16, fontWeight: "600", color: "#1a1a1a" },
   detalleNotas: { fontSize: 14, color: "#888", lineHeight: 20 },
-  detalleAcciones: { flexDirection: "row", gap: 12, marginHorizontal: 16, marginTop: 16 },
-  detalleAccionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: 12, gap: 8 },
+  detalleAcciones: { marginHorizontal: 16, marginTop: 16, gap: 10 },
+  detalleAccionBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: 12, gap: 8 },
   detalleAccionBtnTexto: { fontSize: 14, fontWeight: "700" },
   detallePremiumBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginHorizontal: 16, marginTop: 12, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 },
   detallePremiumBannerTextoContainer: { flex: 1 },
   detallePremiumBannerTitulo: { color: "#fff", fontWeight: "700", fontSize: 14 },
   detallePremiumBannerSub: { color: "rgba(255,255,255,0.8)", fontSize: 11 },
-  detallePremiumBannerTexto: { color: "#fff", fontWeight: "600", fontSize: 13 },
+
   detalleEstadoAcciones: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginHorizontal: 16, marginTop: 12 },
   detalleEstadoBtnCompact: { width: "48%", flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 8, gap: 4 },
   detalleEstadoBtnTextoCompact: { fontSize: 12, fontWeight: "600" },
-  detalleEstadoBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 12, borderRadius: 12, gap: 8 },
-  detalleEstadoBtnTexto: { fontSize: 14, fontWeight: "600" },
-  detalleTexto: { fontSize: 14, color: "#555", lineHeight: 22 },
-  estadoBtns: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  estadoBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1.5 },
-  estadoBtnTexto: { fontSize: 12, fontWeight: "700" },
-  accionesBtns: { flexDirection: "row", gap: 12, marginHorizontal: 16, marginTop: 12 },
-  accionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#EEE9FF", borderRadius: 14, paddingVertical: 16 },
-  accionBtnTexto: { fontWeight: "700", fontSize: 14 },
-  exportarBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginHorizontal: 16, marginTop: 12, borderRadius: 16, paddingVertical: 18, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12 },
-  exportarBtnTexto: { color: "#fff", fontWeight: "800", fontSize: 17 },
-  premiumBanner: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, marginHorizontal: 16, marginTop: 12, borderRadius: 12, paddingVertical: 12 },
-  premiumBannerTexto: { color: "#fff", fontWeight: "600", fontSize: 13 },
+
+
+
+
+
+
   datePickerWrapper: { flex: 1, backgroundColor: "#F8F7FF", paddingTop: 20 },
   datePickerHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "#f0f0f0", backgroundColor: "#fff" },
   datePickerTitulo: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
@@ -825,6 +1020,12 @@ const styles = StyleSheet.create({
   datePickerDayActivo: { },
   datePickerDayText: { fontSize: 15, fontWeight: "600", color: "#1a1a1a" },
   datePickerDayTextActivo: { color: "#fff" },
+  headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
+  seleccionarBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },
+  seleccionarBtnTexto: { fontSize: 14, fontWeight: "700" },
+  checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: "#ccc", justifyContent: "center", alignItems: "center" },
+  checkboxContainer: { justifyContent: "center", alignItems: "center", paddingLeft: 8, alignSelf: "center" },
+  fabEliminar: { position: "absolute", bottom: 30, right: 20, borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
 });
 
 

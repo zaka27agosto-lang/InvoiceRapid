@@ -3,27 +3,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useTranslation } from "react-i18next";
-import {
-    Alert,
-    KeyboardAvoidingView,
-    Modal,
-    Platform,
-    ScrollView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View,
-} from "react-native";
+import { useTranslation } from "react-i18next";    import {
+        Alert,
+        KeyboardAvoidingView,
+        Modal,
+        Platform,
+        ScrollView,
+        Share,
+        StyleSheet,
+        Text,
+        TextInput,
+        TouchableOpacity,
+        View
+    } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { adsService } from "../../services/adsService";
 import { convertirAEurosParaGuardar } from "../../utils/currency";
-import { generarYCompartirPDF } from "../../utils/pdf";
-import { getMoneda, getPlantillaPDF } from "../../utils/settings";
-import { checkInvoiceLimitAsync, incrementInvoiceCounter } from "../../utils/subscription";
+import { generarYCompartirPDF, generarPDFPreview } from "../../utils/pdf";
+import { getMoneda, getNumeracionConfig, getPlantillaPDF } from "../../utils/settings";
+import { checkInvoiceLimitAsync, incrementInvoiceCounter, getRemainingRewardedAds, incrementRewardedAdCount } from "../../utils/subscription";
 import { getClientes } from "../db/clientes";
-import { deleteFacturaItems, getFactura, getFacturaItems, getFacturas, getNextNumeroFactura, insertFactura, insertFacturaItem, updateFactura } from "../db/facturas";
+import { deleteFacturaItems, getFactura, getFacturaItems, getNextNumeroFactura, insertFactura, insertFacturaItem, updateFactura } from "../db/facturas";
 import { getProductos } from "../db/productos";
 
 type Item = {
@@ -48,8 +49,10 @@ export default function NuevaFactura() {
   const esModoEdicion = !!facturaId;
 
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
+  const [pendingRewardedSave, setPendingRewardedSave] = useState(false);
   const [comprando, setComprando] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
+  const [generandoPreview, setGenerandoPreview] = useState(false);
   const [planSeleccionado, setPlanSeleccionado] = useState<any>(null);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
   const [mostrarClientes, setMostrarClientes] = useState(false);
@@ -68,50 +71,53 @@ export default function NuevaFactura() {
   const [fechaVencimiento, setFechaVencimiento] = useState("");
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
-  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 15 });
-  const [totalFacturas, setTotalFacturas] = useState(0);
+  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 10 });
   const [numeroFactura, setNumeroFactura] = useState("");
-  const [navegandoFuera, setNavegandoFuera] = useState(false);
+  const [numeracionConfig, setNumeracionConfigState] = useState<{ prefijo: string; sufijo: string; digitos: number }>({ prefijo: 'F-', sufijo: '', digitos: 4 });
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    setTotalFacturas((getFacturas() as any[]).length);
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
     });
     checkInvoiceLimitAsync().then(setLimiteInfo);
+    getNumeracionConfig().then(setNumeracionConfigState);
     // Cargar IVA guardado
     AsyncStorage.getItem('ultimo_iva').then(iva => {
       if (iva) setIvaPorcentaje(parseFloat(iva));
     });
 
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
-      // No prevenir la navegación si no hay cliente seleccionado o el modal está abierto
-      if (!hayCambiosSinGuardar() || mostrarClientes) {
+      if (mostrarClientes || mostrarProductos || mostrarUnidades || mostrarPaywall) {
+        return;
+      }
+      if (!hayCambiosSinGuardar()) {
         return;
       }
 
-      // Prevenir la navegación por defecto
       e.preventDefault();
 
       Alert.alert(
-        'Tienes cambios sin guardar',
-        'Si sales, perderás los datos no guardados.',
+        '',
+        t('confirmar_salir_factura_cambios'),
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Salir sin guardar', style: 'destructive', onPress: () => navigation.dispatch(e.data.action) }
+          { text: t('cancelar'), style: 'cancel' },
+          { text: t('salir'), onPress: () => navigation.dispatch(e.data.action) }
         ]
       );
     });
 
     return unsubscribe;
-  }, [navigation, clienteSeleccionado, mostrarClientes]);
+  }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas]);
 
   useFocusEffect(
     useCallback(() => {
       // Scroll al inicio sin animación
       scrollRef.current?.scrollTo({ y: 0, animated: false });
+
+      // Recalcular límite siempre al enfocar
+      checkInvoiceLimitAsync().then(setLimiteInfo);
 
       // Recargar moneda
       getMoneda().then(m => {
@@ -119,12 +125,15 @@ export default function NuevaFactura() {
         setCodigoMoneda(m.codigo);
       });
 
+      getNumeracionConfig().then(cfg => {
+      setNumeracionConfigState(cfg);
       if (facturaId) {
         cargarFactura(parseInt(facturaId));
       } else {
-        setNumeroFactura(getNextNumeroFactura());
+        setNumeroFactura(getNextNumeroFactura(cfg));
         reiniciarFormulario();
       }
+    });
     }, [facturaId])
   );
 
@@ -207,7 +216,7 @@ export default function NuevaFactura() {
     setNotas("");
     setMetodoPago("efectivo");
     setFechaVencimiento("");
-    setNumeroFactura(getNextNumeroFactura());
+    setNumeroFactura(getNextNumeroFactura(numeracionConfig));
   }
 
   function cargarFactura(id: number) {
@@ -256,7 +265,7 @@ export default function NuevaFactura() {
       setMostrarPaywall(false);
       Alert.alert('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
     } else if (!result.cancelled) {
-      Alert.alert(t('error'), result.error || 'Error al procesar la compra');
+      Alert.alert(t('error'), result.error || t('error_procesar_compra'));
     }
   }
 
@@ -265,11 +274,11 @@ export default function NuevaFactura() {
     if (result.isPremium) {
       Alert.alert('✅', t('compra_restaurada'));
     } else {
-      Alert.alert('Info', t('no_compras_previas'));
+      Alert.alert(t('info'), t('no_compras_previas'));
     }
   }
 
-  async function handleExportarPDF() {
+  async function handleVistaPrevia() {
     if (!clienteSeleccionado) {
       Alert.alert(t('cliente_requerido'), t('selecciona_cliente'));
       return;
@@ -281,13 +290,13 @@ export default function NuevaFactura() {
       return;
     }
 
-    setGenerandoPDF(true);
+    setGenerandoPreview(true);
     try {
-      const facturaTemporal = {
-        id: esModoEdicion ? parseInt(facturaId!) : 0,
-        numero: numeroFactura || getNextNumeroFactura(),
-        cliente_id: clienteSeleccionado.id,
-        cliente_nombre: clienteSeleccionado.nombre,
+      const facturaPreview = {
+        id: 0,
+        numero: numeroFactura || 'PREVIEW',
+        cliente_id: clienteSeleccionado?.id || 0,
+        cliente_nombre: clienteSeleccionado?.nombre || '',
         subtotal: subtotalBruto,
         descuento: 0,
         iva_porcentaje: ivaPorcentaje,
@@ -312,15 +321,22 @@ export default function NuevaFactura() {
       }));
 
       const plantilla = await getPlantillaPDF();
-      await generarYCompartirPDF(facturaTemporal, itemsConCalculos, isPremium, plantilla, simboloMoneda);
-    } catch (e) {
+      const uri = await generarPDFPreview(facturaPreview, itemsConCalculos, isPremium, plantilla, simboloMoneda);
+      if (uri) {
+        await Share.share({
+          url: uri,
+          title: `Vista previa - ${numeroFactura || 'Factura'}`,
+        });
+      }
+    } catch {
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
-      setGenerandoPDF(false);
+      setGenerandoPreview(false);
     }
   }
 
-  async function guardarFactura() {
+  async function handleExportarPDF() {
+    // Verificar límite mensual (misma lógica que guardarFactura)
     if (!esModoEdicion && !isPremium && !limiteInfo.canCreate) {
       Alert.alert(
         t('limite_alcanzado'),
@@ -332,6 +348,170 @@ export default function NuevaFactura() {
       );
       return;
     }
+
+    if (!clienteSeleccionado) {
+      Alert.alert(t('cliente_requerido'), t('selecciona_cliente'));
+      return;
+    }
+
+    const itemsValidos = items.filter(i => i.descripcion.trim() && parseFloat(i.precio) > 0);
+    if (itemsValidos.length === 0) {
+      Alert.alert(t('sin_articulos'), t('anadir_articulo_valido'));
+      return;
+    }
+
+    setGenerandoPDF(true);
+    try {
+      // 1. Guardar la factura automáticamente (como si se hubiera pulsado guardar)
+      const numero = numeroFactura || getNextNumeroFactura();
+      const subtotalEnEuros = await convertirAEurosParaGuardar(subtotalBruto, codigoMoneda);
+      const ivaEnEuros = await convertirAEurosParaGuardar(ivaImporte, codigoMoneda);
+      const irpfEnEuros = await convertirAEurosParaGuardar(irpfImporte, codigoMoneda);
+      const totalEnEuros = await convertirAEurosParaGuardar(total, codigoMoneda);
+
+      let savedFacturaId = esModoEdicion ? parseInt(facturaId!) : 0;
+      const isRewardedSave = pendingRewardedSave;
+      if (pendingRewardedSave) setPendingRewardedSave(false);
+
+      if (esModoEdicion) {
+        // Editar factura existente
+        updateFactura(parseInt(facturaId!), {
+          numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
+          subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
+          iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
+          total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
+        });
+        deleteFacturaItems(parseInt(facturaId!));
+        for (const item of itemsValidos) {
+          const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
+          const descuentoEnEuros = await convertirAEurosParaGuardar(parseFloat(item.descuento) || 0, codigoMoneda);
+          const subtotalItemEnEuros = await convertirAEurosParaGuardar(calcularSubtotalItem(item), codigoMoneda);
+          insertFacturaItem({
+            factura_id: parseInt(facturaId!), descripcion: item.descripcion,
+            cantidad: parseFloat(item.cantidad) || 1, unidad: item.unidad,
+            precio_unitario: precioEnEuros, descuento: descuentoEnEuros, subtotal: subtotalItemEnEuros,
+          });
+        }
+        savedFacturaId = parseInt(facturaId!);
+      } else {
+        // Crear nueva factura
+        const newId = insertFactura({
+          numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
+          subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
+          iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
+          total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
+        });
+        await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
+        for (const item of itemsValidos) {
+          const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
+          const descuentoEnEuros = await convertirAEurosParaGuardar(parseFloat(item.descuento) || 0, codigoMoneda);
+          const subtotalItemEnEuros = await convertirAEurosParaGuardar(calcularSubtotalItem(item), codigoMoneda);
+          insertFacturaItem({
+            factura_id: newId as number, descripcion: item.descripcion,
+            cantidad: parseFloat(item.cantidad) || 1, unidad: item.unidad,
+            precio_unitario: precioEnEuros, descuento: descuentoEnEuros, subtotal: subtotalItemEnEuros,
+          });
+        }
+        if (!isRewardedSave) incrementInvoiceCounter();
+        savedFacturaId = newId as number;
+      }
+
+      // 2. Generar y compartir el PDF con los datos guardados
+      const facturaGuardada = {
+        id: savedFacturaId,
+        numero,
+        cliente_id: clienteSeleccionado.id,
+        cliente_nombre: clienteSeleccionado.nombre,
+        subtotal: subtotalEnEuros,
+        descuento: 0,
+        iva_porcentaje: ivaPorcentaje,
+        iva_importe: ivaEnEuros,
+        irpf_porcentaje: irpfPorcentaje,
+        irpf_importe: irpfEnEuros,
+        total: totalEnEuros,
+        notas,
+        metodo_pago: metodoPago,
+        fecha_vencimiento: fechaVencimiento,
+        fecha: new Date().toISOString(),
+        estado: 'pendiente',
+      };
+
+      const itemsConCalculos = itemsValidos.map(item => ({
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precio_unitario: item.precio,
+        descuento: item.descuento,
+        subtotal: calcularSubtotalItem(item),
+      }));
+
+      const plantilla = await getPlantillaPDF();
+      await generarYCompartirPDF(facturaGuardada, itemsConCalculos, isPremium, plantilla, simboloMoneda);
+
+      // 3. Mostrar anuncio intersticial
+      await adsService.incrementAction(isPremium);
+
+      // 4. Volver atrás
+      router.back();
+    } catch (e: any) {
+      console.log("Error:", e?.message);
+      Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
+    } finally {
+      setGenerandoPDF(false);
+    }
+  }
+
+  async function guardarFactura() {
+    // ── Límite alcanzado: mostrar opciones ──
+    if (!esModoEdicion && !isPremium && !limiteInfo.canCreate && !pendingRewardedSave) {
+      const remaining = await getRemainingRewardedAds();
+
+      const buttons: any[] = [
+        { text: t('cancelar'), style: 'cancel' },
+      ];
+
+      if (remaining > 0) {
+        buttons.push({
+          text: `${t('ver_anuncio')} (${remaining} ${t('hoy')})`,
+          onPress: async () => {
+            const rewarded = await adsService.showRewardedAd();
+            if (rewarded) {
+              await incrementRewardedAdCount();
+              setPendingRewardedSave(true);
+              Alert.alert(t('recompensa_recibida'), t('puedes_guardar_factura'), [
+                { text: t('guardar'), onPress: () => guardarFactura() }
+              ]);
+            } else {
+              // Mostrar mensaje específico según el tipo de error
+              const errorType = adsService.lastRewardedError;
+              if (errorType === 'no_fill') {
+                Alert.alert(
+                  t('sin_anuncios_disponibles'),
+                  t('sin_anuncios_desc')
+                );
+              } else {
+                Alert.alert(
+                  t('anuncio_no_completado'),
+                  t('intenta_de_nuevo')
+                );
+              }
+            }
+          },
+        });
+      }
+
+      buttons.push({
+        text: t('unlock_premium'),
+        onPress: () => router.push('/(tabs)/ajustes'),
+      });
+
+      Alert.alert(t('limite_alcanzado'), t('limite_desc'), buttons);
+      return;
+    }
+
+    // Si venimos de un rewarded ad, NO incrementamos el contador mensual
+    const isRewardedSave = pendingRewardedSave;
+    if (pendingRewardedSave) setPendingRewardedSave(false);
 
     // Para usuarios gratuitos en modo edición, verificar límite antes de editar
     if (esModoEdicion && !isPremium && !limiteInfo.canCreate) {
@@ -358,7 +538,7 @@ export default function NuevaFactura() {
     }
 
     try {
-      const numero = numeroFactura || getNextNumeroFactura();
+      const numero = numeroFactura || getNextNumeroFactura(numeracionConfig);
 
       // Convertir importes a euros para guardar en la base de datos
       const subtotalEnEuros = await convertirAEurosParaGuardar(subtotalBruto, codigoMoneda);
@@ -403,12 +583,13 @@ export default function NuevaFactura() {
             });
           }
 
-          Alert.alert(`✅ ${t('factura_actualizada')}`, `${numero} ${t('factura_guardada')}`, [
-            { text: "OK", onPress: () => router.back() }
-          ]);
+          // Mostrar anuncio intersticial cada 3 acciones
+          await adsService.incrementAction(isPremium);
+
+          router.back();
         } else {
           // Modo edición gratis: crear nueva factura en lugar de actualizar
-          const nuevoNumero = getNextNumeroFactura();
+          const nuevoNumero = getNextNumeroFactura(numeracionConfig);
           const nuevaFacturaId = insertFactura({
             numero: nuevoNumero,
             cliente_id: clienteSeleccionado.id,
@@ -444,12 +625,13 @@ export default function NuevaFactura() {
             });
           }
 
-          // Incrementar contador acumulativo de facturas
-          incrementInvoiceCounter();
+          // Incrementar contador mensual (solo si NO es un rewarded save)
+          if (!isRewardedSave) incrementInvoiceCounter();
 
-          Alert.alert(t('factura_creada'), `${nuevoNumero} ${t('factura_guardada')}`, [
-            { text: t('ok'), onPress: () => router.back() }
-          ]);
+          // Mostrar anuncio intersticial cada 3 acciones
+          await adsService.incrementAction(isPremium);
+
+          router.back();
         }
       } else {
         // Modo creación: insertar nueva factura
@@ -488,12 +670,13 @@ export default function NuevaFactura() {
           });
         }
 
-        // Incrementar contador acumulativo de facturas
-        incrementInvoiceCounter();
+        // Incrementar contador mensual (solo si NO es un rewarded save)
+        if (!isRewardedSave) incrementInvoiceCounter();
 
-        Alert.alert(t('factura_creada'), `${numero} ${t('factura_guardada')}`, [
-          { text: t('ok'), onPress: () => router.back() }
-        ]);
+        // Mostrar anuncio intersticial cada 3 acciones
+        await adsService.incrementAction(isPremium);
+
+        router.back();
       }
     } catch (e: any) {
       console.log("Error:", e?.message);
@@ -506,40 +689,52 @@ export default function NuevaFactura() {
   );
 
   function hayCambiosSinGuardar() {
-    // Solo verificar si hay cliente seleccionado
-    return !!clienteSeleccionado;
+    if (notas.trim().length > 0) return true;
+    if (clienteSeleccionado) return true;
+    if (items.some(i => i.descripcion.trim().length > 0 || (parseFloat(i.precio) || 0) > 0)) return true;
+    return false;
   }
 
   function handleSalir() {
-    if (hayCambiosSinGuardar()) {
-      Alert.alert(
-        'Tienes cambios sin guardar',
-        'Si sales, perderás los datos no guardados.',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Salir sin guardar', style: 'destructive', onPress: () => router.back() }
-        ]
-      );
-    } else {
-      router.back();
+    if (!hayCambiosSinGuardar()) {
+      Alert.alert(t('salir_factura_titulo'), t('seguro_salir_factura'), [
+        { text: t('cancelar'), style: 'cancel' },
+        { text: t('salir'), onPress: () => router.back() }
+      ]);
+      return;
     }
+    Alert.alert('', t('confirmar_salir_factura_cambios'), [
+      { text: t('cancelar'), style: 'cancel' },
+      { text: t('salir'), onPress: () => router.back() }
+    ]);
   }
 
   return (
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
+          <View style={[styles.screenHeaderRow, { borderBottomColor: currentTheme.colors.border ?? '#f0f0f0' }]}>
+            <TouchableOpacity
+              style={[styles.headerIconBtn, { backgroundColor: currentTheme.colors.card }]}
+              onPress={handleSalir}
+              accessibilityRole="button"
+              accessibilityLabel={t('cerrar')}
+            >
+              <Ionicons name="close" size={24} color={currentTheme.colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.screenHeaderTitle, { color: currentTheme.colors.text }]} numberOfLines={1}>
+              {esModoEdicion ? t('editar_factura') : t('nueva_factura')}
+            </Text>
+            <TouchableOpacity
+              style={[styles.headerSavePill, { backgroundColor: currentTheme.colors.primary }]}
+              onPress={guardarFactura}
+              accessibilityRole="button"
+              accessibilityLabel={t('guardar')}
+            >
+              <Text style={styles.headerSavePillText}>{t('guardar')}</Text>
+            </TouchableOpacity>
+          </View>
 
-        <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={handleSalir}>
-            <Ionicons name="arrow-back" size={22} color={currentTheme.colors.primary} />
-          </TouchableOpacity>
-          <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>{esModoEdicion ? t('editar') : t('nueva_factura')}</Text>
-          <TouchableOpacity style={[styles.saveBtn, { backgroundColor: currentTheme.colors.primary }]} onPress={guardarFactura}>
-            <Text style={styles.saveBtnTexto}>{t('guardar')}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
+          <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
 
           {/* Número de factura */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
@@ -776,31 +971,50 @@ export default function NuevaFactura() {
             />
           </View>
 
-          <TouchableOpacity style={styles.botonGuardar} onPress={guardarFactura}>
-            <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+          <TouchableOpacity style={[styles.botonGuardar, { backgroundColor: currentTheme.colors.primary }]} onPress={guardarFactura}>
+            <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
             <Text style={styles.botonGuardarTexto}>{t('guardar_factura')}</Text>
           </TouchableOpacity>
 
-          <View style={styles.accionesRow}>
-            <TouchableOpacity style={[styles.accionBtn, { backgroundColor: currentTheme.colors.card }]} onPress={handleExportarPDF} disabled={generandoPDF}>
-              <Ionicons name="document-text-outline" size={20} color={currentTheme.colors.primary} />
-              <Text style={[styles.accionBtnTexto, { color: currentTheme.colors.primary }]}>{t('exportar_pdf')}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.botonGuardar,
+              styles.botonExportarPdf,
+              { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.primary }
+            ]}
+            onPress={handleVistaPrevia}
+            disabled={generandoPreview}
+          >
+            <Ionicons name="eye-outline" size={22} color={currentTheme.colors.primary} />
+            <Text style={[styles.botonGuardarTexto, { color: currentTheme.colors.primary }]}>{generandoPreview ? '...' : t('numeracion_vista_previa')}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.botonGuardar,
+              styles.botonExportarPdf,
+              { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.primary }
+            ]}
+            onPress={handleExportarPDF}
+            disabled={generandoPDF}
+          >
+            <Ionicons name="document-text-outline" size={22} color={currentTheme.colors.primary} />
+            <Text style={[styles.botonGuardarTexto, { color: currentTheme.colors.primary }]}>{t('exportar_pdf')}</Text>
+          </TouchableOpacity>
 
           {!isPremium && (
             <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: currentTheme.colors.primary }]} onPress={() => setMostrarPaywall(true)}>
               <Ionicons name="diamond-outline" size={20} color="#fff" />
               <View style={styles.premiumBannerTextoContainer}>
-                <Text style={styles.premiumBannerTitulo}>Desbloquear PDF PRO</Text>
-                <Text style={styles.premiumBannerSub}>Ilimitadas y sin marcas de agua</Text>
+                <Text style={styles.premiumBannerTitulo}>{t('desbloquear_pdf_pro')}</Text>
+                <Text style={styles.premiumBannerSub}>{t('ilimitadas_sin_marca')}</Text>
               </View>
               <Ionicons name="chevron-forward" size={20} color="#fff" />
             </TouchableOpacity>
           )}
 
           <View style={{ height: 60 }} />
-        </ScrollView>
+          </ScrollView>
 
         {/* Modal clientes */}
         <Modal visible={mostrarClientes} animationType="slide" presentationStyle="pageSheet">
@@ -997,12 +1211,39 @@ export default function NuevaFactura() {
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, backgroundColor: "#F8F7FF", paddingTop: 55 },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, marginBottom: 16 },
-  backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },
-  headerTitle: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
-  saveBtn: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
-  saveBtnTexto: { color: "#fff", fontWeight: "700", fontSize: 14 },
+  wrapper: { flex: 1, backgroundColor: "#F8F7FF", paddingTop: 0 },
+  screenHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 12,
+    paddingTop: 52,
+    paddingBottom: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+  },
+  headerIconBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  screenHeaderTitle: {
+    flex: 1,
+    marginHorizontal: 8,
+    textAlign: "center",
+    fontSize: 17,
+    fontWeight: "800",
+  },
+  headerSavePill: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
+    minWidth: 84,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  headerSavePillText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   scroll: { flex: 1 },
   seccion: { backgroundColor: "#fff", borderRadius: 16, marginHorizontal: 16, marginBottom: 16, padding: 18 },
   seccionPrimera: { borderTopLeftRadius: 0, borderTopRightRadius: 0, marginTop: 0 },
@@ -1055,11 +1296,9 @@ const styles = StyleSheet.create({
   pagoBtnActivo: { borderColor: "#6C47FF", backgroundColor: "#EEE9FF" },
   pagoBtnTexto: { fontSize: 13, color: "#aaa", fontWeight: "600" },
   pagoBtnTextoActivo: { color: "#6C47FF" },
-  botonGuardar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, backgroundColor: "#6C47FF", marginHorizontal: 16, borderRadius: 16, paddingVertical: 18, shadowColor: "#6C47FF", shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12 },
+  botonGuardar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginHorizontal: 16, borderRadius: 16, paddingVertical: 18 },
+  botonExportarPdf: { marginTop: 12, borderWidth: 1.5 },
   botonGuardarTexto: { color: "#fff", fontWeight: "800", fontSize: 17 },
-  accionesRow: { flexDirection: "row", gap: 12, marginHorizontal: 16, marginTop: 12 },
-  accionBtn: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", paddingVertical: 14, borderRadius: 12, gap: 8 },
-  accionBtnTexto: { fontSize: 14, fontWeight: "700" },
   premiumBanner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginHorizontal: 16, marginTop: 12, borderRadius: 12, paddingHorizontal: 16, paddingVertical: 14 },
   premiumBannerTextoContainer: { flex: 1 },
   premiumBannerTitulo: { color: "#fff", fontWeight: "700", fontSize: 14 },

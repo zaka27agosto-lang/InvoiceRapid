@@ -5,18 +5,45 @@ import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
-import { isGoogleSigninAvailable } from '../../utils/googleSignIn';
+import { supabase } from '../../services/supabase';
+import { adsService } from '../../services/adsService';
 
 export default function Login() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { currentTheme } = useTheme();
-  const { signInWithEmail, signInWithGoogle } = useAuth();
+  const { currentTheme } = useTheme();    const { signInWithEmail, signInWithGoogle, signOut, resetPassword } = useAuth();
   
   const [email, setEmail] = useState('');
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const googleAvailable = isGoogleSigninAvailable();
+
+  async function verificarEstadoAntesDeLogin(userEmail: string): Promise<'ok' | 'pending_deletion' | 'permanently_deleted' | 'error'> {
+    try {
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/check-account-status`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: userEmail }),
+        }
+      );
+
+      if (!response.ok) {
+        return 'error'; // Si falla, permitir acceso
+      }
+
+      const data = await response.json();
+      return data.status === 'pending_deletion' ? 'pending_deletion'
+        : (data.status === 'permanently_deleted' || data.status === 'grace_period_expired')
+          ? 'permanently_deleted'
+          : 'ok';
+    } catch {
+      return 'error'; // Error de red, permitir acceso
+    }
+  }
 
   async function handleLogin() {
     if (!email || !password) {
@@ -25,24 +52,197 @@ export default function Login() {
     }
 
     setLoading(true);
+
+    // 1. Verificar estado de la cuenta ANTES de iniciar sesión
+    // (check-account-status es un endpoint público, no requiere auth)
+    const status = await verificarEstadoAntesDeLogin(email);
+
+    if (status === 'permanently_deleted') {
+      setLoading(false);
+      Alert.alert(
+        t('cuenta_eliminada_permanentemente'),
+        t('cuenta_eliminada_permanente_desc'),
+        [{ text: t('volver') }]
+      );
+      return;
+    }
+
+    if (status === 'pending_deletion') {
+      setLoading(false);
+      // Mostrar alerta en la pantalla de login, SIN navegar a tabs
+      Alert.alert(
+        t('cuenta_pendiente_eliminacion'),
+        t('restaurar_cuenta_pregunta'),
+        [
+          {
+            text: t('salir_sin_restaurar'),
+            style: 'cancel',
+          },
+          {
+            text: t('restaurar_cuenta'),
+            onPress: async () => {
+              // Iniciar sesión y restaurar
+              setLoading(true);
+              const loginResult = await signInWithEmail(email, password);
+              if (loginResult.success) {
+                await restaurarCuenta();
+              } else {
+                setLoading(false);
+                Alert.alert(t('error'), loginResult.error || t('error_login'));
+              }
+            }
+          },
+        ]
+      );
+      return;
+    }
+
+    // 2. Estado 'ok' o 'error' — proceder con el login normalmente
     const result = await signInWithEmail(email, password);
     setLoading(false);
 
-    if (result.success) {
-      router.replace('/(tabs)');
-    } else {
+    if (!result.success) {
       Alert.alert(t('error'), result.error || t('error_login'));
+      return;
     }
+
+    // 3. Navegar a tabs
+    router.replace('/(tabs)');
+  }
+
+  async function restaurarCuenta() {
+    try {
+      if (!supabase) { setLoading(false); return; }
+
+      const sessionResult = await supabase.auth.getSession();
+      const accessToken = sessionResult.data.session?.access_token;
+      if (!accessToken) { setLoading(false); return; }
+
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/restore-account`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${accessToken}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (response.ok) {
+        Alert.alert(t('cuenta_restaurada'), t('cuenta_restaurada_desc'));
+        router.replace('/(tabs)');
+        // Forzar recarga de anuncios después de restaurar
+        try {
+          adsService.loadInterstitial();
+          adsService.loadRewardedAd();
+        } catch {}
+      } else {
+        setLoading(false);
+        Alert.alert(t('error'), t('error_eliminar_cuenta'));
+      }
+    } catch {
+      setLoading(false);
+      Alert.alert(t('error'), t('error_eliminar_cuenta'));
+    }
+  }
+
+  async function handleForgotPassword() {
+    Alert.alert(
+      t('olvidaste_contraseña'),
+      '',
+      [
+        { text: t('cancelar'), style: 'cancel' },
+        {
+          text: t('enviar_email'),
+          onPress: async () => {
+            if (!resetEmail.trim()) {
+              // Usar el email del campo de login si está vacío
+              if (!email.trim()) {
+                Alert.alert(t('error'), t('email_requerido'));
+                return;
+              }
+              setResetEmail(email);
+            }
+            const targetEmail = resetEmail.trim() || email.trim();
+            if (!targetEmail) {
+              Alert.alert(t('error'), t('email_requerido'));
+              return;
+            }
+
+            const result = await resetPassword(targetEmail);
+            if (result.success) {
+              Alert.alert(t('email_enviado'), t('instrucciones_reset'));
+            } else {
+              Alert.alert(t('error'), result.error || t('error_reset'));
+            }
+          }
+        }
+      ]
+    );
   }
 
   async function handleGoogleLogin() {
     setLoading(true);
+
+    // Con Google login, primero obtenemos el email (si es posible)
+    // pero como no podemos verificar antes, hacemos el login y verificamos después
     const result = await signInWithGoogle();
-    setLoading(false);
 
     if (result.success) {
+      // Verificar estado de cuenta después de login con Google
+      try {
+        if (supabase) {
+          const userResult = await supabase.auth.getUser();
+          const userEmail = userResult.data.user?.email;
+          if (userEmail) {
+            const status = await verificarEstadoAntesDeLogin(userEmail);
+            
+            if (status === 'permanently_deleted') {
+              await signOut();
+              setLoading(false);
+              Alert.alert(
+                t('cuenta_eliminada_permanentemente'),
+                t('cuenta_eliminada_permanente_desc'),
+                [{ text: t('volver') }]
+              );
+              return;
+            }
+
+            if (status === 'pending_deletion') {
+              await signOut(); // Cerrar sesión temporalmente
+              setLoading(false);
+              Alert.alert(
+                t('cuenta_pendiente_eliminacion'),
+                t('restaurar_cuenta_pregunta'),
+                [
+                  {
+                    text: t('salir_sin_restaurar'),
+                    style: 'cancel',
+                  },
+                  {
+                    text: t('restaurar_cuenta'),
+                    onPress: async () => {
+                      setLoading(true);
+                      const loginResult = await signInWithGoogle();
+                      setLoading(false);
+                      if (loginResult.success) {
+                        await restaurarCuenta();
+                      }
+                    }
+                  }
+                ]
+              );
+              return;
+            }
+          }
+        }
+      } catch {}
+      setLoading(false);
       router.replace('/(tabs)');
     } else {
+      setLoading(false);
       Alert.alert(t('error'), result.error || t('error_google_login'));
     }
   }
@@ -88,14 +288,10 @@ export default function Login() {
                 secureTextEntry
               />
             </View>
+            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
+              <Text style={[styles.forgotPasswordText, { color: currentTheme.colors.primary }]}>{t('olvidaste_contraseña')}</Text>
+            </TouchableOpacity>
           </View>
-
-          <TouchableOpacity 
-            style={styles.forgotPassword}
-            onPress={() => router.push('/auth/forgot-password')}
-          >
-            <Text style={[styles.forgotPasswordText, { color: currentTheme.colors.primary }]}>{t('olvidaste_contraseña')}</Text>
-          </TouchableOpacity>
 
           <TouchableOpacity 
             style={[styles.button, { backgroundColor: currentTheme.colors.primary }]}
@@ -105,7 +301,7 @@ export default function Login() {
             <Text style={styles.buttonText}>{loading ? t('cargando') : t('iniciar_sesion')}</Text>
           </TouchableOpacity>
 
-          {googleAvailable && (
+          {true && (
             <>
               <View style={styles.divider}>
                 <View style={[styles.dividerLine, { backgroundColor: currentTheme.colors.border }]} />
@@ -124,12 +320,13 @@ export default function Login() {
             </>
           )}
 
-          <View style={styles.register}>
-            <Text style={[styles.registerText, { color: currentTheme.colors.textSecondary }]}>{t('no_cuenta')}</Text>
-            <TouchableOpacity onPress={() => router.push('/auth/register')}>
-              <Text style={[styles.registerLink, { color: currentTheme.colors.primary }]}>{t('registrarse')}</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity 
+            style={[styles.registerButton, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.primary }]}
+            onPress={() => router.push('/auth/register')}
+          >
+            <Ionicons name="person-add-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.registerButtonText, { color: currentTheme.colors.primary }]}>{t('registrarse')}</Text>
+          </TouchableOpacity>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -156,7 +353,14 @@ const styles = StyleSheet.create({
   dividerText: { fontSize: 14, fontWeight: '500' },
   googleButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 12, borderWidth: 1.5, gap: 12 },
   googleButtonText: { fontSize: 16, fontWeight: '600' },
-  register: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', gap: 4, marginTop: 8 },
-  registerText: { fontSize: 14 },
-  registerLink: { fontSize: 14, fontWeight: '600' },
+  registerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    gap: 10,
+  },
+  registerButtonText: { fontSize: 16, fontWeight: '700' },
 });

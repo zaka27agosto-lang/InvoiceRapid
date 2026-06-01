@@ -1,12 +1,16 @@
-import { EventEmitter } from 'events';
+type PremiumListener = (isPremium: boolean) => void;
 
-const premiumEventEmitter = new EventEmitter();
+let listeners: PremiumListener[] = [];
 
 export function notifyPremiumChange(isPremium: boolean) {
-  premiumEventEmitter.emit('premiumChanged', isPremium);
+  listeners.forEach((listener) => {
+    listener(isPremium);
+  });
 }
 
-export function onPremiumChange(callback: (isPremium: boolean) => void) {
-  premiumEventEmitter.on('premiumChanged', callback);
-  return () => premiumEventEmitter.off('premiumChanged', callback);
+export function onPremiumChange(callback: PremiumListener) {
+  listeners.push(callback);
+  return () => {
+    listeners = listeners.filter((l) => l !== callback);
+  };
 }

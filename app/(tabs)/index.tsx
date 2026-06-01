@@ -1,21 +1,25 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FlatList, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import SwipeNavigation from "../../components/SwipeNavigation";
 import { convertirDeEurosParaMostrar } from "../../utils/currency";
 import { FormatoFecha, getFormatoFecha, getMoneda } from "../../utils/settings";
-import { checkInvoiceLimitAsync } from "../../utils/subscription";
+import { checkInvoiceLimitAsync, getRemainingRewardedAds } from "../../utils/subscription";
 import { getFacturas } from "../db/facturas";
+import { useSync } from "../../hooks/useSync";
 
 export default function Inicio() {
+  const { lastSync } = useSync();
   const [facturas, setFacturas] = useState<any[]>([]);
   const [facturasConvertidas, setFacturasConvertidas] = useState<any[]>([]);
-  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 15 });
-  const [esPrimeraVez, setEsPrimeraVez] = useState(true);
+  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 10 });
+  const [remainingRewardedAds, setRemainingRewardedAds] = useState(0);
+  const [esPrimeraVez, setEsPrimeraVez] = useState(false);
   const [formatoFecha, setFormatoFecha] = useState<FormatoFecha>('DD/MM/YYYY');
   const [simboloMoneda, setSimboloMoneda] = useState('€');
   const [codigoMoneda, setCodigoMoneda] = useState('EUR');
@@ -24,6 +28,24 @@ export default function Inicio() {
   const { t } = useTranslation();
   const { isPremium } = useSubscription();
   const { currentTheme } = useTheme();
+  // Definir el orden de las tabs para navegación
+  const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(tabs)/productos', '/(tabs)/informes', '/(tabs)/ajustes'];
+
+  const navigateToNextTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/index');
+    if (currentIndex < tabOrder.length - 1) {
+      const nextTab = tabOrder[currentIndex + 1];
+      router.push(nextTab as any);
+    }
+  };
+
+  const navigateToPreviousTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/index');
+    if (currentIndex > 0) {
+      const prevTab = tabOrder[currentIndex - 1];
+      router.push(prevTab as any);
+    }
+  };
 
   const formatearFechaSync = (fecha: string | Date) => {
     const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
@@ -40,7 +62,7 @@ export default function Inicio() {
     }
   };
 
-  useFocusEffect(useCallback(() => {
+  function cargarDatos() {
     const facturasData = getFacturas() as any[];
     setFacturas(facturasData);
     checkInvoiceLimitAsync().then(setLimiteInfo);
@@ -49,12 +71,14 @@ export default function Inicio() {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
     });
-    getFormatoFecha().then(setFormatoFecha);
     
     // Cargar estado de primera vez
     AsyncStorage.getItem('ha_creado_primera_factura').then((value: string | null) => {
       setEsPrimeraVez(value !== 'true');
     });
+
+    // Cargar rewarded ads restantes hoy
+    getRemainingRewardedAds().then(setRemainingRewardedAds);
 
     // Obtener moneda primero y luego hacer conversiones
     getMoneda().then(m => {
@@ -89,7 +113,22 @@ export default function Inicio() {
         setStatsConvertidos({ porCobrar, impagadas, noEnviadas, pagadas });
       });
     });
+  }
+
+  useFocusEffect(useCallback(() => {
+    cargarDatos();
   }, []));
+
+  // Re-cargar datos cuando la sincronización completa (lastSync cambia)
+  const lastSyncRef = useRef(lastSync);
+  useEffect(() => {
+    if (lastSync && lastSync !== lastSyncRef.current) {
+      lastSyncRef.current = lastSync;
+      cargarDatos();
+    } else {
+      lastSyncRef.current = lastSync;
+    }
+  }, [lastSync]);
 
   const restantes = Math.max(0, limiteInfo.limit - limiteInfo.currentCount);
   const porcentajeUsado = Math.min(limiteInfo.currentCount / limiteInfo.limit, 1);
@@ -115,8 +154,9 @@ export default function Inicio() {
   ];
 
   return (
-    <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+    <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
+      <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
 
         <View style={styles.header}>
           <TouchableOpacity style={[styles.iconBtn, { backgroundColor: currentTheme.colors.primaryLight }]} onPress={() => router.push("/(tabs)/ajustes")}>
@@ -149,17 +189,48 @@ export default function Inicio() {
         {!isPremium && (
           <View style={styles.contadorWrapper}>
             {restantes === 0 ? (
-              <TouchableOpacity style={styles.contadorLimite} onPress={() => router.push("/(tabs)/ajustes")}>
-                <Ionicons name="lock-closed" size={18} color="#fff" />
-                <Text style={styles.contadorLimiteTexto}>{t('limite_alcanzado')} {t('limite_desc')}</Text>
-              </TouchableOpacity>
+              <View style={[styles.contadorCard, { backgroundColor: currentTheme.colors.card }]}>
+                <View style={styles.contadorTop}>
+                  <Text style={[styles.contadorTexto, { color: currentTheme.colors.textSecondary }]}>
+                    <Text style={[styles.contadorNum, { color: '#FF4757' }]}>{limiteInfo.currentCount}</Text> {t('de')} <Text style={[styles.contadorNum, { color: '#FF4757' }]}>{limiteInfo.limit}</Text> {t('usadas_este_mes')}
+                  </Text>
+                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#FF4757' }}>{t('completo')}</Text>
+                </View>
+                <View style={styles.contadorBarra}>
+                  <View style={[styles.contadorBarraRelleno, { width: '100%', backgroundColor: '#FF4757' }]} />
+                </View>
+                <TouchableOpacity style={styles.contadorLimiteBtn} onPress={() => router.push("/(tabs)/ajustes")}>
+                  <Ionicons name="lock-closed" size={16} color="#FF4757" />
+                  <Text style={styles.contadorLimiteBtnTexto}>{t('limite_alcanzado')}</Text>
+                </TouchableOpacity>
+                {remainingRewardedAds > 0 && (
+                  <TouchableOpacity 
+                    style={[styles.rewardedRow, { backgroundColor: currentTheme.colors.primary + '12', borderColor: currentTheme.colors.primary + '30' }]} 
+                    onPress={() => router.push('/(tabs)/nueva-factura')}
+                    activeOpacity={0.7}
+                  >
+                    <View style={[styles.rewardedRowIcon, { backgroundColor: currentTheme.colors.primary + '22' }]}>
+                      <Ionicons name="play-circle" size={26} color={currentTheme.colors.primary} />
+                    </View>
+                    <View style={styles.rewardedRowTextContainer}>
+                      <Text style={[styles.rewardedRowTitle, { color: currentTheme.colors.primary }]}>
+                        {t('ver_anuncio')}
+                      </Text>
+                      <Text style={[styles.rewardedRowSub, { color: currentTheme.colors.primary + '99' }]}>
+                        {remainingRewardedAds} {t('hoy')}
+                      </Text>
+                    </View>
+                    <Ionicons name="chevron-forward" size={18} color={currentTheme.colors.primary + '80'} />
+                  </TouchableOpacity>
+                )}
+              </View>
             ) : (
               <View style={[styles.contadorCard, { backgroundColor: currentTheme.colors.card }]}>
                 <View style={styles.contadorTop}>
                   <Text style={[styles.contadorTexto, { color: currentTheme.colors.textSecondary }]}>
-                    <Text style={[styles.contadorNum, { color: currentTheme.colors.primary }]}>{restantes}</Text> {t('facturas_restantes')}
+                    <Text style={[styles.contadorNum, { color: currentTheme.colors.primary }]}>{limiteInfo.currentCount}</Text> {t('de')} <Text style={[styles.contadorNum, { color: currentTheme.colors.primary }]}>{limiteInfo.limit}</Text> {t('usadas_este_mes')}
                   </Text>
-                  <Text style={[styles.contadorTotal, { color: currentTheme.colors.textSecondary }]}>{limiteInfo.currentCount}/{limiteInfo.limit}</Text>
+                  <Text style={[styles.contadorRestantes, { color: restantes <= 3 ? '#FF4757' : '#888' }]}>{restantes} {t('restantes')}</Text>
                 </View>
                 <View style={styles.contadorBarra}>
                   <View style={[styles.contadorBarraRelleno, {
@@ -264,7 +335,8 @@ export default function Inicio() {
         <Ionicons name="add" size={22} color="#fff" />
         <Text style={styles.fabTexto}>{t('nueva_factura')}</Text>
       </TouchableOpacity>
-    </View>
+      </View>
+    </SwipeNavigation>
   );
 }
 
@@ -276,7 +348,6 @@ const styles = StyleSheet.create({
   logoWrap: { flexDirection: "row", alignItems: "baseline" },
   logoZKR: { fontSize: 20, fontWeight: "800" },
   logoPro: { fontSize: 20, fontWeight: "800", color: "#D4AF37" },
-  logoSub: { fontSize: 16, fontWeight: "500", color: "#1a1a1a" },
   banner: { marginHorizontal: 20, marginBottom: 20, borderRadius: 20, padding: 24, flexDirection: "row", overflow: "hidden" },
   bannerTexto: { flex: 1 },
   bannerTitulo: { fontSize: 22, fontWeight: "800", color: "#fff", marginBottom: 6, lineHeight: 30 },
@@ -289,25 +360,26 @@ const styles = StyleSheet.create({
   contadorTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 10 },
   contadorTexto: { fontSize: 14, color: "#555", fontWeight: "500" },
   contadorNum: { fontSize: 22, fontWeight: "900" },
-  contadorTotal: { fontSize: 13, color: "#aaa", fontWeight: "600" },
   contadorBarra: { height: 6, backgroundColor: "#f0f0f0", borderRadius: 3, overflow: "hidden" },
   contadorBarraRelleno: { height: "100%" as any, borderRadius: 3 },
-  contadorPremiumLink: { fontSize: 13, fontWeight: "700", marginTop: 10, textAlign: "center" },
-  contadorLimite: { backgroundColor: "#FF4757", borderRadius: 16, padding: 16, flexDirection: "row", gap: 10, alignItems: "center" },
-  contadorLimiteTexto: { color: "#fff", fontSize: 13, fontWeight: "600", flex: 1, lineHeight: 18 },
-  contadorCardSimple: { flexDirection: "row", alignItems: "center", gap: 8, borderRadius: 12, paddingVertical: 12, paddingHorizontal: 16 },
-  contadorCardSimpleTexto: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  contadorLimiteBtn: { backgroundColor: "#FFF0F0", borderRadius: 10, padding: 12, flexDirection: "row", gap: 8, alignItems: "center", justifyContent: "center", marginTop: 12 },
+  contadorLimiteBtnTexto: { color: "#FF4757", fontSize: 13, fontWeight: "700" },
+  contadorRestantes: { fontSize: 13, fontWeight: "600" },
+  rewardedRow: { flexDirection: "row", alignItems: "center", gap: 12, marginTop: 12, paddingVertical: 12, paddingHorizontal: 14, borderRadius: 14, borderWidth: 1 },
+  rewardedRowIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: "center", alignItems: "center" },
+  rewardedRowTextContainer: { flex: 1 },
+  rewardedRowTitle: { fontSize: 14, fontWeight: "700" },
+  rewardedRowSub: { fontSize: 12, fontWeight: "500", marginTop: 1 },
   premiumBanner: { borderRadius: 16, padding: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   premiumBannerLeft: { flex: 1 },
   premiumBannerTitulo: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 4 },
   premiumBannerSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)' },
-  premiumBannerBtn: { width: 32, height: 32, borderRadius: 10, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginLeft: 12 },
   seccionHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, marginBottom: 14 },
   seccionTitulo: { fontSize: 17, fontWeight: "700", color: "#1a1a1a" },
   verTodo: { fontSize: 14, fontWeight: "500" },
   grid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, gap: 12, marginBottom: 28 },
   tarjeta: { backgroundColor: "#fff", borderRadius: 16, padding: 16, width: "46%", marginHorizontal: "1%" },
-  tarjetaIcono: { width: 36, height: 36, borderRadius: 10, justifyContent: "center", alignItems: "center", marginBottom: 12 },
+  tarjetaIcono: { width: 40, height: 40, borderRadius: 12, justifyContent: "center", alignItems: "center", marginBottom: 10 },
   tarjetaValor: { fontSize: 20, fontWeight: "800", color: "#1a1a1a", marginBottom: 4 },
   tarjetaLabel: { fontSize: 12, color: "#888", fontWeight: "500" },
   badge: { position: "absolute", top: 12, right: 12, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
@@ -318,14 +390,14 @@ const styles = StyleSheet.create({
   fab: { position: "absolute", bottom: 30, right: 20, borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
   fabTexto: { color: "#fff", fontWeight: "700", fontSize: 15 },
   listaFacturas: { marginHorizontal: 20 },
-  facturaMiniCard: { backgroundColor: "#fff", borderRadius: 12, marginBottom: 4, flexDirection: "row", overflow: "hidden", borderWidth: 1, borderColor: "#f0f0f0" },
-  estadoBarra: { width: 3 },
-  facturaMiniInfo: { flex: 1, padding: 10 },
-  facturaMiniNumero: { fontSize: 13, fontWeight: "700", color: "#1a1a1a" },
-  facturaMiniCliente: { fontSize: 11, color: "#888", marginTop: 2 },
-  facturaMiniFecha: { fontSize: 10, color: "#bbb", marginTop: 4 },
-  facturaMiniRight: { padding: 10, alignItems: "flex-end", justifyContent: "space-between" },
-  facturaMiniTotal: { fontSize: 13, fontWeight: "800", color: "#1a1a1a" },
-  estadoMiniPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginTop: 4 },
-  estadoMiniTexto: { fontSize: 9, fontWeight: "600" },
+  facturaMiniCard: { backgroundColor: "#fff", borderRadius: 14, marginBottom: 10, flexDirection: "row", overflow: "hidden", borderWidth: 1, borderColor: "#f0f0f0", minHeight: 80 },
+  estadoBarra: { width: 5 },
+  facturaMiniInfo: { flex: 1, padding: 16 },
+  facturaMiniNumero: { fontSize: 18, fontWeight: "700", color: "#1a1a1a" },
+  facturaMiniCliente: { fontSize: 15, color: "#888", marginTop: 4 },
+  facturaMiniFecha: { fontSize: 13, color: "#bbb", marginTop: 8 },
+  facturaMiniRight: { padding: 16, alignItems: "flex-end", justifyContent: "space-between" },
+  facturaMiniTotal: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
+  estadoMiniPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, marginTop: 8 },
+  estadoMiniTexto: { fontSize: 12, fontWeight: "600" },
 });

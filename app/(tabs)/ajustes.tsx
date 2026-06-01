@@ -4,19 +4,34 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-    Alert, Modal, ScrollView, StyleSheet,
-    Text, TextInput, TouchableOpacity, View
+  Alert,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from "react-native";
+import { AuthModal } from "../../components/AuthModal";
+import { useAuth } from "../../contexts/AuthContext";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useAuthGuard } from "../../hooks/useAuthGuard";
+import { supabase } from "../../services/supabase";
+import SwipeNavigation from "../../components/SwipeNavigation";
+
+import { advanceMonth, setInvoiceCounterTo9 } from "../../utils/subscription";
 import {
-    DatosEmpresa,
-    FormatoFecha,
-    getDatosEmpresa, getFormatoFecha, getMoneda, getPlantillaPDF,
-    Moneda, MONEDAS,
-    PlantillaPDF,
-    PLANTILLAS_PDF,
-    setDatosEmpresa, setFormatoFecha, setMoneda, setPlantillaPDF
+  DatosEmpresa,
+  DEFAULT_NUMERACION,
+  FormatoFecha,
+  getDatosEmpresa, getFormatoFecha, getMoneda, getNumeracionConfig, getPlantillaPDF,
+  Moneda, MONEDAS,
+  NumeracionConfig,
+  PlantillaPDF,
+  PLANTILLAS_PDF,
+  setDatosEmpresa, setFormatoFecha, setMoneda, setNumeracionConfig, setPlantillaPDF
 } from "../../utils/settings";
 import { PrimaryColor, primaryColors } from "../../utils/themes";
 
@@ -27,12 +42,16 @@ export default function Ajustes() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const scrollViewRef = useRef<ScrollView>(null);
+  const { user, requireAuth, showAuthModal, handleCloseModal, handleLogin, handleRegister, handleGoogleSignIn, executePendingAction } = useAuthGuard();
+  const { signOut } = useAuth();
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
   const [mostrarDatos, setMostrarDatos] = useState(false);
   const [mostrarMoneda, setMostrarMoneda] = useState(false);
   const [mostrarPlantilla, setMostrarPlantilla] = useState(false);
   const [mostrarTemas, setMostrarTemas] = useState(false);
   const [mostrarIdiomas, setMostrarIdiomas] = useState(false);
+  const [mostrarNumeracion, setMostrarNumeracion] = useState(false);
+  const [numeracionConfig, setNumeracionConfigState] = useState<NumeracionConfig>(DEFAULT_NUMERACION);
   const [comprando, setComprando] = useState(false);
   const [notificacionesSuscripcion, setNotificacionesSuscripcion] = useState(true);
   const [monedaActual, setMonedaActual] = useState<Moneda>(MONEDAS[0]);
@@ -41,6 +60,23 @@ export default function Ajustes() {
   const [datos, setDatos] = useState<DatosEmpresa>({
     nombre: '', nif: '', direccion: '', telefono: '', email: '', incluirEnFactura: true
   });
+  const [planSeleccionado, setPlanSeleccionado] = useState<any>(null);
+
+  const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(tabs)/productos', '/(tabs)/informes', '/(tabs)/ajustes'];
+
+  const navigateToNextTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/ajustes');
+    if (currentIndex < tabOrder.length - 1) {
+      router.push(tabOrder[currentIndex + 1] as any);
+    }
+  };
+
+  const navigateToPreviousTab = () => {
+    const currentIndex = tabOrder.indexOf('/(tabs)/ajustes');
+    if (currentIndex > 0) {
+      router.push(tabOrder[currentIndex - 1] as any);
+    }
+  };
 
   useFocusEffect(() => {
     scrollViewRef.current?.scrollTo({ x: 0, y: 0, animated: false });
@@ -51,6 +87,7 @@ export default function Ajustes() {
     getDatosEmpresa().then(setDatos);
     getPlantillaPDF().then(setPlantillaActual);
     getFormatoFecha().then(setFormatoFechaActual);
+    getNumeracionConfig().then(setNumeracionConfigState);
     AsyncStorage.getItem('notificaciones_suscripcion').then(value => {
       setNotificacionesSuscripcion(value !== 'false');
     });
@@ -58,6 +95,10 @@ export default function Ajustes() {
       setMostrarPaywall(true);
     }
   }, [params.paywall]); 
+
+  useEffect(() => {
+    executePendingAction();
+  }, [executePendingAction, user]);
 
   async function handleComprar(pkg: any) {
     console.log('🎯 handleComprar llamado con paquete:', pkg);
@@ -78,7 +119,7 @@ export default function Ajustes() {
     if (result.isPremium) {
       Alert.alert('✅', t('compra_restaurada'));
     } else {
-      Alert.alert('Info', t('no_compras_previas'));
+      Alert.alert(t('info'), t('no_compras_previas'));
     }
   }
 
@@ -124,16 +165,74 @@ export default function Ajustes() {
   }
 
   async function handleDeleteAccount() {
+    // Step 1: Explicación del proceso con período de gracia de 30 días
     Alert.alert(
-      t('borrar_cuenta'),
-      t('confirmar_borrar_cuenta'),
+      t('confirmar_eliminar_titulo'),
+      t('confirmar_eliminar_desc') + '\n\n' + t('plazo_30_dias'),
       [
         { text: t('cancelar'), style: 'cancel' },
-        { 
-          text: t('borrar'), 
+        {
+          text: t('borrar'),
           style: 'destructive',
-          onPress: async () => {
-            Alert.alert('⚠️', t('funcionalidad_proximamente'));
+          onPress: () => {
+            // Step 2: Doble confirmación
+            Alert.alert(
+              t('confirmar_eliminar_titulo'),
+              t('confirmar_eliminar_final'),
+              [
+                { text: t('cancelar'), style: 'cancel' },
+                {
+                  text: t('borrar_definitivamente'),
+                  style: 'destructive',
+                  onPress: async () => {
+                    try {
+                      if (!supabase) {
+                        Alert.alert(t('error'), t('aviso_sin_conexion'));
+                        return;
+                      }
+
+                      const { data: { session } } = await supabase.auth.getSession();
+                      const accessToken = session?.access_token;
+
+                      if (!accessToken) {
+                        Alert.alert(t('error'), t('aviso_sesion_expirada'));
+                        return;
+                      }
+
+                      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+                      const response = await fetch(
+                        `${supabaseUrl}/functions/v1/delete-account`,
+                        {
+                          method: 'POST',
+                          headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json',
+                          },
+                        }
+                      );
+
+                      if (!response.ok) {
+                        const body = await response.json().catch(() => ({}));
+                        throw new Error((body as any).error || 'Error del servidor');
+                      }
+
+                      // Mostrar confirmación ANTES de cerrar sesión — título CORTO
+                      Alert.alert(t('cuenta_eliminada_titulo'), t('cuenta_marcada_eliminacion'), [
+                        {
+                          text: t('volver'),
+                          onPress: async () => {
+                            // Cerrar sesión sin borrar datos locales (período de gracia)
+                            await signOut();
+                          }
+                        }
+                      ]);
+                    } catch (error: any) {
+                      Alert.alert(t('error'), t('error_eliminar_cuenta') + ': ' + (error.message || ''));
+                    }
+                  }
+                }
+              ]
+            );
           }
         }
       ]
@@ -152,20 +251,19 @@ export default function Ajustes() {
     { code: 'fr', nombre: 'Français' },
     { code: 'de', nombre: 'Deutsch' },
     { code: 'it', nombre: 'Italiano' },
-    { code: 'pt', nombre: 'Português' },
-    { code: 'ar', nombre: 'العربية' },
   ];
 
   const idiomaSeleccionado = idiomas.find(i => i.code === idiomaActual)?.nombre || idiomaActual;
 
   return (
+    <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
     <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
-      <ScrollView ref={scrollViewRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
-        <Text style={[styles.titulo, { color: currentTheme.colors.text }]}>{t('ajustes_titulo')}</Text>
+        <ScrollView ref={scrollViewRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
+          <Text style={[styles.titulo, { color: currentTheme.colors.text }]}>{t('ajustes_titulo')}</Text>
 
         {/* Banner premium */}
         {!isPremium ? (
-          <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: currentTheme.colors.primary }]} onPress={() => setMostrarPaywall(true)}>
+          <TouchableOpacity style={[styles.premiumBanner, { backgroundColor: currentTheme.colors.primary }]} onPress={() => requireAuth(() => setMostrarPaywall(true))}>
             <View style={styles.premiumBannerLeft}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Ionicons name="diamond-outline" size={20} color="#fff" />
@@ -216,6 +314,17 @@ export default function Ajustes() {
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
 
+          {/* Numeración personalizable */}
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => {
+            getNumeracionConfig().then(setNumeracionConfigState);
+            setMostrarNumeracion(true);
+          }}>
+            <Ionicons name="pricetags-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('numeracion')}</Text>
+            <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>{numeracionConfig.prefijo}XX{numeracionConfig.sufijo}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
+
           {/* Formato de fecha */}
           <TouchableOpacity style={styles.opcionBoton} onPress={() => {
             const nuevoFormato = formatoFechaActual === 'DD/MM/YYYY' ? 'YYYY-MM-DD' : 'DD/MM/YYYY';
@@ -253,13 +362,7 @@ export default function Ajustes() {
             </TouchableOpacity>
           )}
 
-          <TouchableOpacity style={[styles.opcionBoton, { paddingVertical: 16 }]} onPress={toggleNotificacionesSuscripcion}>
-            <Ionicons name="notifications-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text, flex: 1, lineHeight: 20 }]} numberOfLines={2}>{t('notificaciones_suscripcion')}</Text>
-            <View style={[styles.switchBtn, notificacionesSuscripcion && { backgroundColor: currentTheme.colors.primary }]}>
-              <View style={[styles.switchCircle, notificacionesSuscripcion && styles.switchCircleActivo]} />
-            </View>
-          </TouchableOpacity>
+              {/* Opción de notificaciones eliminada según solicitud */}
         </View>
 
         {/* Suscripción */}
@@ -272,12 +375,12 @@ export default function Ajustes() {
               {isPremium ? 'Premium' : 'Gratis'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarPaywall(true)}>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => requireAuth(() => setMostrarPaywall(true))}>
             <Ionicons name="card-outline" size={20} color={currentTheme.colors.primary} />
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Gestionar suscripción</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={handleRestaurar}>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => requireAuth(handleRestaurar)}>
             <Ionicons name="refresh-outline" size={20} color={currentTheme.colors.primary} />
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Restaurar compras</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
@@ -303,13 +406,13 @@ export default function Ajustes() {
         <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
           <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>Privacidad y Datos</Text>
           
-          <TouchableOpacity style={styles.opcionBoton} onPress={handleExportData}>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => requireAuth(handleExportData)}>
             <Ionicons name="download-outline" size={20} color={currentTheme.colors.primary} />
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Exportar datos</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.opcionBoton} onPress={handleDeleteAccount}>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => requireAuth(handleDeleteAccount)}>
             <Ionicons name="trash-outline" size={20} color="#FF4757" />
             <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>Borrar cuenta</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
@@ -336,17 +439,92 @@ export default function Ajustes() {
             <Ionicons name="flash-off-outline" size={20} color="#FF4757" />
             <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>{t('desactivar_premium_test')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={() => {
-            aumentarLimiteFacturas();
-            Alert.alert('✅', t('limite_aumentado'));
+          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
+            await aumentarLimiteFacturas();
+            Alert.alert('✅', t('contador_reseteado'));
           }}>
-            <Ionicons name="add-circle-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('aumentar_factura_test')}</Text>
+            <Ionicons name="refresh-outline" size={20} color="#FF9F43" />
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Resetear contador mensual</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
+            const result = await advanceMonth();
+            Alert.alert('📅 Mes adelantado', `De ${result.oldMonth} → ${result.newMonth}\nContador reseteado a 0.`);
+          }}>
+            <Ionicons name="play-skip-forward-outline" size={20} color="#FF9F43" />
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Adelantar mes (simular)</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
+            const count = await setInvoiceCounterTo9();
+            Alert.alert('📊 Contador en 9/10', `El contador se ha fijado en ${count}/10. Crea una factura más para ver el límite.`);
+          }}>
+            <Ionicons name="timer-outline" size={20} color="#FF9F43" />
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Poner contador en 9/10</Text>
           </TouchableOpacity>
         </View>
 
         <View style={{ height: 100 }} />
-      </ScrollView>
+        </ScrollView>
+
+      {/* Modal Numeración */}
+      <Modal visible={mostrarNumeracion} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalWrapper}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMostrarNumeracion(false)}>
+              <Ionicons name="close" size={26} color="#1a1a1a" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitulo}>{t('numeracion')}</Text>
+            <TouchableOpacity onPress={async () => {
+              await setNumeracionConfig(numeracionConfig);
+              Alert.alert('✅', t('numeracion_guardada'));
+              setMostrarNumeracion(false);
+            }}>
+              <Text style={styles.modalGuardar}>{t('guardar')}</Text>
+            </TouchableOpacity>
+          </View>
+          <ScrollView style={{ padding: 20 }}>
+            <View style={styles.campoWrapper}>
+              <Text style={styles.campoLabel}>{t('numeracion_prefijo')}</Text>
+              <TextInput
+                style={styles.campoInput}
+                placeholder="F-"
+                placeholderTextColor="#bbb"
+                value={numeracionConfig.prefijo}
+                onChangeText={v => setNumeracionConfigState(prev => ({ ...prev, prefijo: v }))}
+              />
+            </View>
+            <View style={styles.campoWrapper}>
+              <Text style={styles.campoLabel}>{t('numeracion_sufijo')}</Text>
+              <TextInput
+                style={styles.campoInput}
+                placeholder="/2024"
+                placeholderTextColor="#bbb"
+                value={numeracionConfig.sufijo}
+                onChangeText={v => setNumeracionConfigState(prev => ({ ...prev, sufijo: v }))}
+              />
+            </View>
+            <View style={styles.campoWrapper}>
+              <Text style={styles.campoLabel}>{t('numeracion_digitos')}</Text>
+              <View style={styles.ivaOpciones}>
+                {[3, 4, 5, 6].map(d => (
+                  <TouchableOpacity
+                    key={d}
+                    style={[styles.ivaBtn, numeracionConfig.digitos === d && { backgroundColor: currentTheme.colors.primary, borderColor: currentTheme.colors.primary }]}
+                    onPress={() => setNumeracionConfigState(prev => ({ ...prev, digitos: d }))}
+                  >
+                    <Text style={[styles.ivaBtnTexto, numeracionConfig.digitos === d && styles.ivaBtnTextoActivo]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+            <View style={[styles.seccion, { marginTop: 16 }]}>
+              <Text style={{ fontSize: 14, color: '#888', textAlign: 'center' }}>
+                {t('numeracion_vista_previa')}: <Text style={{ fontWeight: '700', color: '#1a1a1a' }}>{numeracionConfig.prefijo}{String(1).padStart(numeracionConfig.digitos, '0')}{numeracionConfig.sufijo}</Text>
+              </Text>
+            </View>
+            <View style={{ height: 60 }} />
+          </ScrollView>
+        </View>
+      </Modal>
 
       {/* Modal Mis Datos */}
       <Modal visible={mostrarDatos} animationType="slide" presentationStyle="pageSheet">
@@ -609,8 +787,15 @@ export default function Ajustes() {
                 return (
                   <TouchableOpacity
                     key={i}
-                    style={[styles.planCard, isAnual && styles.planCardDestacado]}
-                    onPress={() => handleComprar(pkg)}
+                    style={[
+                      styles.planCard, 
+                      isAnual && styles.planCardDestacado,
+                      planSeleccionado?.identifier === pkg.identifier && {
+                        borderColor: currentTheme.colors.primary,
+                        backgroundColor: currentTheme.colors.primary + '10'
+                      }
+                    ]}
+                    onPress={() => setPlanSeleccionado(pkg)}
                     disabled={comprando}
                   >
                     {isAnual && (
@@ -621,6 +806,11 @@ export default function Ajustes() {
                     <Text style={styles.planNombre}>{pkg.product.title}</Text>
                     <Text style={styles.planPrecio}>{pkg.product.priceString}</Text>
                     <Text style={styles.planDesc}>{pkg.product.description}</Text>
+                    {planSeleccionado?.identifier === pkg.identifier && (
+                      <View style={styles.checkmarkContainer}>
+                        <Ionicons name="checkmark-circle" size={24} color={currentTheme.colors.primary} />
+                      </View>
+                    )}
                   </TouchableOpacity>
                 );
               })}
@@ -634,11 +824,24 @@ export default function Ajustes() {
               )}
             </View>
 
-            <TouchableOpacity style={styles.botonDesbloquear} onPress={() => offerings?.availablePackages?.[0] && handleComprar(offerings.availablePackages[0])}>
+            <TouchableOpacity 
+              style={[
+                styles.botonDesbloquear, 
+                { 
+                  opacity: planSeleccionado ? 1 : 0.5,
+                  backgroundColor: planSeleccionado ? currentTheme.colors.primary : '#ccc'
+                }
+              ]} 
+              onPress={() => {
+                if (!planSeleccionado) return;
+                requireAuth(() => handleComprar(planSeleccionado));
+              }}
+              disabled={!planSeleccionado || comprando}
+            >
               <Text style={styles.botonDesbloquearTexto}>{t('desbloquear')}</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.restaurarBtn} onPress={handleRestaurar}>
+            <TouchableOpacity style={styles.restaurarBtn} onPress={() => requireAuth(handleRestaurar)}>
               <Text style={styles.restaurarTexto}>{t('restaurar')}</Text>
             </TouchableOpacity>
             <Text style={styles.legalTexto}>{t('cancelar_anytime')}</Text>
@@ -646,7 +849,16 @@ export default function Ajustes() {
           </ScrollView>
         </View>
       </Modal>
+
+      <AuthModal
+        visible={showAuthModal}
+        onClose={handleCloseModal}
+        onLogin={handleLogin}
+        onRegister={handleRegister}
+        onGoogle={handleGoogleSignIn}
+      />
     </View>
+    </SwipeNavigation>
   );
 }
 
@@ -695,7 +907,7 @@ const styles = StyleSheet.create({
   feature: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 24, paddingVertical: 10 },
   featureIcono: { width: 36, height: 36, borderRadius: 10, backgroundColor: '#EEE9FF', justifyContent: 'center', alignItems: 'center' },
   featureTexto: { flex: 1, fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
-  planesContainer: { padding: 16, gap: 12 },
+  checkmarkContainer: { position: 'absolute', top: 10, right: 10 },
   planCard: { borderWidth: 1.5, borderColor: '#e8e8e8', borderRadius: 16, padding: 18, backgroundColor: '#fafafa' },
   planCardDestacado: { borderColor: '#6C47FF', backgroundColor: '#EEE9FF' },
   planBadge: { backgroundColor: '#6C47FF', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 10 },
@@ -705,6 +917,7 @@ const styles = StyleSheet.create({
   planDesc: { fontSize: 13, color: '#888' },
   botonDesbloquear: { backgroundColor: '#6C47FF', marginHorizontal: 16, borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 8, shadowColor: '#6C47FF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12 },
   botonDesbloquearTexto: { color: '#fff', fontWeight: '800', fontSize: 17 },
+  planesContainer: { padding: 16, gap: 12 },
   paywallNoDisponible: { alignItems: 'center', padding: 30, gap: 12 },
   paywallNoDisponibleTexto: { fontSize: 14, color: '#aaa', textAlign: 'center', lineHeight: 22 },
   restaurarBtn: { alignItems: 'center', paddingVertical: 16 },
@@ -714,6 +927,10 @@ const styles = StyleSheet.create({
   switchBtnActivo: { backgroundColor: '#6C47FF' },
   switchCircle: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
   switchCircleActivo: { alignSelf: 'flex-end' },
+  ivaOpciones: { flexDirection: 'row', gap: 12 },
+  ivaBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#e8e8e8', backgroundColor: '#fafafa', alignItems: 'center' },
+  ivaBtnTexto: { fontSize: 16, fontWeight: '700', color: '#888' },
+  ivaBtnTextoActivo: { color: '#6C47FF' },
   plantillaItem: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
   plantillaItemActivo: { backgroundColor: '#F8F7FF' },
   plantillaIcono: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#fafafa', justifyContent: 'center', alignItems: 'center' },

@@ -1,0 +1,38 @@
+{
+  "project_info": {
+    "project_number": "118785238153",
+    "project_id": "invoicerapid-9b6e3",
+    "storage_bucket": "invoicerapid-9b6e3.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:118785238153:android:3c9133be212600eb0ed258",
+        "android_client_info": {
+          "package_name": "com.zkrstudio.invoicerapidpro"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "60820876627-34g8eoho8tl91o1kihgpivheu0pvmka4.apps.googleusercontent.com",
+          "client_type": 3
+        },
+        {
+          "client_id": "60820876627-431fgdg5d5404vnpr1fgfut6mok7r3km.apps.googleusercontent.com",
+          "client_type": 1
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBsndwNQbWaP8-prxaAXT8IcPGlVBiyp0I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

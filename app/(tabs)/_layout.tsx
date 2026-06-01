@@ -2,11 +2,21 @@ import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { SubscriptionProvider } from "../../contexts/SubscriptionContext";
+import { View } from "react-native";
+import BannerAdComponent from "../../components/BannerAdComponent";
+import { SubscriptionProvider, useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getExchangeRates } from "../../utils/currency";
 
-export default function TabsLayout() {
+/** Banner persistente que sobrevive a cambios de pestaña.
+ *  SIN key=isPremium: mantener el componente montado evita que el
+ *  BannerAd nativo pierda su referencia al alternar premium. */
+function PersistentBanner() {
+  const { isPremium } = useSubscription();
+  return <BannerAdComponent isPremium={isPremium} />;
+}
+
+function TabsContent() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
 
@@ -18,7 +28,8 @@ export default function TabsLayout() {
   }, []);
 
   return (
-    <SubscriptionProvider>
+    <View style={{ flex: 1 }}>
+      <PersistentBanner />
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -62,6 +73,14 @@ export default function TabsLayout() {
         <Tabs.Screen name="nueva-factura" options={{ href: null }} />
         <Tabs.Screen name="facturas" options={{ href: null }} />
       </Tabs>
+    </View>
+  );
+}
+
+export default function TabsLayout() {
+  return (
+    <SubscriptionProvider>
+      <TabsContent />
     </SubscriptionProvider>
   );
 }
