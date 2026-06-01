@@ -20,6 +20,12 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { useAuthGuard } from "../../hooks/useAuthGuard";
 import { supabase } from "../../services/supabase";
 import SwipeNavigation from "../../components/SwipeNavigation";
+import { generarPDFPreview } from "../../utils/pdf";
+import * as Sharing from "expo-sharing";
+import * as Print from "expo-print";
+import { getFacturas } from "../db/facturas";
+import { getClientes } from "../db/clientes";
+import { getProductos } from "../db/productos";
 
 import { advanceMonth, setInvoiceCounterTo9 } from "../../utils/subscription";
 import {
@@ -141,6 +147,45 @@ export default function Ajustes() {
     setMostrarPlantilla(false);
   }
 
+  async function handlePreviewPlantilla(plantilla: PlantillaPDF) {
+    try {
+      const facturaPreview = {
+        id: 0,
+        numero: 'PREVIEW-001',
+        cliente_id: 0,
+        cliente_nombre: 'Cliente Ejemplo',
+        subtotal: 850,
+        descuento: 0,
+        iva_porcentaje: 21,
+        iva_importe: 178.5,
+        irpf_porcentaje: 0,
+        irpf_importe: 0,
+        total: 1028.5,
+        notas: '',
+        metodo_pago: 'efectivo',
+        fecha_vencimiento: '',
+        fecha: new Date().toISOString(),
+        estado: 'pendiente',
+        cliente_email: 'cliente@email.com',
+        cliente_direccion: 'Calle Ejemplo 123',
+      };
+      const itemsPreview = [
+        { descripcion: 'Servicio de consultoría', cantidad: '10', unidad: 'h', precio_unitario: '50', descuento: '0', subtotal: 500 },
+        { descripcion: 'Desarrollo web', cantidad: '1', unidad: 'ud', precio_unitario: '350', descuento: '0', subtotal: 350 },
+      ];
+      const uri = await generarPDFPreview(facturaPreview, itemsPreview, true, plantilla, '€', currentTheme.colors.primary);
+      if (uri && (await Sharing.isAvailableAsync())) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Vista previa - Plantilla ${plantilla}`,
+          UTI: 'com.adobe.pdf',
+        });
+      }
+    } catch (e) {
+      Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
+    }
+  }
+
   async function toggleNotificacionesSuscripcion() {
     const nuevoValor = !notificacionesSuscripcion;
     setNotificacionesSuscripcion(nuevoValor);
@@ -150,14 +195,31 @@ export default function Ajustes() {
 
   async function handleExportData() {
     try {
-      const exportData = {
-        datosEmpresa: datos,
-        moneda: monedaActual,
-        plantilla: plantillaActual,
-        formatoFecha: formatoFechaActual,
-        exportDate: new Date().toISOString(),
-      };
-      // TODO: Implementar la exportación de datos
+      const facturas = getFacturas() as any[];
+      const clientes = getClientes() as any[];
+      const productos = getProductos() as any[];
+      
+      const html = `
+        <html><body style="font-family: sans-serif; padding: 20px;">
+        <h1 style="color: ${currentTheme.colors.primary};">Exportación de datos (RGPD)</h1>
+        <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
+        <h2>Configuración</h2>
+        <p>Moneda: ${monedaActual.simbolo} (${monedaActual.codigo})</p>
+        <p>Plantilla: ${plantillaActual}</p>
+        <h2>Datos de empresa</h2>
+        <p>Nombre: ${datos.nombre || '-'}<br>NIF: ${datos.nif || '-'}<br>Dirección: ${datos.direccion || '-'}<br>Tel: ${datos.telefono || '-'}<br>Email: ${datos.email || '-'}</p>
+        <h2>Facturas (${facturas.length})</h2>
+        <ul>${facturas.map(f => `<li><strong>${f.numero}</strong> - ${f.cliente_nombre || 'Sin cliente'} - Total: ${Number(f.total).toFixed(2)}${monedaActual.simbolo} - Estado: ${f.estado}</li>`).join('') || '<li>Sin facturas</li>'}</ul>
+        <h2>Clientes (${clientes.length})</h2>
+        <ul>${clientes.map(c => `<li>${c.nombre}${c.email ? ' - ' + c.email : ''}</li>`).join('') || '<li>Sin clientes</li>'}</ul>
+        <h2>Productos (${productos.length})</h2>
+        <ul>${productos.map(p => `<li>${p.descripcion} - ${p.precio}${monedaActual.simbolo} / ${p.unidad}</li>`).join('') || '<li>Sin productos</li>'}</ul>
+        </body></html>
+      `;
+      const { uri } = await Print.printToFileAsync({ html });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { UTI: 'com.adobe.pdf', mimeType: 'application/pdf', dialogTitle: 'Exportar datos' });
+      }
       Alert.alert('✅', t('datos_exportados'));
     } catch (error) {
       Alert.alert(t('error'), t('error_exportar_datos'));
@@ -629,9 +691,12 @@ export default function Ajustes() {
                   </Text>
                   <Text style={styles.plantillaDescripcion}>{plantilla.descripcion}</Text>
                 </View>
-                {plantillaActual === plantilla.id && (
-                  <Ionicons name="checkmark-circle" size={22} color="#6C47FF" />
-                )}
+                <TouchableOpacity
+                  style={[styles.plantillaIcono, { backgroundColor: currentTheme.colors.primaryLight }]}
+                  onPress={() => handlePreviewPlantilla(plantilla.id)}
+                >
+                  <Ionicons name="eye-outline" size={20} color={currentTheme.colors.primary} />
+                </TouchableOpacity>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -759,7 +824,7 @@ export default function Ajustes() {
           <ScrollView showsVerticalScrollIndicator={false}>
             <View style={styles.paywallTop}>
               <View style={styles.paywallIcono}>
-                <Ionicons name="rocket" size={36} color="#6C47FF" />
+                <Ionicons name="rocket" size={36} color={currentTheme.colors.primary} />
               </View>
               <Text style={styles.paywallTitulo}>{t('premium_titulo')}</Text>
               <Text style={styles.paywallSub}>{t('premium_sub')}</Text>
@@ -774,7 +839,7 @@ export default function Ajustes() {
             ].map((f, i) => (
               <View key={i} style={styles.feature}>
                 <View style={styles.featureIcono}>
-                  <Ionicons name={f.icon as any} size={20} color="#6C47FF" />
+                  <Ionicons name={f.icon as any} size={20} color={currentTheme.colors.primary} />
                 </View>
                 <Text style={styles.featureTexto}>{f.texto}</Text>
                 <Ionicons name="checkmark" size={18} color="#26de81" />
@@ -787,10 +852,9 @@ export default function Ajustes() {
                 return (
                   <TouchableOpacity
                     key={i}
-                    style={[
-                      styles.planCard, 
-                      isAnual && styles.planCardDestacado,
-                      planSeleccionado?.identifier === pkg.identifier && {
+                    style={[                    styles.planCard, 
+                    isAnual && [styles.planCardDestacado, { borderColor: currentTheme.colors.primary, backgroundColor: currentTheme.colors.primary + '15' }],
+                    planSeleccionado?.identifier === pkg.identifier && {
                         borderColor: currentTheme.colors.primary,
                         backgroundColor: currentTheme.colors.primary + '10'
                       }
@@ -799,12 +863,12 @@ export default function Ajustes() {
                     disabled={comprando}
                   >
                     {isAnual && (
-                      <View style={styles.planBadge}>
+                      <View style={[styles.planBadge, { backgroundColor: currentTheme.colors.primary }]}>
                         <Text style={styles.planBadgeTexto}>{t('recomendado')}</Text>
                       </View>
                     )}
                     <Text style={styles.planNombre}>{pkg.product.title}</Text>
-                    <Text style={styles.planPrecio}>{pkg.product.priceString}</Text>
+                    <Text style={[styles.planPrecio, { color: currentTheme.colors.primary }]}>{pkg.product.priceString}</Text>
                     <Text style={styles.planDesc}>{pkg.product.description}</Text>
                     {planSeleccionado?.identifier === pkg.identifier && (
                       <View style={styles.checkmarkContainer}>
@@ -829,7 +893,8 @@ export default function Ajustes() {
                 styles.botonDesbloquear, 
                 { 
                   opacity: planSeleccionado ? 1 : 0.5,
-                  backgroundColor: planSeleccionado ? currentTheme.colors.primary : '#ccc'
+                  backgroundColor: planSeleccionado ? currentTheme.colors.primary : '#ccc',
+                  shadowColor: currentTheme.colors.primary
                 }
               ]} 
               onPress={() => {
@@ -842,7 +907,7 @@ export default function Ajustes() {
             </TouchableOpacity>
 
             <TouchableOpacity style={styles.restaurarBtn} onPress={() => requireAuth(handleRestaurar)}>
-              <Text style={styles.restaurarTexto}>{t('restaurar')}</Text>
+              <Text style={[styles.restaurarTexto, { color: currentTheme.colors.primary }]}>{t('restaurar')}</Text>
             </TouchableOpacity>
             <Text style={styles.legalTexto}>{t('cancelar_anytime')}</Text>
             <View style={{ height: 40 }} />
@@ -909,13 +974,13 @@ const styles = StyleSheet.create({
   featureTexto: { flex: 1, fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
   checkmarkContainer: { position: 'absolute', top: 10, right: 10 },
   planCard: { borderWidth: 1.5, borderColor: '#e8e8e8', borderRadius: 16, padding: 18, backgroundColor: '#fafafa' },
-  planCardDestacado: { borderColor: '#6C47FF', backgroundColor: '#EEE9FF' },
-  planBadge: { backgroundColor: '#6C47FF', alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 10 },
+  planCardDestacado: { borderColor: '#007AFF', backgroundColor: '#E8F2FF' },
+  planBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 10 },
   planBadgeTexto: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   planNombre: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 4 },
-  planPrecio: { fontSize: 22, fontWeight: '900', color: '#6C47FF', marginBottom: 4 },
+  planPrecio: { fontSize: 22, fontWeight: '900', marginBottom: 4 },
   planDesc: { fontSize: 13, color: '#888' },
-  botonDesbloquear: { backgroundColor: '#6C47FF', marginHorizontal: 16, borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 8, shadowColor: '#6C47FF', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12 },
+  botonDesbloquear: { marginHorizontal: 16, borderRadius: 16, paddingVertical: 18, alignItems: 'center', marginTop: 8, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.35, shadowRadius: 12 },
   botonDesbloquearTexto: { color: '#fff', fontWeight: '800', fontSize: 17 },
   planesContainer: { padding: 16, gap: 12 },
   paywallNoDisponible: { alignItems: 'center', padding: 30, gap: 12 },

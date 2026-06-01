@@ -239,9 +239,9 @@ export default function Productos() {
 
   return (
     <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
       <View style={styles.container}>
-        <Text style={styles.titulo}>{t("productos_titulo")}</Text>
+        <Text style={[styles.titulo, { color: currentTheme.colors.text }]}>{t("productos_titulo")}</Text>
 
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />

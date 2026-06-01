@@ -373,6 +373,21 @@ const es = {
     // Profile
     nombre_auth: 'Nombre',
     compras_no_disponibles: 'Compras no disponibles en modo desarrollo. Usa los botones de test en Ajustes.',
+    // Perfil
+    acciones: 'Acciones',
+    establecer_password: 'Establecer contraseña',
+    sin_password: 'Sin contraseña',
+    nombre_requerido: 'El nombre es obligatorio',
+    nombre_actualizado: 'Nombre actualizado correctamente',
+    error_actualizar_perfil: 'Error al actualizar el perfil',
+    password_minimo: 'La contraseña debe tener al menos 6 caracteres',
+    password_no_coinciden: 'Las contraseñas no coinciden',
+    password_establecida: 'Contraseña establecida correctamente',
+    error_establecer_password: 'Error al establecer la contraseña',
+    nueva_password: 'Nueva contraseña',
+    confirmar_password: 'Confirmar contraseña',
+    tu_nombre: 'Tu nombre',
+    nombre_no_definido: 'No definido',
     // Navegación y acciones
     duplicar: 'Duplicar',
     exportar_csv: 'Exportar CSV',
@@ -388,6 +403,7 @@ const es = {
     numeracion_sufijo: 'Sufijo',
     numeracion_digitos: 'Dígitos',
     numeracion_vista_previa: 'Vista previa',
+    vista_previa: 'Vista previa',
   }
 };
 
@@ -763,6 +779,21 @@ const en = {
     // Profile
     nombre_auth: 'Name',
     compras_no_disponibles: 'Purchases not available in dev mode. Use the test buttons in Settings.',
+    // Profile
+    acciones: 'Actions',
+    establecer_password: 'Set password',
+    sin_password: 'No password',
+    nombre_requerido: 'Name is required',
+    nombre_actualizado: 'Name updated successfully',
+    error_actualizar_perfil: 'Error updating profile',
+    password_minimo: 'Password must be at least 6 characters',
+    password_no_coinciden: 'Passwords do not match',
+    password_establecida: 'Password set successfully',
+    error_establecer_password: 'Error setting password',
+    nueva_password: 'New password',
+    confirmar_password: 'Confirm password',
+    tu_nombre: 'Your name',
+    nombre_no_definido: 'Not defined',
     // Navigation & actions
     duplicar: 'Duplicate',
     exportar_csv: 'Export CSV',
@@ -778,6 +809,7 @@ const en = {
     numeracion_sufijo: 'Suffix',
     numeracion_digitos: 'Digits',
     numeracion_vista_previa: 'Preview',
+    vista_previa: 'Preview',
   }
 };
 
@@ -1153,6 +1185,21 @@ const fr = {
     // Profile
     nombre_auth: 'Nom',
     compras_no_disponibles: 'Achats non disponibles en mode développement. Utilisez les boutons de test dans Paramètres.',
+    // Profil
+    acciones: 'Actions',
+    establecer_password: 'Définir le mot de passe',
+    sin_password: 'Sans mot de passe',
+    nombre_requerido: 'Le nom est obligatoire',
+    nombre_actualizado: 'Nom mis à jour',
+    error_actualizar_perfil: 'Erreur lors de la mise à jour du profil',
+    password_minimo: 'Le mot de passe doit contenir au moins 6 caractères',
+    password_no_coinciden: 'Les mots de passe ne correspondent pas',
+    password_establecida: 'Mot de passe défini avec succès',
+    error_establecer_password: 'Erreur lors de la définition du mot de passe',
+    nueva_password: 'Nouveau mot de passe',
+    confirmar_password: 'Confirmer le mot de passe',
+    tu_nombre: 'Votre nom',
+    nombre_no_definido: 'Non défini',
     // Navigation & actions
     duplicar: 'Dupliquer',
     exportar_csv: 'Exporter CSV',
@@ -1168,6 +1215,7 @@ const fr = {
     numeracion_sufijo: 'Suffixe',
     numeracion_digitos: 'Chiffres',
     numeracion_vista_previa: 'Aperçu',
+    vista_previa: 'Aperçu',
   }
 };
 
@@ -1543,6 +1591,21 @@ const de = {
     // Profile
     nombre_auth: 'Name',
     compras_no_disponibles: 'Käufe im Entwicklungsmodus nicht verfügbar. Nutzen Sie die Test-Buttons in den Einstellungen.',
+    // Profil
+    acciones: 'Aktionen',
+    establecer_password: 'Passwort festlegen',
+    sin_password: 'Kein Passwort',
+    nombre_requerido: 'Name ist erforderlich',
+    nombre_actualizado: 'Name erfolgreich aktualisiert',
+    error_actualizar_perfil: 'Fehler beim Aktualisieren des Profils',
+    password_minimo: 'Passwort muss mindestens 6 Zeichen haben',
+    password_no_coinciden: 'Passwörter stimmen nicht überein',
+    password_establecida: 'Passwort erfolgreich festgelegt',
+    error_establecer_password: 'Fehler beim Festlegen des Passworts',
+    nueva_password: 'Neues Passwort',
+    confirmar_password: 'Passwort bestätigen',
+    tu_nombre: 'Dein Name',
+    nombre_no_definido: 'Nicht definiert',
     // Navigation & Aktionen
     duplicar: 'Duplizieren',
     exportar_csv: 'CSV exportieren',
@@ -1558,6 +1621,7 @@ const de = {
     numeracion_sufijo: 'Suffix',
     numeracion_digitos: 'Ziffern',
     numeracion_vista_previa: 'Vorschau',
+    vista_previa: 'Vorschau',
   }
 };
 
@@ -1932,6 +1996,21 @@ const it = {
     // Profile
     nombre_auth: 'Nome',
     compras_no_disponibles: 'Acquisti non disponibili in modalità sviluppo. Usa i pulsanti di test in Impostazioni.',
+    // Profilo
+    acciones: 'Azioni',
+    establecer_password: 'Imposta password',
+    sin_password: 'Nessuna password',
+    nombre_requerido: 'Il nome è obbligatorio',
+    nombre_actualizado: 'Nome aggiornato con successo',
+    error_actualizar_perfil: 'Errore nell\'aggiornamento del profilo',
+    password_minimo: 'La password deve avere almeno 6 caratteri',
+    password_no_coinciden: 'Le password non corrispondono',
+    password_establecida: 'Password impostata con successo',
+    error_establecer_password: 'Errore nell\'impostazione della password',
+    nueva_password: 'Nuova password',
+    confirmar_password: 'Conferma password',
+    tu_nombre: 'Il tuo nome',
+    nombre_no_definido: 'Non definito',
     // Navigazione e azioni
     duplicar: 'Duplica',
     exportar_csv: 'Esporta CSV',
@@ -1947,6 +2026,7 @@ const it = {
     numeracion_sufijo: 'Suffisso',
     numeracion_digitos: 'Cifre',
     numeracion_vista_previa: 'Anteprima',
+    vista_previa: 'Anteprima',
   }
 };
 

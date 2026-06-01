@@ -85,23 +85,31 @@ export default function Terms() {
             • Daños indirectos, incidentales o consecuentes.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Pagos</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Suscripciones y Pagos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Los pagos de suscripciones Premium se procesan a través de Stripe. Al suscribirse, usted:
+            Las suscripciones Premium se procesan a través de Google Play Billing y son gestionadas por RevenueCat. Al suscribirse, usted:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Autoriza los cargos recurrentes según el plan seleccionado.
+            • Autoriza los cargos recurrentes según el plan seleccionado (mensual, anual o pago único).
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Acepta los términos y condiciones de Stripe.
+            • Acepta los términos y condiciones de Google Play.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Entiende que los pagos no son reembolsables por el periodo ya facturado.
+            • Entiende que los pagos no son reembolsables por el periodo ya facturado, salvo lo dispuesto por Google Play.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            • Puede gestionar o cancelar su suscripción desde Ajustes {'>'} Gestionar suscripción en la aplicación o desde Google Play {'>'} Suscripciones.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Cancelación</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Puede cancelar su suscripción Premium en cualquier momento desde la configuración de la aplicación. La cancelación surtirá efecto al final del periodo de facturación actual. No se otorgarán reembolsos parciales.
+            Puede cancelar su suscripción Premium en cualquier momento desde Ajustes {'>'} Gestionar suscripción en la aplicación o desde Google Play {'>'} Suscripciones. La cancelación surtirá efecto al final del periodo de facturación actual. No se otorgarán reembolsos parciales.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Anuncios</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            La versión gratuita de la aplicación muestra anuncios publicitarios a través de Google AdMob. Los usuarios premium no ven anuncios. Al utilizar la versión gratuita, usted acepta la visualización de anuncios y el uso de identificadores de dispositivo para personalización publicitaria, de acuerdo con nuestra Política de Privacidad y la configuración de consentimiento de anuncios.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Modificaciones</Text>
@@ -115,7 +123,7 @@ export default function Terms() {
           </Text>
 
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 25 de abril de 2026
+            Última actualización: 01/06/2026
           </Text>
         </View>
 

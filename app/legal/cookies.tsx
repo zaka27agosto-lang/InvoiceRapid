@@ -21,9 +21,9 @@ export default function Cookies() {
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={[styles.content, { backgroundColor: currentTheme.colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Qué son las Cookies</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Qué son las Cookies e Identificadores</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Las cookies son pequeños archivos de texto que se almacenan en su dispositivo cuando visita una aplicación o sitio web. Se utilizan para recordar sus preferencias y mejorar su experiencia de usuario.
+            En aplicaciones móviles, el equivalente funcional de las cookies son los identificadores de dispositivo y el almacenamiento local. Estos mecanismos permiten recordar preferencias, mantener sesiones activas y ofrecer anuncios personalizados en la versión gratuita.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Tipos de Cookies</Text>
@@ -43,21 +43,21 @@ export default function Cookies() {
             • <Text style={{ fontWeight: '600' }}>Cookies de marketing:</Text> Se utilizan para mostrar anuncios personalizados.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Cookies que Utiliza la App</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Identificadores que Utiliza la App</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid utiliza las siguientes cookies:
+            InvoiceRapid utiliza los siguientes mecanismos equivalentes a cookies:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Sesión:</Text> Mantiene su sesión activa mientras navega.
+            • <Text style={{ fontWeight: '600' }}>Sesión:</Text> Almacenamiento seguro de tokens de autenticación con Supabase.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Preferencias:</Text> Guarda su idioma, tema y configuraciones.
+            • <Text style={{ fontWeight: '600' }}>Preferencias:</Text> Guarda idioma, tema, moneda y configuraciones en el almacenamiento local.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Analíticas:</Text> Ayuda a mejorar la aplicación analizando el uso.
+            • <Text style={{ fontWeight: '600' }}>Publicidad (Google AdMob):</Text> Identificador de publicidad de Android para mostrar anuncios personalizados en la versión gratuita. El usuario puede gestionar su consentimiento desde Ajustes {'>'} Consentimiento de anuncios.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Publicidad:</Text> Permite mostrar anuncios relevantes (si corresponde).
+            • <Text style={{ fontWeight: '600' }}>RevenueCat:</Text> Identificador anónimo para gestionar el estado de suscripción premium.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Cómo Gestionar Cookies</Text>
@@ -77,21 +77,26 @@ export default function Cookies() {
             Tenga en cuenta que deshabilitar cookies esenciales puede afectar el funcionamiento de la aplicación.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Cookies de Terceros</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Servicios de Terceros</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid puede utilizar servicios de terceros que utilizan cookies:
+            InvoiceRapid utiliza los siguientes servicios de terceros que pueden emplear identificadores propios:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Stripe:</Text> Para procesar pagos de forma segura.
+            • <Text style={{ fontWeight: '600' }}>Google Play Billing y RevenueCat:</Text> Para gestionar suscripciones y pagos.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Google Analytics:</Text> Para analizar el uso de la aplicación.
+            • <Text style={{ fontWeight: '600' }}>Google AdMob:</Text> Para mostrar anuncios en la versión gratuita. Utiliza el identificador de publicidad de Android.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • <Text style={{ fontWeight: '600' }}>Google AdMob:</Text> Para mostrar anuncios (versión gratuita).
+            • <Text style={{ fontWeight: '600' }}>Supabase:</Text> Para autenticación de cuentas y almacenamiento de datos.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             Estos terceros tienen sus propias políticas de privacidad que puede consultar en sus sitios web.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Consentimiento de Anuncios (UMP)</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            La aplicación utiliza el SDK UMP (User Messaging Platform) de Google para solicitar el consentimiento de anuncios a usuarios en el Espacio Económico Europeo, cumpliendo con los requisitos del RGPD. Al iniciar la aplicación por primera vez, se mostrará un diálogo de consentimiento donde el usuario puede aceptar o rechazar anuncios personalizados.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Actualizaciones</Text>
@@ -100,7 +105,7 @@ export default function Cookies() {
           </Text>
 
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 25 de abril de 2026
+            Última actualización: 01/06/2026
           </Text>
         </View>
 

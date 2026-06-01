@@ -9,7 +9,6 @@ import { useTranslation } from "react-i18next";    import {
         Modal,
         Platform,
         ScrollView,
-        Share,
         StyleSheet,
         Text,
         TextInput,
@@ -21,6 +20,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import { adsService } from "../../services/adsService";
 import { convertirAEurosParaGuardar } from "../../utils/currency";
 import { generarYCompartirPDF, generarPDFPreview } from "../../utils/pdf";
+import { WebView } from 'react-native-webview';
 import { getMoneda, getNumeracionConfig, getPlantillaPDF } from "../../utils/settings";
 import { checkInvoiceLimitAsync, incrementInvoiceCounter, getRemainingRewardedAds, incrementRewardedAdCount } from "../../utils/subscription";
 import { getClientes } from "../db/clientes";
@@ -53,6 +53,8 @@ export default function NuevaFactura() {
   const [comprando, setComprando] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [generandoPreview, setGenerandoPreview] = useState(false);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [mostrarPreviewPdf, setMostrarPreviewPdf] = useState(false);
   const [planSeleccionado, setPlanSeleccionado] = useState<any>(null);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
   const [mostrarClientes, setMostrarClientes] = useState(false);
@@ -321,12 +323,10 @@ export default function NuevaFactura() {
       }));
 
       const plantilla = await getPlantillaPDF();
-      const uri = await generarPDFPreview(facturaPreview, itemsConCalculos, isPremium, plantilla, simboloMoneda);
+      const uri = await generarPDFPreview(facturaPreview, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
       if (uri) {
-        await Share.share({
-          url: uri,
-          title: `Vista previa - ${numeroFactura || 'Factura'}`,
-        });
+        setPreviewUri(uri);
+        setMostrarPreviewPdf(true);
       }
     } catch {
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
@@ -1179,7 +1179,7 @@ export default function NuevaFactura() {
                       <Text style={[styles.paywallPlanTitulo, { color: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : '#1a1a1a' }]}>{pkg.packageType === 'ANNUAL' ? t('anual') : pkg.packageType === 'MONTHLY' ? t('mensual') : t('lifetime')}</Text>
                       <Text style={[styles.paywallPlanPrecio, { color: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : '#1a1a1a' }]}>{pkg.product.priceString}</Text>
                       {pkg.packageType === 'ANNUAL' && (
-                        <Text style={styles.paywallPlanRecomendado}>{t('recomendado')}</Text>
+                        <Text style={[styles.paywallPlanRecomendado, { color: currentTheme.colors.primary }]}>{t('recomendado')}</Text>
                       )}
                       {planSeleccionado?.identifier === pkg.identifier && (
                         <View style={styles.checkmarkContainer}>
@@ -1191,17 +1191,35 @@ export default function NuevaFactura() {
                 </View>
               ) : null}
               <TouchableOpacity 
-                style={[styles.paywallDesbloquear, { opacity: planSeleccionado ? 1 : 0.5 }]} 
+                style={[styles.paywallDesbloquear, { opacity: planSeleccionado ? 1 : 0.5, backgroundColor: currentTheme.colors.primary }]} 
                 onPress={() => planSeleccionado && handleComprar(planSeleccionado)}
                 disabled={!planSeleccionado || comprando}
               >
                 <Text style={styles.paywallDesbloquearTexto}>{t('desbloquear')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.paywallRestaurar} onPress={handleRestaurar}>
-                <Text style={styles.paywallRestaurarTexto}>{t('restaurar')}</Text>
+                <Text style={[styles.paywallRestaurarTexto, { color: currentTheme.colors.primary }]}>{t('restaurar')}</Text>
               </TouchableOpacity>
               <View style={{ height: 30 }} />
             </ScrollView>
+          </View>
+        </Modal>
+
+        {/* Modal Vista previa PDF */}
+        <Modal visible={mostrarPreviewPdf} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMostrarPreviewPdf(false)}>
+          <View style={[styles.previewWrapper, { backgroundColor: currentTheme.colors.background }]}>
+            <View style={[styles.previewHeader, { backgroundColor: currentTheme.colors.card, borderBottomColor: currentTheme.colors.border || '#f0f0f0' }]}>
+              <TouchableOpacity style={styles.previewCloseBtn} onPress={() => { setMostrarPreviewPdf(false); setPreviewUri(null); }}>
+                <Ionicons name="close" size={22} color={currentTheme.colors.text} />
+              </TouchableOpacity>
+              <Text style={[styles.previewTitle, { color: currentTheme.colors.text }]}>{t('numeracion_vista_previa')}</Text>
+              <View style={{ width: 36 }} />
+            </View>
+            {previewUri ? (
+              <WebView source={{ uri: previewUri }} style={{ flex: 1 }} originWhitelist={['*']} />
+            ) : (
+              <View style={styles.previewLoading}><Text style={{ color: currentTheme.colors.textSecondary }}>{t('cargando')}...</Text></View>
+            )}
           </View>
         </Modal>
 
@@ -1291,8 +1309,8 @@ const styles = StyleSheet.create({
   totalFilaFinal: { borderTopWidth: 1.5, borderTopColor: "#f0f0f0", paddingTop: 14, marginTop: 4 },
   totalLabelFinal: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
   totalValorFinal: { fontSize: 22, fontWeight: "800" },
-  pagoOpciones: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
-  pagoBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "#e8e8e8", backgroundColor: "#fff" },
+  pagoOpciones: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" },
+  pagoBtn: { width: "47%", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "#e8e8e8", backgroundColor: "#fff" },
   pagoBtnActivo: { borderColor: "#6C47FF", backgroundColor: "#EEE9FF" },
   pagoBtnTexto: { fontSize: 13, color: "#aaa", fontWeight: "600" },
   pagoBtnTextoActivo: { color: "#6C47FF" },
@@ -1332,11 +1350,16 @@ const styles = StyleSheet.create({
   paywallPlanes: { paddingHorizontal: 20, marginTop: 30, gap: 12 },
   paywallPlan: { borderWidth: 2, borderRadius: 16, padding: 20, alignItems: "center", backgroundColor: "#fff", position: "relative" },
   paywallPlanTitulo: { fontSize: 18, fontWeight: "700", color: "#1a1a1a", marginBottom: 8 },
-  paywallPlanPrecio: { fontSize: 24, fontWeight: "800", color: "#6C47FF", marginBottom: 4 },
-  paywallPlanRecomendado: { fontSize: 11, fontWeight: "700", color: "#6C47FF", textTransform: "uppercase" },
+  paywallPlanPrecio: { fontSize: 24, fontWeight: "800", marginBottom: 4 },
+  paywallPlanRecomendado: { fontSize: 11, fontWeight: "700", textTransform: "uppercase" },
   checkmarkContainer: { position: "absolute", top: 10, right: 10 },
-  paywallDesbloquear: { backgroundColor: "#6C47FF", marginHorizontal: 20, marginTop: 20, borderRadius: 16, paddingVertical: 16, alignItems: "center" },
+  paywallDesbloquear: { marginHorizontal: 20, marginTop: 20, borderRadius: 16, paddingVertical: 16, alignItems: "center" },
   paywallDesbloquearTexto: { color: "#fff", fontSize: 16, fontWeight: "800" },
   paywallRestaurar: { alignItems: "center", paddingVertical: 20 },
-  paywallRestaurarTexto: { fontSize: 15, color: "#6C47FF", fontWeight: "600" },
+  paywallRestaurarTexto: { fontSize: 15, fontWeight: "600" },
+  previewWrapper: { flex: 1, paddingTop: 20 },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
+  previewCloseBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  previewTitle: { fontSize: 18, fontWeight: '800' },
+  previewLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

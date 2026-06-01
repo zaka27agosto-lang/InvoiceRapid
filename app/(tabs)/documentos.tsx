@@ -21,6 +21,7 @@ import { useTheme } from "../../contexts/ThemeContext";
 import SwipeNavigation from "../../components/SwipeNavigation";
 import { convertirDeEurosParaMostrar } from "../../utils/currency";
 import { generarYCompartirPDF, generarPDFPreview } from "../../utils/pdf";
+import { WebView } from 'react-native-webview';
 import { FormatoFecha, getFormatoFecha, getMoneda, getPlantillaPDF } from "../../utils/settings";
 import { deleteFactura, getFacturaItems, getFacturas, getNextNumeroFactura, insertFactura, insertFacturaItem, updateEstadoFactura } from "../db/facturas";
 import { syncService } from "../../services/syncService";
@@ -53,6 +54,8 @@ export default function Documentos() {
   const [comprando, setComprando] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [generandoPreview, setGenerandoPreview] = useState(false);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [mostrarPreviewPdf, setMostrarPreviewPdf] = useState(false);
   const [compartiendo, setCompartiendo] = useState(false);
   const [mostrarFiltro, setMostrarFiltro] = useState(false);
   const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
@@ -194,7 +197,7 @@ export default function Documentos() {
         descuento: item.descuento,
         subtotal: item.subtotal,
       }));
-      await generarYCompartirPDF(facturaDetalle, itemsConCalculos, isPremium, plantilla);
+      await generarYCompartirPDF(facturaDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
     } catch (e) {
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
@@ -207,7 +210,7 @@ export default function Documentos() {
     setGenerandoPDF(true);
     try {
       const plantilla = await getPlantillaPDF();
-      await generarYCompartirPDF(facturaDetalle, itemsDetalle, isPremium, plantilla, simboloMoneda);
+      await generarYCompartirPDF(facturaDetalle, itemsDetalle, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
     } catch (e) {
       try {
         await Share.share({
@@ -395,12 +398,10 @@ export default function Documentos() {
         descuento: item.descuento,
         subtotal: item.subtotal,
       }));
-      const uri = await generarPDFPreview(facturaDetalleConvertida || facturaDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda);
+      const uri = await generarPDFPreview(facturaDetalleConvertida || facturaDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
       if (uri) {
-        await Share.share({
-          url: uri,
-          title: `Factura ${facturaDetalle.numero}`,
-        });
+        setPreviewUri(uri);
+        setMostrarPreviewPdf(true);
       }
     } catch {
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
@@ -799,17 +800,17 @@ const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(
                 return (
                   <TouchableOpacity
                     key={i}
-                    style={[styles.planCard, isAnual && styles.planCardDestacado]}
+                    style={[styles.planCard, isAnual && [styles.planCardDestacado, { borderColor: currentTheme.colors.primary, backgroundColor: currentTheme.colors.primary + '15' }]]}
                     onPress={() => handleComprar(pkg)}
                     disabled={comprando}
                   >
                     {isAnual && (
-                      <View style={styles.planBadge}>
+                      <View style={[styles.planBadge, { backgroundColor: currentTheme.colors.primary }]}>
                         <Text style={styles.planBadgeTexto}>{t('recomendado')}</Text>
                       </View>
                     )}
                     <Text style={styles.planNombre}>{pkg.product.title}</Text>
-                    <Text style={styles.planPrecio}>{pkg.product.priceString}</Text>
+                    <Text style={[styles.planPrecio, { color: currentTheme.colors.primary }]}>{pkg.product.priceString}</Text>
                     <Text style={styles.planDesc}>{pkg.product.description}</Text>
                   </TouchableOpacity>
                 );
@@ -834,6 +835,23 @@ const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(
             <Text style={styles.legalTexto}>{t('cancelar_anytime')}</Text>
             <View style={{ height: 40 }} />
           </ScrollView>
+        </View>
+      </Modal>
+
+      <Modal visible={mostrarPreviewPdf} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMostrarPreviewPdf(false)}>
+        <View style={[styles.previewWrapper, { backgroundColor: currentTheme.colors.background }]}>
+          <View style={[styles.previewHeader, { backgroundColor: currentTheme.colors.card, borderBottomColor: currentTheme.colors.border }]}>
+            <TouchableOpacity style={styles.previewCloseBtn} onPress={() => { setMostrarPreviewPdf(false); setPreviewUri(null); }}>
+              <Ionicons name="close" size={22} color={currentTheme.colors.text} />
+            </TouchableOpacity>
+            <Text style={[styles.previewTitle, { color: currentTheme.colors.text }]}>{t('numeracion_vista_previa')}</Text>
+            <View style={{ width: 36 }} />
+          </View>
+          {previewUri ? (
+            <WebView source={{ uri: previewUri }} style={{ flex: 1 }} originWhitelist={['*']} />
+          ) : (
+            <View style={styles.previewLoading}><Text style={{ color: currentTheme.colors.textSecondary }}>{t('cargando')}...</Text></View>
+          )}
         </View>
       </Modal>
 
@@ -909,8 +927,8 @@ const styles = StyleSheet.create({
   featureTexto: { fontSize: 14, fontWeight: "600", color: "#1a1a1a" },
   planesContainer: { padding: 20 },
   planCard: { backgroundColor: "#fff", borderRadius: 16, padding: 20, marginBottom: 12, shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },
-  planCardDestacado: { borderColor: "#6C47FF" },
-  planBadge: { position: "absolute", top: 16, right: 16, backgroundColor: "#26de81", borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
+  planCardDestacado: { borderColor: "#007AFF" },
+  planBadge: { position: "absolute", top: 16, right: 16, borderRadius: 10, paddingHorizontal: 8, paddingVertical: 4 },
   planBadgeTexto: { fontSize: 12, fontWeight: "700", color: "#fff" },
   planNombre: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
   planPrecio: { fontSize: 16, fontWeight: "600", color: "#1a1a1a", marginTop: 4 },
@@ -1026,6 +1044,11 @@ const styles = StyleSheet.create({
   checkbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: "#ccc", justifyContent: "center", alignItems: "center" },
   checkboxContainer: { justifyContent: "center", alignItems: "center", paddingLeft: 8, alignSelf: "center" },
   fabEliminar: { position: "absolute", bottom: 30, right: 20, borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  previewWrapper: { flex: 1, paddingTop: 20 },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
+  previewCloseBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  previewTitle: { fontSize: 18, fontWeight: '800' },
+  previewLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
 
 

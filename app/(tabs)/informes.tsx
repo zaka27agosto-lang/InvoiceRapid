@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, Dimensions, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { useTheme } from "../../contexts/ThemeContext";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import SwipeNavigation from "../../components/SwipeNavigation";
@@ -207,16 +208,20 @@ export default function Informes() {
       ]);
       
       const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
-      const fileUri = `${FileSystem.cacheDirectory}InvoiceRapid_export_${Date.now()}.csv`;
+      const fileUri = `${FileSystem.documentDirectory}InvoiceRapid_export_${Date.now()}.csv`;
       
       await FileSystem.writeAsStringAsync(fileUri, csvContent, {
         encoding: FileSystem.EncodingType.UTF8,
       });
       
-      await Share.share({
-        url: fileUri,
-        message: `Exportación InvoiceRapid - ${new Date().toLocaleDateString('es-ES')}`,
-      });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/csv',
+          dialogTitle: `InvoiceRapid Export - ${new Date().toLocaleDateString('es-ES')}`,
+        });
+      } else {
+        await Share.share({ message: csvContent });
+      }
     } catch (err) {
       Alert.alert(t('error'), t('error_exportar_csv'));
     } finally {
@@ -232,7 +237,7 @@ export default function Informes() {
 
   return (
     <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
-    <View style={styles.wrapper}>
+    <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.headerTop}>
             <Text style={styles.titulo}>{t('informes_titulo')}</Text>

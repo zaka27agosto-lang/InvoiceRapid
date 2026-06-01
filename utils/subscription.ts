@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const LIMITE_FACTURAS_MENSUAL = 10;
+const LIMITE_FACTURAS_MENSUAL = 5;
 const MONTHLY_COUNTER_KEY = 'monthly_invoice_counter';
 const REWARDED_ADS_KEY = 'rewarded_ads_daily';
 const MAX_REWARDED_ADS_PER_DAY = 3;

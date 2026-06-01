@@ -255,7 +255,7 @@ export default function Profile() {
           <Text style={styles.logoutButtonText}>{loading ? t('cargando') : t('cerrar_sesion')}</Text>
         </TouchableOpacity>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
       {/* Modal Cambiar Nombre */}

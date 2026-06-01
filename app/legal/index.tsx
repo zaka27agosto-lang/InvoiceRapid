@@ -28,22 +28,7 @@ export default function Legal() {
       icon: 'restaurant-outline',
       route: '/legal/cookies',
     },
-    {
-      id: 'contact',
-      title: t('contacto'),
-      icon: 'mail-outline',
-      action: () => {
-        // TODO: Implementar contacto
-      },
-    },
-    {
-      id: 'support',
-      title: t('soporte'),
-      icon: 'headset-outline',
-      action: () => {
-        // TODO: Implementar soporte
-      },
-    },
+
   ];
 
   return (
@@ -66,7 +51,7 @@ export default function Legal() {
           <TouchableOpacity
             key={option.id}
             style={[styles.option, { backgroundColor: currentTheme.colors.card }]}
-            onPress={() => option.route ? router.push(option.route as any) : option.action?.()}
+            onPress={() => router.push(option.route as any)}
           >
             <View style={[styles.optionIcon, { backgroundColor: currentTheme.colors.primaryLight }]}>
               <Ionicons name={option.icon as any} size={24} color={currentTheme.colors.primary} />
