@@ -71,6 +71,7 @@ function TabsContent() {
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
         }} />
         <Tabs.Screen name="nueva-factura" options={{ href: null }} />
+        <Tabs.Screen name="nuevo-albaran" options={{ href: null }} />
         <Tabs.Screen name="facturas" options={{ href: null }} />
       </Tabs>
     </View>

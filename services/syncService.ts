@@ -71,6 +71,16 @@ export class SyncService {
           if (error) throw error;
           synced++;
 
+          // Actualizar sync_status local a 'synced' tras subir con éxito
+          try {
+            const db = (await import('../app/db/database')).default;
+            if (db) {
+              db.runSync('UPDATE facturas SET sync_status = ? WHERE id = ?', ['synced', invoice.id]);
+            }
+          } catch (e) {
+            console.error('Error updating local sync_status for invoice', invoice.id, ':', e);
+          }
+
           // ── Sincronizar factura_items (líneas de factura) ──
           try {
             const items = await this.getLocalInvoiceItems(invoice.id);
@@ -123,15 +133,119 @@ export class SyncService {
       // Eliminar de la nube facturas borradas localmente
       await this.deleteOrphanedCloudRecords('facturas', userId, localInvoices);
 
-      // 💥 NO descargamos datos de la nube a local para evitar
-      // que datos stale o no deseados aparezcan en la app.
-      // La app es UPLOAD-ONLY: solo sube datos locales a la nube.
-      // Si se necesita descargar, será una acción manual explícita.
-
       return { success: true, synced, errors };
     } catch (error) {
       console.error('Sync invoices error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar facturas' };
+    }
+  }
+
+  async syncAlbaranes(userId: string): Promise<SyncResult> {
+    try {
+      if (!supabase) {
+        return { success: false, synced: 0, errors: 0, message: 'Supabase no está configurado' };
+      }
+      if (!(await this.isOnline())) {
+        return { success: false, synced: 0, errors: 0, message: 'Sin conexión' };
+      }
+
+      const localAlbaranes = await this.getLocalAlbaranes();
+      let synced = 0;
+      let errors = 0;
+
+      for (const albaran of localAlbaranes) {
+        try {
+          const { data, error } = await supabase
+            .from('albaranes')
+            .upsert({
+              id: albaran.id,
+              user_id: userId,
+              numero: albaran.numero,
+              cliente_id: albaran.cliente_id,
+              cliente_nombre: albaran.cliente_nombre,
+              subtotal: albaran.subtotal,
+              descuento: albaran.descuento,
+              iva_porcentaje: albaran.iva_porcentaje,
+              iva_importe: albaran.iva_importe,
+              irpf_porcentaje: albaran.irpf_porcentaje,
+              irpf_importe: albaran.irpf_importe,
+              total: albaran.total,
+              estado: albaran.estado,
+              fecha: albaran.fecha,
+              fecha_entrega: albaran.fecha_entrega,
+              notas: albaran.notas,
+              firma_data: albaran.firma_data,
+              sync_status: 'synced',
+              updated_at: new Date().toISOString(),
+            })
+            .select();
+
+          if (error) throw error;
+          synced++;
+
+          // Actualizar sync_status local a 'synced' tras subir con éxito
+          try {
+            const db = (await import('../app/db/database')).default;
+            if (db) {
+              db.runSync('UPDATE albaranes SET sync_status = ? WHERE id = ?', ['synced', albaran.id]);
+            }
+          } catch (e) {
+            console.error('Error updating local sync_status for albaran', albaran.id, ':', e);
+          }
+
+          // ── Sincronizar albaran_items ──
+          try {
+            const items = await this.getLocalAlbaranItems(albaran.id);
+            const { error: delErr } = await supabase
+              .from('albaran_items')
+              .delete()
+              .eq('albaran_id', albaran.id)
+              .eq('user_id', userId);
+            if (delErr) {
+              console.error('Error deleting cloud items for albaran', albaran.id, ':', delErr);
+            } else if (items.length > 0) {
+              for (const item of items) {
+                const { error: insErr } = await supabase
+                  .from('albaran_items')
+                  .upsert({
+                    id: item.id,
+                    albaran_id: item.albaran_id,
+                    user_id: userId,
+                    descripcion: item.descripcion,
+                    cantidad: item.cantidad,
+                    unidad: item.unidad,
+                    precio_unitario: item.precio_unitario,
+                    descuento: item.descuento,
+                    subtotal: item.subtotal,
+                    sync_status: 'synced',
+                    updated_at: new Date().toISOString(),
+                  });
+                if (insErr) {
+                  console.error('Error upserting albaran item', item.id, ':', insErr);
+                  errors++;
+                } else {
+                  synced++;
+                }
+              }
+              console.log(`📦 ${items.length} items sync para albaran ${albaran.id}`);
+            }
+          } catch (e) {
+            console.error('Error syncing items for albaran', albaran.id, ':', e);
+            errors++;
+          }
+        } catch (e) {
+          console.error('Error syncing albaran:', e);
+          errors++;
+        }
+      }
+
+      // Eliminar de la nube albaranes borrados localmente
+      await this.deleteOrphanedCloudRecords('albaranes', userId, localAlbaranes);
+
+      return { success: true, synced, errors };
+    } catch (error) {
+      console.error('Sync albaranes error:', error);
+      return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar albaranes' };
     }
   }
 
@@ -255,6 +369,42 @@ export class SyncService {
     }
   }
 
+  /** Pull-only: descarga albaranes de la nube SIN subir nada local */
+  async pullAlbaranesOnly(userId: string): Promise<SyncResult> {
+    try {
+      if (!supabase) {
+        return { success: false, synced: 0, errors: 0, message: 'Supabase no está configurado' };
+      }
+      if (!(await this.isOnline())) {
+        return { success: false, synced: 0, errors: 0, message: 'Sin conexión' };
+      }
+
+      const { data: cloudAlbaranes } = await supabase
+        .from('albaranes')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (cloudAlbaranes && cloudAlbaranes.length > 0) {
+        await this.saveLocalAlbaranes(cloudAlbaranes);
+      }
+
+      const { data: cloudItems } = await supabase
+        .from('albaran_items')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (cloudItems && cloudItems.length > 0) {
+        await this.saveLocalAlbaranItems(cloudItems);
+      }
+
+      const totalSynced = (cloudAlbaranes?.length || 0) + (cloudItems?.length || 0);
+      return { success: true, synced: totalSynced, errors: 0 };
+    } catch (error) {
+      console.error('Pull albaranes error:', error);
+      return { success: false, synced: 0, errors: 0, message: 'Error al descargar albaranes' };
+    }
+  }
+
   async syncProducts(userId: string): Promise<SyncResult> {
     try {
       if (!supabase) {
@@ -330,7 +480,7 @@ export class SyncService {
 
   /** Elimina de la nube los registros que ya no existen localmente */
   private async deleteOrphanedCloudRecords(
-    table: 'facturas' | 'clientes' | 'productos',
+    table: 'facturas' | 'clientes' | 'productos' | 'albaranes',
     userId: string,
     localRecords: any[]
   ): Promise<void> {
@@ -385,14 +535,15 @@ export class SyncService {
     let totalErrors = 0;
 
     try {
-      const [invoices, clients, products] = await Promise.all([
+      const [invoices, albaranes, clients, products] = await Promise.all([
         this.syncInvoices(userId),
+        this.syncAlbaranes(userId),
         this.syncClients(userId),
         this.syncProducts(userId),
       ]);
 
-      totalSynced = invoices.synced + clients.synced + products.synced;
-      totalErrors = invoices.errors + clients.errors + products.errors;
+      totalSynced = invoices.synced + albaranes.synced + clients.synced + products.synced;
+      totalErrors = invoices.errors + albaranes.errors + clients.errors + products.errors;
 
       return {
         success: true,
@@ -428,25 +579,25 @@ export class SyncService {
           db.runSync(
             `UPDATE facturas SET numero=?, cliente_id=?, cliente_nombre=?, subtotal=?, descuento=?,
              iva_porcentaje=?, iva_importe=?, irpf_porcentaje=?, irpf_importe=?, total=?,
-             estado=?, fecha=?, fecha_vencimiento=?, notas=?, metodo_pago=?
+             estado=?, fecha=?, fecha_vencimiento=?, notas=?, metodo_pago=?, sync_status=?
              WHERE id=?`,
             [invoice.numero, invoice.cliente_id, invoice.cliente_nombre, invoice.subtotal,
              invoice.descuento, invoice.iva_porcentaje, invoice.iva_importe,
              invoice.irpf_porcentaje, invoice.irpf_importe, invoice.total,
              invoice.estado, invoice.fecha, invoice.fecha_vencimiento,
-             invoice.notas, invoice.metodo_pago, invoice.id]
+             invoice.notas, invoice.metodo_pago, invoice.sync_status || 'pending', invoice.id]
           );
         } else {
           db.runSync(
             `INSERT INTO facturas (id, numero, cliente_id, cliente_nombre, subtotal, descuento,
              iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total,
-             estado, fecha, fecha_vencimiento, notas, metodo_pago)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             estado, fecha, fecha_vencimiento, notas, metodo_pago, sync_status)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [invoice.id, invoice.numero, invoice.cliente_id, invoice.cliente_nombre, invoice.subtotal,
              invoice.descuento, invoice.iva_porcentaje, invoice.iva_importe,
              invoice.irpf_porcentaje, invoice.irpf_importe, invoice.total,
              invoice.estado, invoice.fecha, invoice.fecha_vencimiento,
-             invoice.notas, invoice.metodo_pago]
+             invoice.notas, invoice.metodo_pago, invoice.sync_status || 'pending']
           );
         }
       }
@@ -563,6 +714,84 @@ export class SyncService {
     }
   }
 
+  // ──────── Albaranes local helpers ────────
+  private async getLocalAlbaranes(): Promise<any[]> {
+    try {
+      const { getAlbaranes } = await import('../app/db/albaranes');
+      return getAlbaranes() as any[];
+    } catch {
+      return [];
+    }
+  }
+
+  private async saveLocalAlbaranes(albaranes: any[]): Promise<void> {
+    try {
+      const db = (await import('../app/db/database')).default;
+      if (!db || !albaranes.length) return;
+
+      for (const albaran of albaranes) {
+        const existing = db.getFirstSync('SELECT id FROM albaranes WHERE id = ?', [albaran.id]);
+        if (existing) {
+          db.runSync(
+            `UPDATE albaranes SET numero=?, cliente_id=?, cliente_nombre=?, subtotal=?, descuento=?,
+             iva_porcentaje=?, iva_importe=?, irpf_porcentaje=?, irpf_importe=?, total=?,
+             estado=?, fecha=?, fecha_entrega=?, notas=?, firma_data=?, sync_status=?
+             WHERE id=?`,
+            [albaran.numero, albaran.cliente_id, albaran.cliente_nombre, albaran.subtotal,
+             albaran.descuento, albaran.iva_porcentaje, albaran.iva_importe,
+             albaran.irpf_porcentaje, albaran.irpf_importe, albaran.total,
+             albaran.estado, albaran.fecha, albaran.fecha_entrega,
+             albaran.notas, albaran.firma_data, albaran.sync_status || 'pending', albaran.id]
+          );
+        } else {
+          db.runSync(
+            `INSERT INTO albaranes (id, numero, cliente_id, cliente_nombre, subtotal, descuento,
+             iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total,
+             estado, fecha, fecha_entrega, notas, firma_data, sync_status)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [albaran.id, albaran.numero, albaran.cliente_id, albaran.cliente_nombre, albaran.subtotal,
+             albaran.descuento, albaran.iva_porcentaje, albaran.iva_importe,
+             albaran.irpf_porcentaje, albaran.irpf_importe, albaran.total,
+             albaran.estado, albaran.fecha, albaran.fecha_entrega,
+             albaran.notas, albaran.firma_data, albaran.sync_status || 'pending']
+          );
+        }
+      }
+      console.log('✅ Albaranes guardados localmente:', albaranes.length);
+    } catch (e) {
+      console.error('Error saving local albaranes:', e);
+    }
+  }
+
+  private async getLocalAlbaranItems(albaranId: number): Promise<any[]> {
+    try {
+      const { getAlbaranItems } = await import('../app/db/albaranes');
+      return getAlbaranItems(albaranId) as any[];
+    } catch {
+      return [];
+    }
+  }
+
+  private async saveLocalAlbaranItems(items: any[]): Promise<void> {
+    try {
+      const db = (await import('../app/db/database')).default;
+      if (!db || !items.length) return;
+
+      for (const item of items) {
+        db.runSync('DELETE FROM albaran_items WHERE id = ?', [item.id]);
+        db.runSync(
+          `INSERT INTO albaran_items (id, albaran_id, descripcion, cantidad, unidad, precio_unitario, descuento, subtotal)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [item.id, item.albaran_id, item.descripcion, item.cantidad,
+           item.unidad, item.precio_unitario, item.descuento, item.subtotal]
+        );
+      }
+      console.log('✅ Albaran items guardados localmente:', items.length);
+    } catch (e) {
+      console.error('Error saving local albaran items:', e);
+    }
+  }
+
   async addToQueue(operation: any): Promise<void> {
     this.syncQueue.push(operation);
     await AsyncStorage.setItem('sync_queue', JSON.stringify(this.syncQueue));
@@ -595,6 +824,9 @@ export class SyncService {
         break;
       case 'product':
         await this.syncProducts(userId);
+        break;
+      case 'albaran':
+        await this.syncAlbaranes(userId);
         break;
     }
   }
@@ -670,6 +902,27 @@ export class SyncService {
       }
     } catch (e) {
       console.error('Error in deleteProductFromCloud:', e);
+    }
+  }
+
+  /** Elimina un albaran de la nube (llamar cuando se borra localmente) */
+  async deleteAlbaranFromCloud(albaranId: number): Promise<void> {
+    if (!supabase) return;
+    const userId = await this.getCurrentUserId();
+    if (!userId) return;
+    try {
+      const { error } = await supabase
+        .from('albaranes')
+        .delete()
+        .eq('id', albaranId)
+        .eq('user_id', userId);
+      if (error) {
+        console.error('Error deleting albaran from cloud:', error);
+      } else {
+        console.log('✅ Albaran eliminado de la nube:', albaranId);
+      }
+    } catch (e) {
+      console.error('Error in deleteAlbaranFromCloud:', e);
     }
   }
 

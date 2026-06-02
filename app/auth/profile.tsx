@@ -28,7 +28,7 @@ export default function Profile() {
             setLoading(true);
             await signOut();
             setLoading(false);
-            router.back();
+            router.replace('/auth/login');
           }
         }
       ]

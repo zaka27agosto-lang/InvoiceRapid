@@ -32,6 +32,7 @@ export default function Informes() {
   const [ultimos6Convertidos, setUltimos6Convertidos] = useState<any[]>([]);
   const [topClientesConvertidos, setTopClientesConvertidos] = useState<any[]>([]);
   const [exportando, setExportando] = useState(false);
+  const [maxValorConvertido, setMaxValorConvertido] = useState(1);
 
   const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(tabs)/productos', '/(tabs)/informes', '/(tabs)/ajustes'];
 
@@ -52,11 +53,11 @@ export default function Informes() {
   function cargarDatos() {
     const facturasData = getFacturas() as any[];
     setFacturas(facturasData);
+
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
       
-      // Calcular totales en euros
       const ahora = new Date();
       const mesActual = ahora.getMonth();
       const añoActual = ahora.getFullYear();
@@ -71,7 +72,6 @@ export default function Informes() {
       const pendienteCobro = facturasData.filter(f => f.estado !== 'pagada').reduce((acc, f) => acc + (f.total || 0), 0);
       const totalPagadas = facturasData.filter(f => f.estado === 'pagada').reduce((acc, f) => acc + (f.total || 0), 0);
       
-      // Convertir totales a la moneda seleccionada
       Promise.all([
         convertirDeEurosParaMostrar(totalMes, m.codigo),
         convertirDeEurosParaMostrar(totalGeneral, m.codigo),
@@ -84,31 +84,29 @@ export default function Informes() {
         setTotalPagadasConvertido(pagadas);
       });
       
-      // Convertir ultimos 6 meses
+      // Calcular ultimos 6 meses (solo facturas)
       const ultimos6 = Array.from({ length: 6 }, (_, i) => {
         const d = new Date(añoActual, mesActual - (5 - i), 1);
         const mes = d.getMonth();
         const año = d.getFullYear();
-        const total = facturasData
+        const totalFacturas = facturasData
           .filter(f => { const fd = new Date(f.fecha); return fd.getMonth() === mes && fd.getFullYear() === año; })
           .reduce((acc, f) => acc + (f.total || 0), 0);
-        return {
-          label: d.toLocaleDateString('es-ES', { month: 'short' }),
-          total,
-        };
+        return { label: d.toLocaleDateString('es-ES', { month: 'short' }), total: totalFacturas };
       });
       
       Promise.all(
         ultimos6.map(mes => convertirDeEurosParaMostrar(mes.total, m.codigo))
       ).then(totalesConvertidos => {
         const ultimos6ConTotalesConvertidos = ultimos6.map((mes, i) => ({
-          ...mes,
+          label: mes.label,
           total: totalesConvertidos[i],
         }));
         setUltimos6Convertidos(ultimos6ConTotalesConvertidos);
+        setMaxValorConvertido(Math.max(...ultimos6ConTotalesConvertidos.map((m: any) => m.total || 0), 1));
       });
       
-      // Convertir top clientes
+      // Convertir top clientes (solo facturas)
       const porCliente: Record<string, number> = {};
       facturasData.forEach(f => {
         const nombre = f.cliente_nombre || t('sin_cliente');
@@ -145,6 +143,8 @@ export default function Informes() {
     }
   }, [lastSync]);
 
+
+
   const ahora = new Date();
   const mesActual = ahora.getMonth();
   const añoActual = ahora.getFullYear();
@@ -159,7 +159,7 @@ export default function Informes() {
   const pendienteCobro = facturas.filter(f => f.estado !== 'pagada').reduce((acc, f) => acc + (f.total || 0), 0);
   const totalPagadas = facturas.filter(f => f.estado === 'pagada').reduce((acc, f) => acc + (f.total || 0), 0);
 
-  // Top clientes
+  // Top clientes (solo facturas)
   const porCliente: Record<string, number> = {};
   facturas.forEach(f => {
     const nombre = f.cliente_nombre || t('sin_cliente');
@@ -169,56 +169,43 @@ export default function Informes() {
     .sort((a, b) => b[1] - a[1])
     .slice(0, 5);
 
-  // Evolución últimos 6 meses
+  // Evolución últimos 6 meses (solo facturas)
   const ultimos6 = Array.from({ length: 6 }, (_, i) => {
     const d = new Date(añoActual, mesActual - (5 - i), 1);
     const mes = d.getMonth();
     const año = d.getFullYear();
-    const total = facturas
+    const totalFacturas = facturas
       .filter(f => { const fd = new Date(f.fecha); return fd.getMonth() === mes && fd.getFullYear() === año; })
       .reduce((acc, f) => acc + (f.total || 0), 0);
-    return {
-      label: d.toLocaleDateString('es-ES', { month: 'short' }),
-      total,
-    };
+    return { label: d.toLocaleDateString('es-ES', { month: 'short' }), total: totalFacturas };
   });
 
   const maxValor = Math.max(...ultimos6.map(m => m.total), 1);
+  // Para las barras usamos el maxValor en moneda convertida (proporciones correctas)
+  const maxValorGrafico = maxValorConvertido > 0 ? maxValorConvertido : maxValor;
 
   async function exportarCSV() {
     setExportando(true);
     try {
-      const m = await getMoneda();
-      const facturas = getFacturas() as any[];
+      const facturasAll = getFacturas() as any[];
       
-      // Cabeceras CSV
-      const headers = ['Número', 'Cliente', 'Fecha', 'Subtotal', 'IVA%', 'IVA', 'IRPF%', 'IRPF', 'Total', 'Estado', 'Método Pago'];
-      const rows = facturas.map((f: any) => [
-        f.numero,
+      const headers = ['Tipo', 'Número', 'Cliente', 'Fecha', 'Subtotal', 'IVA%', 'IVA', 'IRPF%', 'IRPF', 'Total', 'Estado', 'Método Pago'];
+      const facturasRows = facturasAll.map((f: any) => [
+        'Factura', f.numero,
         `"${(f.cliente_nombre || '').replace(/"/g, '""')}"`,
         new Date(f.fecha).toLocaleDateString('es-ES'),
-        (f.subtotal || 0).toFixed(2),
-        f.iva_porcentaje || 0,
-        (f.iva_importe || 0).toFixed(2),
-        f.irpf_porcentaje || 0,
-        (f.irpf_importe || 0).toFixed(2),
-        (f.total || 0).toFixed(2),
-        f.estado || '',
-        f.metodo_pago || ''
+        (f.subtotal || 0).toFixed(2), f.iva_porcentaje || 0, (f.iva_importe || 0).toFixed(2),
+        f.irpf_porcentaje || 0, (f.irpf_importe || 0).toFixed(2), (f.total || 0).toFixed(2),
+        f.estado || '', f.metodo_pago || ''
       ]);
       
-      const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+      const csvContent = [headers.join(','), ...facturasRows.map(r => r.join(','))].join('\n');
       const fileUri = `${FileSystem.documentDirectory}InvoiceRapid_export_${Date.now()}.csv`;
       
-      await FileSystem.writeAsStringAsync(fileUri, csvContent, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
       
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: 'text/csv',
-          dialogTitle: `InvoiceRapid Export - ${new Date().toLocaleDateString('es-ES')}`,
-        });
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: `InvoiceRapid Export - ${new Date().toLocaleDateString('es-ES')}` });
       } else {
         await Share.share({ message: csvContent });
       }
@@ -241,9 +228,7 @@ export default function Informes() {
         <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
           <View style={styles.headerTop}>
             <Text style={styles.titulo}>{t('informes_titulo')}</Text>
-          </View>
-
-        {/* Botón exportar CSV */}
+          </View>          {/* Botón exportar CSV */}
           <TouchableOpacity
             style={[styles.exportBtn, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.primary }]}
             onPress={exportarCSV}
@@ -282,9 +267,11 @@ export default function Informes() {
           </View>
         </View>
 
-        {/* Gráfico de evolución con SVG nativo */}
+        {/* Gráfico de evolución */}
         <View style={styles.seccion}>
-          <Text style={styles.seccionTitulo}>{t('evolucion')}</Text>
+          <View style={styles.seccionHeader}>
+            <Text style={styles.seccionTitulo}>{t('evolucion')}</Text>
+          </View>
           {facturas.length === 0 ? (
             <View style={styles.emptyGrafico}>
               <Ionicons name="bar-chart-outline" size={40} color="#e0e0e0" />
@@ -296,7 +283,7 @@ export default function Informes() {
               <View style={styles.ejeY}>
                 {[100, 75, 50, 25, 0].map(pct => (
                   <Text key={pct} style={styles.ejeYLabel}>
-                    {maxValor > 0 ? `${(maxValor * pct / 100).toFixed(0)}` : '0'}
+                    {maxValorGrafico > 0 ? `${(maxValorGrafico * pct / 100).toFixed(0)}` : '0'}
                   </Text>
                 ))}
               </View>
@@ -308,7 +295,7 @@ export default function Informes() {
                   ))}
                 </View>
                 {ultimos6Convertidos.map((mes, i) => {
-                  const altura = maxValor > 0 ? (mes.total / maxValor) * 100 : 0;
+                  const altura = maxValorGrafico > 0 ? (mes.total / maxValorGrafico) * 100 : 0;
                   return (
                     <View key={i} style={styles.barraCol}>
                       <Text style={styles.barraValor}>
@@ -342,7 +329,7 @@ export default function Informes() {
           <Text style={styles.seccionTitulo}>{t('evolucion')}</Text>
         <View style={styles.seccion}>
           <Text style={styles.seccionTitulo}>{t('evolucion')}</Text>
-          {facturas.length === 0 ? (
+          {facturasFiltradas.length === 0 && albaranesFiltrados.length === 0 ? (
             <View style={styles.emptyGrafico}>
               <Ionicons name="bar-chart-outline" size={40} color="#e0e0e0" />
               <Text style={styles.emptyTexto}>{t('sin_datos')}</Text>
@@ -428,7 +415,12 @@ const styles = StyleSheet.create({
   kpiValor: { fontSize: 20, fontWeight: '800', color: '#fff' },
   kpiLabel: { fontSize: 12, color: 'rgba(255,255,255,0.75)', fontWeight: '500' },
   seccion: { backgroundColor: '#fff', borderRadius: 16, marginHorizontal: 16, marginBottom: 16, padding: 18 },
+  seccionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   seccionTitulo: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 18 },
+  leyendaContainer: { flexDirection: 'row', gap: 12 },
+  leyendaItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  leyendaDot: { width: 10, height: 10, borderRadius: 5 },
+  leyendaTexto: { fontSize: 11, color: '#888', fontWeight: '500' },
   grafico: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 160 },
   barraCol: { flex: 1, alignItems: 'center', gap: 6 },
   barraValor: { fontSize: 9, color: '#6C47FF', fontWeight: '700', textAlign: 'center' },
@@ -437,6 +429,9 @@ const styles = StyleSheet.create({
   barraLabel: { fontSize: 11, color: '#888', fontWeight: '500' },
   exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginBottom: 16, borderRadius: 12, paddingVertical: 14, borderWidth: 1.5 },
   exportBtnTexto: { fontSize: 14, fontWeight: '700' },
+  filtroTipoContainer: { flexDirection: 'row', marginHorizontal: 16, marginBottom: 16, gap: 8 },
+  filtroTipoBtn: { flex: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center', borderWidth: 1, borderColor: 'transparent' },
+  filtroTipoTexto: { fontSize: 13, fontWeight: '700' },
   graficoContainer: { flexDirection: 'row', height: 180 },
   ejeY: { width: 50, justifyContent: 'space-between', paddingRight: 8, paddingBottom: 24 },
   ejeYLabel: { fontSize: 10, color: '#888', fontWeight: '500', textAlign: 'right' },

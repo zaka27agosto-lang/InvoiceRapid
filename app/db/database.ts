@@ -15,6 +15,8 @@ export function clearAllData() {
     db.execSync(`
       DELETE FROM factura_items;
       DELETE FROM facturas;
+      DELETE FROM albaran_items;
+      DELETE FROM albaranes;
       DELETE FROM clientes;
       DELETE FROM productos;
     `);
@@ -66,6 +68,7 @@ export function initDB() {
       fecha_vencimiento TEXT,
       notas TEXT,
       metodo_pago TEXT DEFAULT 'efectivo',
+      sync_status TEXT DEFAULT 'pending',
       FOREIGN KEY (cliente_id) REFERENCES clientes(id)
     );
 
@@ -88,7 +91,62 @@ export function initDB() {
       unidad TEXT DEFAULT 'ud',
       created_at TEXT DEFAULT (datetime('now'))
     );
+
+    CREATE TABLE IF NOT EXISTS albaranes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      numero TEXT NOT NULL,
+      cliente_id INTEGER,
+      cliente_nombre TEXT,
+      subtotal REAL DEFAULT 0,
+      descuento REAL DEFAULT 0,
+      iva_porcentaje REAL DEFAULT 21,
+      iva_importe REAL DEFAULT 0,
+      irpf_porcentaje REAL DEFAULT 0,
+      irpf_importe REAL DEFAULT 0,
+      total REAL NOT NULL DEFAULT 0,
+      estado TEXT DEFAULT 'pendiente',
+      fecha TEXT DEFAULT (datetime('now')),
+      fecha_entrega TEXT,
+      notas TEXT,
+      firma_data TEXT,
+      sync_status TEXT DEFAULT 'pending',
+      FOREIGN KEY (cliente_id) REFERENCES clientes(id)
+    );
+
+    CREATE TABLE IF NOT EXISTS albaran_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      albaran_id INTEGER NOT NULL,
+      descripcion TEXT,
+      cantidad REAL DEFAULT 1,
+      unidad TEXT DEFAULT 'ud',
+      precio_unitario REAL DEFAULT 0,
+      descuento REAL DEFAULT 0,
+      subtotal REAL DEFAULT 0,
+      FOREIGN KEY (albaran_id) REFERENCES albaranes(id)
+    );
+
   `);
+
+  // Migration: add firma_data column if it doesn't exist yet (for existing databases)
+  try {
+    db.execSync('ALTER TABLE albaranes ADD COLUMN firma_data TEXT;');
+  } catch (_) {
+    // Column already exists, ignore
+  }
+
+  // Migration: add sync_status column if it doesn't exist yet
+  try {
+    db.execSync('ALTER TABLE albaranes ADD COLUMN sync_status TEXT DEFAULT \'pending\';');
+  } catch (_) {
+    // Column already exists, ignore
+  }
+
+  // Migration: add sync_status column to facturas if it doesn't exist yet
+  try {
+    db.execSync('ALTER TABLE facturas ADD COLUMN sync_status TEXT DEFAULT \'pending\';');
+  } catch (_) {
+    // Column already exists, ignore
+  }
 }
 
 export default db;

@@ -41,7 +41,23 @@ SELECT cron.schedule(
 );
 
 -- ============================================================
--- COMANDOS ÚTILES PARA GESTIONAR EL CRON JOB
+-- CRON JOB 2: Limpieza de registros huérfanos (diario a las 04:00 UTC)
+-- ============================================================
+-- Este job llama a la función public.cleanup_orphan_records() que:
+--   1. Elimina factura_items cuyo factura_id ya no existe
+--   2. Elimina albaran_items cuyo albaran_id ya no existe
+--   3. Elimina registros de cualquier tabla cuyo user_id ya no está en auth.users
+-- La función y el cron job se crean en la migración 20260602000001.
+--
+-- Para ejecutar manualmente la limpieza:
+--   SELECT * FROM public.cleanup_orphan_records();
+--
+-- Para ver/editar/eliminar este job:
+--   SELECT * FROM cron.job WHERE jobname = 'cleanup-orphan-records-daily';
+--   SELECT cron.unschedule('cleanup-orphan-records-daily');
+
+-- ============================================================
+-- COMANDOS ÚTILES PARA GESTIONAR LOS CRON JOBS
 -- ============================================================
 
 -- Ver todos los jobs programados

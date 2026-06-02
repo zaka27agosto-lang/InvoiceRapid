@@ -24,6 +24,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
+      "versionCode": 12,
       "package": "com.zkrstudio.invoicerapidpro",
       "googleMobileAdsAppId": "ca-app-pub-3758182602063783~1918923220",
       "googleServicesFile": "./google-services.json"

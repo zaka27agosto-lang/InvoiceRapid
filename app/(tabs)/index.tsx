@@ -11,12 +11,16 @@ import { convertirDeEurosParaMostrar } from "../../utils/currency";
 import { FormatoFecha, getFormatoFecha, getMoneda } from "../../utils/settings";
 import { checkInvoiceLimitAsync, getRemainingRewardedAds } from "../../utils/subscription";
 import { getFacturas } from "../db/facturas";
+import { getAlbaranes } from "../db/albaranes";
 import { useSync } from "../../hooks/useSync";
 
 export default function Inicio() {
   const { lastSync } = useSync();
+  const [modo, setModo] = useState<'facturas' | 'albaranes'>('facturas');
   const [facturas, setFacturas] = useState<any[]>([]);
   const [facturasConvertidas, setFacturasConvertidas] = useState<any[]>([]);
+  const [albaranes, setAlbaranes] = useState<any[]>([]);
+  const [albaranesConvertidos, setAlbaranesConvertidos] = useState<any[]>([]);
   const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 10 });
   const [remainingRewardedAds, setRemainingRewardedAds] = useState(0);
   const [esPrimeraVez, setEsPrimeraVez] = useState(false);
@@ -24,6 +28,7 @@ export default function Inicio() {
   const [simboloMoneda, setSimboloMoneda] = useState('€');
   const [codigoMoneda, setCodigoMoneda] = useState('EUR');
   const [statsConvertidos, setStatsConvertidos] = useState({ porCobrar: 0, impagadas: 0, noEnviadas: 0, pagadas: 0 });
+  const [albaranesStatsConvertidos, setAlbaranesStatsConvertidos] = useState({ pendiente: 0, enviado: 0, entregado: 0 });
   const router = useRouter();
   const { t } = useTranslation();
   const { isPremium } = useSubscription();
@@ -64,7 +69,9 @@ export default function Inicio() {
 
   function cargarDatos() {
     const facturasData = getFacturas() as any[];
+    const albaranesData = getAlbaranes() as any[];
     setFacturas(facturasData);
+    setAlbaranes(albaranesData);
     checkInvoiceLimitAsync().then(setLimiteInfo);
     getFormatoFecha().then(setFormatoFecha);
     getMoneda().then(m => {
@@ -85,17 +92,25 @@ export default function Inicio() {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
       
-      // Convertir importes de cada factura a la moneda seleccionada
+      // Convertir facturas
       const facturasConTotalesConvertidos = Promise.all(
         facturasData.map(async factura => ({
           ...factura,
           totalConvertido: await convertirDeEurosParaMostrar(factura.total || 0, m.codigo),
         }))
       );
-      
       facturasConTotalesConvertidos.then(setFacturasConvertidas);
 
-      // Convertir importes a la moneda seleccionada
+      // Convertir albaranes
+      const albaranesConTotalesConvertidos = Promise.all(
+        albaranesData.map(async albaran => ({
+          ...albaran,
+          totalConvertido: await convertirDeEurosParaMostrar(albaran.total || 0, m.codigo),
+        }))
+      );
+      albaranesConTotalesConvertidos.then(setAlbaranesConvertidos);
+
+      // Stats de facturas
       const stats = {
         porCobrar: facturasData.filter(f => f.estado === 'pendiente').reduce((acc, f) => acc + (f.total || 0), 0),
         impagadas: facturasData.filter(f => f.estado === 'impagada').reduce((acc, f) => acc + (f.total || 0), 0),
@@ -103,7 +118,14 @@ export default function Inicio() {
         pagadas: facturasData.filter(f => f.estado === 'pagada').reduce((acc, f) => acc + (f.total || 0), 0),
       };
 
-      // Convertir cada estadística
+      // Stats de albaranes
+      const albaranesStats = {
+        pendiente: albaranesData.filter(a => a.estado === 'pendiente').reduce((acc, a) => acc + (a.total || 0), 0),
+        enviado: albaranesData.filter(a => a.estado === 'enviado').reduce((acc, a) => acc + (a.total || 0), 0),
+        entregado: albaranesData.filter(a => a.estado === 'entregado').reduce((acc, a) => acc + (a.total || 0), 0),
+      };
+
+      // Convertir cada estadística de facturas
       Promise.all([
         convertirDeEurosParaMostrar(stats.porCobrar, m.codigo),
         convertirDeEurosParaMostrar(stats.impagadas, m.codigo),
@@ -111,6 +133,15 @@ export default function Inicio() {
         convertirDeEurosParaMostrar(stats.pagadas, m.codigo),
       ]).then(([porCobrar, impagadas, noEnviadas, pagadas]) => {
         setStatsConvertidos({ porCobrar, impagadas, noEnviadas, pagadas });
+      });
+
+      // Convertir cada estadística de albaranes
+      Promise.all([
+        convertirDeEurosParaMostrar(albaranesStats.pendiente, m.codigo),
+        convertirDeEurosParaMostrar(albaranesStats.enviado, m.codigo),
+        convertirDeEurosParaMostrar(albaranesStats.entregado, m.codigo),
+      ]).then(([pendiente, enviado, entregado]) => {
+        setAlbaranesStatsConvertidos({ pendiente, enviado, entregado });
       });
     });
   }
@@ -133,11 +164,7 @@ export default function Inicio() {
   const restantes = Math.max(0, limiteInfo.limit - limiteInfo.currentCount);
   const porcentajeUsado = Math.min(limiteInfo.currentCount / limiteInfo.limit, 1);
 
-  // Función auxiliar para convertir total de factura
-  const convertirTotalFactura = async (totalEnEuros: number): Promise<number> => {
-    if (codigoMoneda === 'EUR') return totalEnEuros;
-    return await convertirDeEurosParaMostrar(totalEnEuros, codigoMoneda);
-  };
+  const esFacturas = modo === 'facturas';
 
   const stats = {
     porCobrar: facturas.filter(f => f.estado === 'pendiente').reduce((acc, f) => acc + (f.total || 0), 0),
@@ -146,12 +173,41 @@ export default function Inicio() {
     pagadas: facturas.filter(f => f.estado === 'pagada').reduce((acc, f) => acc + (f.total || 0), 0),
   };
 
-  const tarjetas = [
+  const albaranesStats = {
+    pendiente: albaranes.filter(a => a.estado === 'pendiente').reduce((acc, a) => acc + (a.total || 0), 0),
+    enviado: albaranes.filter(a => a.estado === 'enviado').reduce((acc, a) => acc + (a.total || 0), 0),
+    entregado: albaranes.filter(a => a.estado === 'entregado').reduce((acc, a) => acc + (a.total || 0), 0),
+  };
+
+  const tarjetasFacturas = [
     { label: t('por_cobrar'), valor: statsConvertidos.porCobrar.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'pendiente').length, icono: "time-outline", color: currentTheme.colors.primary, filtro: "pendiente" },
     { label: t('impagadas'), valor: statsConvertidos.impagadas.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'impagada').length, icono: "alert-circle-outline", color: "#FF4757", filtro: "impagada" },
     { label: t('no_enviada'), valor: statsConvertidos.noEnviadas.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'no_enviada').length, icono: "paper-plane-outline", color: "#FF9F43", filtro: "no_enviada" },
     { label: t('pagadas'), valor: statsConvertidos.pagadas.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'pagada').length, icono: "checkmark-circle-outline", color: "#26de81", filtro: "pagada" },
   ];
+
+  const tarjetasAlbaranes = [
+    { label: t('pendiente'), valor: albaranesStatsConvertidos.pendiente.toFixed(2) + " " + simboloMoneda, count: albaranes.filter(a => a.estado === 'pendiente').length, icono: "time-outline", color: currentTheme.colors.primary, filtro: "pendiente" },
+    { label: t('enviado'), valor: albaranesStatsConvertidos.enviado.toFixed(2) + " " + simboloMoneda, count: albaranes.filter(a => a.estado === 'enviado').length, icono: "send-outline", color: "#FF9F43", filtro: "enviado" },
+    { label: t('entregado'), valor: albaranesStatsConvertidos.entregado.toFixed(2) + " " + simboloMoneda, count: albaranes.filter(a => a.estado === 'entregado').length, icono: "checkmark-circle-outline", color: "#26de81", filtro: "entregado" },
+  ];
+
+  const tarjetas = esFacturas ? tarjetasFacturas : tarjetasAlbaranes;
+  const datosConvertidos = esFacturas ? facturasConvertidas : albaranesConvertidos;
+  const datosRaw = esFacturas ? facturas : albaranes;
+  const tituloActividad = esFacturas ? t('facturas_recientes') : t('albaranes_recientes');
+  const emptyIcono = esFacturas ? 'document-outline' : 'clipboard-outline';
+  const emptyTexto = esFacturas ? t('sin_facturas') : t('sin_albaranes');
+  const emptySub = esFacturas ? t('facturas_apareceran') : t('albaranes_apareceran');
+  const btnCrearTexto = esFacturas ? t('nueva_factura') : t('nuevo_albaran');
+  const btnCrearRuta = esFacturas ? '/(tabs)/nueva-factura' : ('/(tabs)/nuevo-albaran' as any);
+  const btnToggleTexto = esFacturas ? t('albaranes') : t('facturas');
+
+  const datosRecientes = datosConvertidos
+    .sort((a: any, b: any) => new Date(b.fecha || 0).getTime() - new Date(a.fecha || 0).getTime())
+    .slice(0, 8);
+
+  const hayDatos = datosRaw.length > 0;
 
   return (
     <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
@@ -171,17 +227,17 @@ export default function Inicio() {
           </TouchableOpacity>
         </View>
 
-        {esPrimeraVez && facturas.length === 0 ? (
+        {esPrimeraVez && facturas.length === 0 && albaranes.length === 0 ? (
           <View style={[styles.banner, { backgroundColor: currentTheme.colors.primary }]}>
             <View style={styles.bannerTexto}>
-              <Text style={styles.bannerTitulo}>{t('crea_primera_factura')}</Text>
+              <Text style={styles.bannerTitulo}>{esFacturas ? t('crea_primera_factura') : t('crea_primer_albaran')}</Text>
               <Text style={styles.bannerSub}>{t('rapido_profesional')}</Text>
-              <TouchableOpacity style={styles.bannerBoton} onPress={() => router.push("/(tabs)/nueva-factura")}>
+              <TouchableOpacity style={styles.bannerBoton} onPress={() => router.push(btnCrearRuta as any)}>
                 <Text style={[styles.bannerBotonTexto, { color: currentTheme.colors.primary }]}>{t('empezar')}</Text>
               </TouchableOpacity>
             </View>
             <View style={styles.bannerDeco}>
-              <Ionicons name="document-text-outline" size={80} color="rgba(255,255,255,0.15)" />
+              <Ionicons name={esFacturas ? 'document-text-outline' : 'clipboard-outline'} size={80} color="rgba(255,255,255,0.15)" />
             </View>
           </View>
         ) : null}
@@ -264,7 +320,7 @@ export default function Inicio() {
 
         <View style={styles.grid}>
           {tarjetas.map((tarjeta, i) => (
-            <TouchableOpacity key={i} style={[styles.tarjeta, { backgroundColor: currentTheme.colors.card }]} onPress={() => router.push(`/(tabs)/documentos?filtro=${tarjeta.filtro}` as any)}>
+            <TouchableOpacity key={i} style={[styles.tarjeta, { backgroundColor: currentTheme.colors.card }, tarjetas.length === 3 && { width: '30%', marginHorizontal: '1%' }]} onPress={() => router.push(`/(tabs)/documentos?filtro=${tarjeta.filtro}` as any)}>
               <View style={[styles.tarjetaIcono, { backgroundColor: tarjeta.color + "18" }]}>
                 <Ionicons name={tarjeta.icono as any} size={20} color={tarjeta.color} />
               </View>
@@ -280,31 +336,38 @@ export default function Inicio() {
         </View>
 
         <View style={styles.seccionHeader}>
-          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.text }]}>{t('actividad_reciente')}</Text>
-          {facturas.length > 0 && (
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.text }]}>{tituloActividad}</Text>
+          {hayDatos && (
             <TouchableOpacity onPress={() => router.push("/(tabs)/documentos")}>
               <Text style={[styles.verTodo, { color: currentTheme.colors.primary }]}>{t('ver_todas')}</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {facturas.length === 0 ? (
+        {datosRaw.length === 0 ? (
           <View style={[styles.emptyState, { backgroundColor: currentTheme.colors.card }]}>
-            <Ionicons name="document-outline" size={40} color={currentTheme.colors.textSecondary} />
-            <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{t('sin_facturas')}</Text>
-            <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>{t('facturas_apareceran')}</Text>
+            <Ionicons name={emptyIcono as any} size={40} color={currentTheme.colors.textSecondary} />
+            <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{emptyTexto}</Text>
+            <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>{emptySub}</Text>
           </View>
         ) : (
           <View style={styles.listaFacturas}>
             <FlatList
-              data={facturas.slice(0, 5)}
+              data={datosRecientes}
               keyExtractor={(item) => item.id.toString()}
               scrollEnabled={false}
-              renderItem={({ item }) => (
-                <TouchableOpacity style={[styles.facturaMiniCard, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]} onPress={() => router.push(`/(tabs)/documentos?facturaId=${item.id}` as any)}>
-                  <View style={[styles.estadoBarra, {
-                    backgroundColor: item.estado === "pagada" ? "#26de81" : item.estado === "impagada" ? "#FF4757" : "#FF9F43"
-                  }]} />
+              renderItem={({ item }) => {
+                const estado = item.estado || (esFacturas ? 'pendiente' : 'pendiente');
+                const estadoColor = esFacturas
+                  ? (estado === 'pagada' ? '#26de81' : estado === 'impagada' ? '#FF4757' : '#FF9F43')
+                  : (estado === 'entregado' ? '#26de81' : estado === 'enviado' ? '#FF9F43' : currentTheme.colors.primary);
+                const estadoLabel = esFacturas
+                  ? (estado === 'pagada' ? t('pagada') : estado === 'impagada' ? t('impagada') : t('no_enviada'))
+                  : (estado === 'entregado' ? t('entregado') : estado === 'enviado' ? t('enviado') : t('pendiente'));
+                return (
+                <TouchableOpacity style={[styles.facturaMiniCard, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]} 
+                  onPress={() => router.push(`/(tabs)/documentos?facturaId=${item.id}` as any)}>
+                  <View style={[styles.estadoBarra, { backgroundColor: estadoColor }]} />
                   <View style={styles.facturaMiniInfo}>
                     <Text style={[styles.facturaMiniNumero, { color: currentTheme.colors.text }]}>{item.numero}</Text>
                     <Text style={[styles.facturaMiniCliente, { color: currentTheme.colors.textSecondary }]}>{item.cliente_nombre}</Text>
@@ -312,18 +375,19 @@ export default function Inicio() {
                   </View>
                   <View style={styles.facturaMiniRight}>
                     <Text style={[styles.facturaMiniTotal, { color: currentTheme.colors.text }]}>{Number(item.totalConvertido || item.total).toFixed(2)}{simboloMoneda}</Text>
-                    <View style={[styles.estadoMiniPill, {
-                      backgroundColor: item.estado === "pagada" ? "#26de8120" : item.estado === "impagada" ? "#FF475720" : "#FF9F4320"
-                    }]}>
-                      <Text style={[styles.estadoMiniTexto, {
-                        color: item.estado === "pagada" ? "#26de81" : item.estado === "impagada" ? "#FF4757" : "#FF9F43"
-                      }]}>
-                        {item.estado === "pagada" ? t('pagada') : item.estado === "impagada" ? t('impagada') : t('no_enviada')}
-                      </Text>
+                    <View style={styles.estadoMiniRow}>
+                      <View style={[styles.estadoMiniPill, { backgroundColor: estadoColor + '20' }]}>
+                        <Text style={[styles.estadoMiniTexto, { color: estadoColor }]}>{estadoLabel}</Text>
+                      </View>
+                      {item.sync_status === 'synced' ? (
+                        <Ionicons name="cloud-done-outline" size={12} color="#26de81" />
+                      ) : (
+                        <Ionicons name="cloud-upload-outline" size={12} color="#FF9F43" />
+                      )}
                     </View>
                   </View>
                 </TouchableOpacity>
-              )}
+              )}}
             />
           </View>
         )}
@@ -331,10 +395,16 @@ export default function Inicio() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => router.push("/(tabs)/nueva-factura")}>
-        <Ionicons name="add" size={22} color="#fff" />
-        <Text style={styles.fabTexto}>{t('nueva_factura')}</Text>
-      </TouchableOpacity>
+      <View style={styles.fabContainer}>
+        <TouchableOpacity style={[styles.fabToggle, { backgroundColor: '#FF9F43', shadowColor: '#FF9F43' }]} onPress={() => setModo(esFacturas ? 'albaranes' : 'facturas')}>
+          <Ionicons name={esFacturas ? 'clipboard-outline' : 'document-text-outline'} size={18} color="#fff" />
+          <Text style={styles.fabToggleTexto}>{btnToggleTexto}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => router.push(btnCrearRuta as any)}>
+          <Ionicons name="add" size={22} color="#fff" />
+          <Text style={styles.fabTexto}>{btnCrearTexto}</Text>
+        </TouchableOpacity>
+      </View>
       </View>
     </SwipeNavigation>
   );
@@ -387,7 +457,10 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: "center", paddingVertical: 30, marginHorizontal: 20, backgroundColor: "#fff", borderRadius: 16 },
   emptyTexto: { fontSize: 16, fontWeight: "600", color: "#aaa", marginTop: 12 },
   emptySub: { fontSize: 13, color: "#ccc", marginTop: 4 },
-  fab: { position: "absolute", bottom: 30, right: 20, borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fab: { borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fabContainer: { position: "absolute", bottom: 30, left: 20, right: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  fabToggle: { borderRadius: 30, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 6, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fabToggleTexto: { color: "#fff", fontWeight: "700", fontSize: 14 },
   fabTexto: { color: "#fff", fontWeight: "700", fontSize: 15 },
   listaFacturas: { marginHorizontal: 20 },
   facturaMiniCard: { backgroundColor: "#fff", borderRadius: 14, marginBottom: 10, flexDirection: "row", overflow: "hidden", borderWidth: 1, borderColor: "#f0f0f0", minHeight: 80 },
@@ -400,4 +473,5 @@ const styles = StyleSheet.create({
   facturaMiniTotal: { fontSize: 18, fontWeight: "800", color: "#1a1a1a" },
   estadoMiniPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, marginTop: 8 },
   estadoMiniTexto: { fontSize: 12, fontWeight: "600" },
+  estadoMiniRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 4 },
 });

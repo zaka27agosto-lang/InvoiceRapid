@@ -1216,7 +1216,7 @@ export default function NuevaFactura() {
               <View style={{ width: 36 }} />
             </View>
             {previewUri ? (
-              <WebView source={{ uri: previewUri }} style={{ flex: 1 }} originWhitelist={['*']} />
+              <WebView source={{ uri: previewUri }} style={{ flex: 1 }} originWhitelist={['*']} allowFileAccess={true} javaScriptEnabled={true} />
             ) : (
               <View style={styles.previewLoading}><Text style={{ color: currentTheme.colors.textSecondary }}>{t('cargando')}...</Text></View>
             )}

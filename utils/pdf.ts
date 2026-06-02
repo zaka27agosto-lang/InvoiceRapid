@@ -3,6 +3,181 @@ import * as Sharing from 'expo-sharing';
 
 type PlantillaPDF = 'default' | 'elegante' | 'antigua' | 'colorida' | 'minimal';
 
+// ──────────────── ALBARANES PDF ────────────────
+
+export async function generarYCompartirPDFAlbaran(albaran: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF', firmaData?: string | null) {
+  const html = generarHTMLAlbaran(albaran, items, isPremium, plantilla, simboloMoneda, color, firmaData);
+  const { uri } = await Print.printToFileAsync({ html, base64: false });
+
+  if (await Sharing.isAvailableAsync()) {
+    try {
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/pdf',
+        dialogTitle: `Albarán ${albaran.numero} - Generado con InvoiceRapid Pro`,
+        UTI: 'com.adobe.pdf',
+      });
+    } catch (error) {
+      console.log('Error al compartir PDF albarán:', error);
+    }
+  }
+}
+
+export async function generarPDFPreviewAlbaran(albaran: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF', firmaData?: string | null): Promise<string | null> {
+  try {
+    const html = generarHTMLAlbaran(albaran, items, isPremium, plantilla, simboloMoneda, color, firmaData);
+    const { uri } = await Print.printToFileAsync({ html, base64: false });
+    return uri;
+  } catch (error) {
+    console.log('Error al generar preview PDF albarán:', error);
+    return null;
+  }
+}
+
+function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean, _plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF', firmaData?: string | null): string {
+  const fechaEmision = new Date(albaran.fecha).toLocaleDateString('es-ES', {
+    day: '2-digit', month: 'long', year: 'numeric'
+  });
+
+  const fechaEntrega = albaran.fecha_entrega
+    ? new Date(albaran.fecha_entrega).toLocaleDateString('es-ES', {
+        day: '2-digit', month: 'long', year: 'numeric'
+      })
+    : '—';
+
+  const marcaAgua = !isPremium ? `
+    <div style="
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%) rotate(-35deg);
+      font-size: 72px; font-weight: 900;
+      color: ${color}14;
+      white-space: nowrap; pointer-events: none;
+      z-index: 1000; letter-spacing: 8px;
+    ">VERSIÓN GRATUITA</div>
+  ` : '';
+
+  const tienePrecios = items.some((item: any) => Number(item.precio_unitario) > 0);
+
+  const itemsHTML = items.map((item: any) => {
+    const tienePrecio = Number(item.precio_unitario) > 0;
+    return `
+    <tr>
+      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; color: #1a1a1a;">${item.descripcion}</td>
+      <td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: center; font-size: 13px; color: #555;">${item.cantidad} ${item.unidad}</td>
+      ${tienePrecios ? `<td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px; color: #555;">${Number(item.precio_unitario).toFixed(2)} ${simboloMoneda}</td>` : '<td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px; color: #aaa;">—</td>'}
+      ${tienePrecio ? `<td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px; font-weight: 700; color: #1a1a1a;">${Number(item.subtotal).toFixed(2)} ${simboloMoneda}</td>` : '<td style="padding: 10px 0; border-bottom: 1px solid #f0f0f0; text-align: right; font-size: 13px; color: #aaa;">—</td>'}
+    </tr>
+  `;
+  }).join('');
+
+  const lightBg = color + '18';
+  const subtotal = Number(albaran.subtotal || 0);
+
+  return `
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body { font-family: -apple-system, Helvetica, Arial, sans-serif; background: #fff; color: #1a1a1a; margin: 0; padding: 0; }
+      .page { padding: 20px; max-width: 100%; margin: 0 auto; position: relative; page-break-inside: avoid; }
+      .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 20px; }
+      .logo { font-size: 20px; font-weight: 900; color: ${color}; }
+      .logo span { color: #1a1a1a; font-weight: 400; font-size: 11px; }
+      .albaran-num { text-align: right; }
+      .albaran-num h1 { font-size: 22px; font-weight: 900; color: ${color}; }
+      .albaran-num p { font-size: 10px; color: #718096; margin-top: 2px; }
+      .divider { height: 3px; background: linear-gradient(90deg, ${color}, ${color}88); border-radius: 2px; margin-bottom: 20px; }
+      .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px; }
+      .info-box h3 { font-size: 8px; text-transform: uppercase; letter-spacing: 1.5px; color: #718096; font-weight: 600; margin-bottom: 4px; }
+      .info-box p { font-size: 11px; color: #2d3748; line-height: 1.3; }
+      .info-box strong { font-size: 13px; font-weight: 700; display: block; margin-bottom: 2px; color: #1a202c; }
+      .fechas { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 20px; }
+      .fecha-box { background: ${lightBg}; border-radius: 10px; padding: 8px 12px; }
+      .fecha-box span { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: #718096; display: block; margin-bottom: 2px; }
+      .fecha-box strong { font-size: 11px; color: #1a202c; font-weight: 700; }
+      table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+      thead tr { border-bottom: 2px solid ${color}; }
+      thead th { padding: 5px 0; font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: ${color}; font-weight: 700; text-align: left; }
+      thead th:not(:first-child) { text-align: center; }
+      thead th:last-child { text-align: right; }
+      .totales { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+      .totales-box { width: 200px; }
+      .total-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; color: #4a5568; }
+      .firma-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; margin-bottom: 20px; }
+      .firma-box { border: 1.5px dashed #cbd5e0; border-radius: 10px; padding: 30px 15px 12px 15px; text-align: center; position: relative; min-height: 80px; }
+      .firma-box span { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: #a0aec0; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); }
+      .notas { background: ${lightBg}; border-radius: 12px; padding: 10px; margin-bottom: 20px; }
+      .notas h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: ${color}; font-weight: 700; margin-bottom: 4px; }
+      .notas p { font-size: 10px; color: #4a5568; line-height: 1.3; }
+      .footer { text-align: center; font-size: 8px; color: #a0aec0; border-top: 1px solid #f0f0f0; padding-top: 10px; }
+      @page { margin: 0; size: auto; }
+    </style>
+    <body>
+      <div class="page">
+        ${marcaAgua}
+        <div class="header">
+          <div class="logo">InvoiceRapid${isPremium ? ' Pro' : ''}</div>
+          <div class="albaran-num">
+            <h1>${albaran.numero}</h1>
+            <p>ALBARÁN</p>
+          </div>
+        </div>
+        <div class="divider"></div>
+        <div class="info-grid">
+          <div class="info-box">
+            <h3>Emitido por</h3>
+            <strong>Mi Empresa / Autónomo</strong>
+            <p>NIF: —<br>Dirección: —</p>
+          </div>
+          <div class="info-box">
+            <h3>Cliente</h3>
+            <strong>${albaran.cliente_nombre || '—'}</strong>
+            <p>${albaran.cliente_email || ''}<br>${albaran.cliente_direccion || ''}</p>
+          </div>
+        </div>
+        <div class="fechas">
+          <div class="fecha-box">
+            <span>Fecha de emisión</span>
+            <strong>${fechaEmision}</strong>
+          </div>
+          <div class="fecha-box">
+            <span>Fecha de entrega</span>
+            <strong>${fechaEntrega}</strong>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Descripción</th>
+              <th style="text-align:center">Cant.</th>
+              <th style="text-align:right">Precio</th>
+              <th style="text-align:right">Subtotal</th>
+            </tr>
+          </thead>
+          <tbody>${itemsHTML}</tbody>
+        </table>
+        ${tienePrecios ? `
+        <div class="totales">
+          <div class="totales-box">
+            <div class="total-row"><span>Total artículos</span><span>${subtotal.toFixed(2)} ${simboloMoneda}</span></div>
+          </div>
+        </div>
+        ` : ''}
+        ${albaran.notas ? `<div class="notas"><h3>Notas</h3><p>${albaran.notas}</p></div>` : ''}
+        <div class="firma-section">
+          <div class="firma-box">
+            <span>Firma del emisor</span>
+          </div>
+          <div class="firma-box">
+            ${firmaData ? `<img src="${firmaData}" style="max-width:100%;max-height:70px;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" />` : ''}
+            <span>Firma del receptor</span>
+          </div>
+        </div>
+        <div class="footer">
+          <p>Este documento no tiene valor fiscal · Generado con InvoiceRapid Pro · ${new Date().toLocaleDateString('es-ES')}</p>
+        </div>
+      </div>
+    </body>
+  `;
+}
+
 export async function generarYCompartirPDF(factura: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF') {
   const html = await generarHTMLFactura(factura, items, isPremium, plantilla, simboloMoneda, color);
 

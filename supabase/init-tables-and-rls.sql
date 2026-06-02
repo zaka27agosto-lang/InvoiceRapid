@@ -81,7 +81,45 @@ CREATE TABLE IF NOT EXISTS productos (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. SUSCRIPCIONES (Stripe/RevenueCat)
+-- 5. ALBARANES
+CREATE TABLE IF NOT EXISTS albaranes (
+  id BIGINT PRIMARY KEY,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  numero TEXT NOT NULL,
+  cliente_id BIGINT,
+  cliente_nombre TEXT,
+  subtotal REAL DEFAULT 0,
+  descuento REAL DEFAULT 0,
+  iva_porcentaje REAL DEFAULT 21,
+  iva_importe REAL DEFAULT 0,
+  irpf_porcentaje REAL DEFAULT 0,
+  irpf_importe REAL DEFAULT 0,
+  total REAL NOT NULL DEFAULT 0,
+  estado TEXT DEFAULT 'pendiente',
+  fecha TEXT DEFAULT (to_char(now(), 'YYYY-MM-DD HH24:MI:SS')),
+  fecha_entrega TEXT,
+  notas TEXT,
+  firma_data TEXT,
+  sync_status TEXT DEFAULT 'synced',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 6. ALBARAN ITEMS (líneas de albarán)
+CREATE TABLE IF NOT EXISTS albaran_items (
+  id BIGINT PRIMARY KEY,
+  albaran_id BIGINT NOT NULL REFERENCES albaranes(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+  descripcion TEXT,
+  cantidad REAL DEFAULT 1,
+  unidad TEXT DEFAULT 'ud',
+  precio_unitario REAL DEFAULT 0,
+  descuento REAL DEFAULT 0,
+  subtotal REAL DEFAULT 0,
+  sync_status TEXT DEFAULT 'synced',
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 7. SUSCRIPCIONES (Stripe/RevenueCat)
 CREATE TABLE IF NOT EXISTS subscriptions (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -196,7 +234,49 @@ CREATE POLICY "Usuarios eliminan sus propios productos"
   USING (auth.uid() = user_id);
 
 
--- 4. subscriptions
+-- 5. albaranes
+ALTER TABLE albaranes ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuarios ven sus propios albaranes"
+  ON albaranes FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Usuarios crean sus propios albaranes"
+  ON albaranes FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Usuarios actualizan sus propios albaranes"
+  ON albaranes FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Usuarios eliminan sus propios albaranes"
+  ON albaranes FOR DELETE
+  USING (auth.uid() = user_id);
+
+
+-- 6. albaran_items
+ALTER TABLE albaran_items ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuarios ven sus propios items de albaran"
+  ON albaran_items FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "Usuarios crean sus propios items de albaran"
+  ON albaran_items FOR INSERT
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Usuarios actualizan sus propios items de albaran"
+  ON albaran_items FOR UPDATE
+  USING (auth.uid() = user_id)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Usuarios eliminan sus propios items de albaran"
+  ON albaran_items FOR DELETE
+  USING (auth.uid() = user_id);
+
+
+-- 7. subscriptions
 -- La app consulta con anon key (SELECT), el webhook escribe con service_role (bypass RLS)
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 
@@ -206,7 +286,7 @@ CREATE POLICY "Usuarios ven su propia suscripcion"
 
 
 -- ============================================================
--- 7. ACCOUNT DELETIONS (soft delete with 30-day grace period)
+-- 8. ACCOUNT DELETIONS (soft delete with 30-day grace period)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS account_deletions (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -228,7 +308,7 @@ CREATE POLICY "Service role manages account deletions"
   WITH CHECK (true);
 
 
--- 8. DELETED EMAILS (permanently blocked after 30-day grace period)
+-- 9. DELETED EMAILS (permanently blocked after 30-day grace period)
 -- ============================================================
 CREATE TABLE IF NOT EXISTS deleted_emails (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

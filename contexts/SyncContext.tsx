@@ -119,15 +119,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       let downloadError = false;
 
       try {
-        const [facturasResult, clientesResult, productosResult] = await Promise.all([
+        const [facturasResult, clientesResult, productosResult, albaranesResult] = await Promise.all([
           syncService.pullInvoicesOnly(user.id),
           syncService.pullClientsOnly(user.id),
           syncService.pullProductsOnly(user.id),
+          syncService.pullAlbaranesOnly(user.id),
         ]);
         totalSynced =
           (facturasResult.synced || 0) +
           (clientesResult.synced || 0) +
-          (productosResult.synced || 0);
+          (productosResult.synced || 0) +
+          (albaranesResult.synced || 0);
         console.log(`✅ ${totalSynced} registros descargados de la nube`);
       } catch (e) {
         console.error('Error descargando datos de la nube:', e);
