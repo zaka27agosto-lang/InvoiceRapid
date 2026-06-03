@@ -1,6 +1,5 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
 
 type PlantillaPDF = 'default' | 'elegante' | 'antigua' | 'colorida' | 'minimal';
 
@@ -27,8 +26,7 @@ export async function generarPDFPreviewAlbaran(albaran: any, items: any[], isPre
   try {
     const html = generarHTMLAlbaran(albaran, items, isPremium, plantilla, simboloMoneda, color, firmaData);
     const { uri } = await Print.printToFileAsync({ html, base64: false });
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
-    return `data:application/pdf;base64,${base64}`;
+    return uri;
   } catch (error) {
     console.log('Error al generar preview PDF albarán:', error);
     return null;
@@ -207,8 +205,7 @@ export async function generarPDFPreview(factura: any, items: any[], isPremium: b
   try {
     const html = await generarHTMLFactura(factura, items, isPremium, plantilla, simboloMoneda, color);
     const { uri } = await Print.printToFileAsync({ html, base64: false });
-    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
-    return `data:application/pdf;base64,${base64}`;
+    return uri;
   } catch (error) {
     console.log('Error al generar preview PDF:', error);
     return null;

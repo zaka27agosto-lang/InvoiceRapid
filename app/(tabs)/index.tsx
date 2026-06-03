@@ -454,7 +454,7 @@ const styles = StyleSheet.create({
   emptyTexto: { fontSize: 16, fontWeight: "600", color: "#aaa", marginTop: 12 },
   emptySub: { fontSize: 13, color: "#ccc", marginTop: 4 },
   fab: { borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
-  fabContainer: { position: "absolute", bottom: 30, left: 20, right: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  fabContainer: { position: "absolute", bottom: 50, left: 20, right: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   fabToggle: { borderRadius: 30, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 6, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
   fabToggleTexto: { color: "#fff", fontWeight: "700", fontSize: 14 },
   fabTexto: { color: "#fff", fontWeight: "700", fontSize: 15 },

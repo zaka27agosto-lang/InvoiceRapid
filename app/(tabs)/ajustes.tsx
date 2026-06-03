@@ -320,9 +320,14 @@ export default function Ajustes() {
     try {
       await adsService.showPrivacyOptions();
       Alert.alert('✅', t('consentimiento_actualizado'));
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error al abrir opciones de privacidad:', error);
-      Alert.alert(t('error'), t('error_consentimiento'));
+      // Si el error es que el formulario no está disponible (fuera del EEE o ya gestionado)
+      if (error?.message?.includes('not available') || error?.message?.includes('form')) {
+        Alert.alert(t('info'), t('consentimiento_no_disponible'));
+      } else {
+        Alert.alert(t('error'), t('error_consentimiento'));
+      }
     }
   }
 

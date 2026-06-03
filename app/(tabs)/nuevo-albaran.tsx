@@ -807,7 +807,7 @@ export default function NuevoAlbaran() {
               <View style={{ width: 36 }} />
             </View>
             {previewUri ? (
-              <WebView source={{ uri: previewUri }} style={{ flex: 1 }} originWhitelist={['*']} allowFileAccess={true} javaScriptEnabled={true} />
+              <WebView source={{ uri: previewUri }} style={{ flex: 1 }} originWhitelist={['*']} allowFileAccess={true} allowUniversalAccessFromFileURLs={true} javaScriptEnabled={true} />
             ) : (
               <View style={styles.previewLoading}><Text style={{ color: currentTheme.colors.textSecondary }}>{t('cargando')}...</Text></View>
             )}
