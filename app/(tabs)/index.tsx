@@ -341,8 +341,8 @@ export default function Inicio() {
         </View>
 
         {datosRaw.length === 0 ? (
-          <View style={[styles.emptyState, { backgroundColor: currentTheme.colors.card }]}>
-            <Ionicons name={emptyIcono as any} size={40} color={currentTheme.colors.textSecondary} />
+          <View style={styles.emptyState}>
+            <Ionicons name={emptyIcono as any} size={60} color={currentTheme.colors.textSecondary} />
             <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{emptyTexto}</Text>
             <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>{emptySub}</Text>
           </View>
@@ -388,7 +388,7 @@ export default function Inicio() {
           </View>
         )}
 
-        <View style={{ height: 100 }} />
+        <View style={{ height: 120 }} />
       </ScrollView>
 
       <View style={styles.fabContainer}>
@@ -450,11 +450,11 @@ const styles = StyleSheet.create({
   tarjetaLabel: { fontSize: 12, color: "#888", fontWeight: "500" },
   badge: { position: "absolute", top: 12, right: 12, borderRadius: 10, paddingHorizontal: 7, paddingVertical: 2 },
   badgeTexto: { fontSize: 11, color: "#fff", fontWeight: "700" },
-  emptyState: { alignItems: "center", paddingVertical: 30, marginHorizontal: 20, backgroundColor: "#fff", borderRadius: 16 },
+  emptyState: { alignItems: "center", paddingVertical: 30, marginHorizontal: 20 },
   emptyTexto: { fontSize: 16, fontWeight: "600", color: "#aaa", marginTop: 12 },
   emptySub: { fontSize: 13, color: "#ccc", marginTop: 4 },
   fab: { borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
-  fabContainer: { position: "absolute", bottom: 50, left: 20, right: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  fabContainer: { position: "absolute", bottom: 24, left: 20, right: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   fabToggle: { borderRadius: 30, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 6, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
   fabToggleTexto: { color: "#fff", fontWeight: "700", fontSize: 14 },
   fabTexto: { color: "#fff", fontWeight: "700", fontSize: 15 },
