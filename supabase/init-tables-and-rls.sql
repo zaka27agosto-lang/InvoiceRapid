@@ -100,6 +100,7 @@ CREATE TABLE IF NOT EXISTS albaranes (
   fecha_entrega TEXT,
   notas TEXT,
   firma_data TEXT,
+  direccion_entrega TEXT DEFAULT '',
   sync_status TEXT DEFAULT 'synced',
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );

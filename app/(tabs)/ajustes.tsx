@@ -19,11 +19,12 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuthGuard } from "../../hooks/useAuthGuard";
 import { supabase } from "../../services/supabase";
+import { adsService } from "../../services/adsService";
 import SwipeNavigation from "../../components/SwipeNavigation";
 import { generarPDFPreview } from "../../utils/pdf";
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
-import { getFacturas } from "../db/facturas";
+import { getFacturaItems, getFacturas } from "../db/facturas";
 import { getClientes } from "../db/clientes";
 import { getProductos } from "../db/productos";
 
@@ -198,6 +199,20 @@ export default function Ajustes() {
       const facturas = getFacturas() as any[];
       const clientes = getClientes() as any[];
       const productos = getProductos() as any[];
+
+      // Generar HTML de líneas de cada factura
+      const facturasConLineas = facturas.map(f => {
+        const items = getFacturaItems(f.id) as any[];
+        const itemsHtml = items.length > 0
+          ? `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;margin:8px 0;"><tr><th>Descripción</th><th>Cant.</th><th>Ud.</th><th>P.Unit.</th><th>Desc.</th><th>Subtotal</th></tr>${items.map(it => `<tr><td>${it.descripcion}</td><td>${it.cantidad}</td><td>${it.unidad}</td><td>${Number(it.precio_unitario).toFixed(2)}${monedaActual.simbolo}</td><td>${Number(it.descuento).toFixed(2)}${monedaActual.simbolo}</td><td>${Number(it.subtotal).toFixed(2)}${monedaActual.simbolo}</td></tr>`).join('')}</table>`
+          : '<p style="color:#888;">Sin líneas</p>';
+        return `
+          <li style="margin-bottom:16px;">
+            <strong>${f.numero}</strong> - ${f.cliente_nombre || 'Sin cliente'} - Total: ${Number(f.total).toFixed(2)}${monedaActual.simbolo} - Estado: ${f.estado}
+            <br><small>Fecha: ${new Date(f.fecha).toLocaleDateString('es-ES')} | Método: ${f.metodo_pago || '-'}</small>
+            ${itemsHtml}
+          </li>`;
+      }).join('');
       
       const html = `
         <html><body style="font-family: sans-serif; padding: 20px;">
@@ -209,9 +224,9 @@ export default function Ajustes() {
         <h2>Datos de empresa</h2>
         <p>Nombre: ${datos.nombre || '-'}<br>NIF: ${datos.nif || '-'}<br>Dirección: ${datos.direccion || '-'}<br>Tel: ${datos.telefono || '-'}<br>Email: ${datos.email || '-'}</p>
         <h2>Facturas (${facturas.length})</h2>
-        <ul>${facturas.map(f => `<li><strong>${f.numero}</strong> - ${f.cliente_nombre || 'Sin cliente'} - Total: ${Number(f.total).toFixed(2)}${monedaActual.simbolo} - Estado: ${f.estado}</li>`).join('') || '<li>Sin facturas</li>'}</ul>
+        <ul>${facturas.length > 0 ? facturasConLineas : '<li>Sin facturas</li>'}</ul>
         <h2>Clientes (${clientes.length})</h2>
-        <ul>${clientes.map(c => `<li>${c.nombre}${c.email ? ' - ' + c.email : ''}</li>`).join('') || '<li>Sin clientes</li>'}</ul>
+        <ul>${clientes.map(c => `<li>${c.nombre}${c.email ? ' - ' + c.email : ''}${c.telefono ? ' - Tel: ' + c.telefono : ''}${c.direccion ? ' - ' + c.direccion : ''}</li>`).join('') || '<li>Sin clientes</li>'}</ul>
         <h2>Productos (${productos.length})</h2>
         <ul>${productos.map(p => `<li>${p.descripcion} - ${p.precio}${monedaActual.simbolo} / ${p.unidad}</li>`).join('') || '<li>Sin productos</li>'}</ul>
         </body></html>
@@ -302,7 +317,13 @@ export default function Ajustes() {
   }
 
   async function handleChangeConsent() {
-    Alert.alert('⚠️', t('funcionalidad_proximamente'));
+    try {
+      await adsService.showPrivacyOptions();
+      Alert.alert('✅', t('consentimiento_actualizado'));
+    } catch (error) {
+      console.error('Error al abrir opciones de privacidad:', error);
+      Alert.alert(t('error'), t('error_consentimiento'));
+    }
   }
 
   const idiomaActual = i18n.language;
@@ -429,22 +450,17 @@ export default function Ajustes() {
 
         {/* Suscripción */}
         <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>Suscripción</Text>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('suscripcion_label')}</Text>
           <View style={styles.opcion}>
             <Ionicons name="star-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Plan actual</Text>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('plan_actual_label')}</Text>
             <Text style={[styles.opcionValor, isPremium && { color: currentTheme.colors.primary }, { color: currentTheme.colors.textSecondary }]}>
               {isPremium ? 'Premium' : 'Gratis'}
             </Text>
           </View>
-          <TouchableOpacity style={styles.opcionBoton} onPress={() => requireAuth(() => setMostrarPaywall(true))}>
-            <Ionicons name="card-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Gestionar suscripción</Text>
-            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
-          </TouchableOpacity>
           <TouchableOpacity style={styles.opcionBoton} onPress={() => requireAuth(handleRestaurar)}>
             <Ionicons name="refresh-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Restaurar compras</Text>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('restaurar_compras')}</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -454,35 +470,59 @@ export default function Ajustes() {
           <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('cuenta')}</Text>
           <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/auth/profile')}>
             <Ionicons name="person-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Mi perfil</Text>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('mi_perfil')}</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
           <View style={styles.opcion}>
             <Ionicons name="information-circle-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Versión</Text>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('version')}</Text>
             <Text style={[styles.opcionValor, { color: currentTheme.colors.textSecondary }]}>1.0.0</Text>
           </View>
         </View>
 
         {/* Privacidad y Datos */}
         <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>Privacidad y Datos</Text>
+          <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('privacidad_datos')}</Text>
+          
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/legal/privacy')}>
+            <Ionicons name="document-text-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('politica_privacidad')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/legal/terms')}>
+            <Ionicons name="reader-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('terminos_condiciones')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/legal/cookies')}>
+            <Ionicons name="cafe-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('politica_cookies')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/legal')}>
+            <Ionicons name="shield-checkmark-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('legal')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
           
           <TouchableOpacity style={styles.opcionBoton} onPress={() => requireAuth(handleExportData)}>
             <Ionicons name="download-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Exportar datos</Text>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('exportar_datos_label')}</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.opcionBoton} onPress={() => requireAuth(handleDeleteAccount)}>
             <Ionicons name="trash-outline" size={20} color="#FF4757" />
-            <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>Borrar cuenta</Text>
+            <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>{t('borrar_cuenta')}</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.opcionBoton} onPress={handleChangeConsent}>
             <Ionicons name="shield-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>Consentimiento de anuncios</Text>
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('consentimiento_anuncios')}</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
@@ -506,21 +546,21 @@ export default function Ajustes() {
             Alert.alert('✅', t('contador_reseteado'));
           }}>
             <Ionicons name="refresh-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Resetear contador mensual</Text>
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('resetear_contador')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
             const result = await advanceMonth();
             Alert.alert('📅 Mes adelantado', `De ${result.oldMonth} → ${result.newMonth}\nContador reseteado a 0.`);
           }}>
             <Ionicons name="play-skip-forward-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Adelantar mes (simular)</Text>
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('adelantar_mes_simular')}</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
             const count = await setInvoiceCounterTo9();
             Alert.alert('📊 Contador en 9/10', `El contador se ha fijado en ${count}/10. Crea una factura más para ver el límite.`);
           }}>
             <Ionicons name="timer-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Poner contador en 9/10</Text>
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('poner_contador_9')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -669,7 +709,7 @@ export default function Ajustes() {
             <TouchableOpacity onPress={() => setMostrarPlantilla(false)}>
               <Ionicons name="close" size={26} color="#1a1a1a" />
             </TouchableOpacity>
-            <Text style={styles.modalTitulo}>Plantilla PDF</Text>
+            <Text style={styles.modalTitulo}>{t('modal_plantilla_pdf')}</Text>
             <View style={{ width: 40 }} />
           </View>
           <ScrollView style={{ padding: 20 }}>
@@ -710,7 +750,7 @@ export default function Ajustes() {
             <TouchableOpacity onPress={() => setMostrarTemas(false)}>
               <Ionicons name="close" size={26} color="#1a1a1a" />
             </TouchableOpacity>
-            <Text style={styles.modalTitulo}>Tema</Text>
+            <Text style={styles.modalTitulo}>{t('tema')}</Text>
             <View style={{ width: 40 }} />
           </View>
           <ScrollView style={{ padding: 20 }}>

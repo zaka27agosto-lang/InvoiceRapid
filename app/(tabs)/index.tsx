@@ -28,7 +28,7 @@ export default function Inicio() {
   const [simboloMoneda, setSimboloMoneda] = useState('€');
   const [codigoMoneda, setCodigoMoneda] = useState('EUR');
   const [statsConvertidos, setStatsConvertidos] = useState({ porCobrar: 0, impagadas: 0, noEnviadas: 0, pagadas: 0 });
-  const [albaranesStatsConvertidos, setAlbaranesStatsConvertidos] = useState({ pendiente: 0, enviado: 0, entregado: 0 });
+  const [albaranesStatsConvertidos, setAlbaranesStatsConvertidos] = useState({ pendiente: 0, entregado: 0 });
   const router = useRouter();
   const { t } = useTranslation();
   const { isPremium } = useSubscription();
@@ -121,7 +121,6 @@ export default function Inicio() {
       // Stats de albaranes
       const albaranesStats = {
         pendiente: albaranesData.filter(a => a.estado === 'pendiente').reduce((acc, a) => acc + (a.total || 0), 0),
-        enviado: albaranesData.filter(a => a.estado === 'enviado').reduce((acc, a) => acc + (a.total || 0), 0),
         entregado: albaranesData.filter(a => a.estado === 'entregado').reduce((acc, a) => acc + (a.total || 0), 0),
       };
 
@@ -138,10 +137,9 @@ export default function Inicio() {
       // Convertir cada estadística de albaranes
       Promise.all([
         convertirDeEurosParaMostrar(albaranesStats.pendiente, m.codigo),
-        convertirDeEurosParaMostrar(albaranesStats.enviado, m.codigo),
         convertirDeEurosParaMostrar(albaranesStats.entregado, m.codigo),
-      ]).then(([pendiente, enviado, entregado]) => {
-        setAlbaranesStatsConvertidos({ pendiente, enviado, entregado });
+      ]).then(([pendiente, entregado]) => {
+        setAlbaranesStatsConvertidos({ pendiente, entregado });
       });
     });
   }
@@ -175,7 +173,6 @@ export default function Inicio() {
 
   const albaranesStats = {
     pendiente: albaranes.filter(a => a.estado === 'pendiente').reduce((acc, a) => acc + (a.total || 0), 0),
-    enviado: albaranes.filter(a => a.estado === 'enviado').reduce((acc, a) => acc + (a.total || 0), 0),
     entregado: albaranes.filter(a => a.estado === 'entregado').reduce((acc, a) => acc + (a.total || 0), 0),
   };
 
@@ -188,7 +185,6 @@ export default function Inicio() {
 
   const tarjetasAlbaranes = [
     { label: t('pendiente'), valor: albaranesStatsConvertidos.pendiente.toFixed(2) + " " + simboloMoneda, count: albaranes.filter(a => a.estado === 'pendiente').length, icono: "time-outline", color: currentTheme.colors.primary, filtro: "pendiente" },
-    { label: t('enviado'), valor: albaranesStatsConvertidos.enviado.toFixed(2) + " " + simboloMoneda, count: albaranes.filter(a => a.estado === 'enviado').length, icono: "send-outline", color: "#FF9F43", filtro: "enviado" },
     { label: t('entregado'), valor: albaranesStatsConvertidos.entregado.toFixed(2) + " " + simboloMoneda, count: albaranes.filter(a => a.estado === 'entregado').length, icono: "checkmark-circle-outline", color: "#26de81", filtro: "entregado" },
   ];
 
@@ -320,7 +316,7 @@ export default function Inicio() {
 
         <View style={styles.grid}>
           {tarjetas.map((tarjeta, i) => (
-            <TouchableOpacity key={i} style={[styles.tarjeta, { backgroundColor: currentTheme.colors.card }, tarjetas.length === 3 && { width: '30%', marginHorizontal: '1%' }]} onPress={() => router.push(`/(tabs)/documentos?filtro=${tarjeta.filtro}` as any)}>
+            <TouchableOpacity key={i} style={[styles.tarjeta, { backgroundColor: currentTheme.colors.card }]} onPress={() => router.push(`/(tabs)/documentos?filtro=${tarjeta.filtro}` as any)}>
               <View style={[styles.tarjetaIcono, { backgroundColor: tarjeta.color + "18" }]}>
                 <Ionicons name={tarjeta.icono as any} size={20} color={tarjeta.color} />
               </View>
@@ -360,10 +356,10 @@ export default function Inicio() {
                 const estado = item.estado || (esFacturas ? 'pendiente' : 'pendiente');
                 const estadoColor = esFacturas
                   ? (estado === 'pagada' ? '#26de81' : estado === 'impagada' ? '#FF4757' : '#FF9F43')
-                  : (estado === 'entregado' ? '#26de81' : estado === 'enviado' ? '#FF9F43' : currentTheme.colors.primary);
+                  : (estado === 'entregado' ? '#26de81' : currentTheme.colors.primary);
                 const estadoLabel = esFacturas
                   ? (estado === 'pagada' ? t('pagada') : estado === 'impagada' ? t('impagada') : t('no_enviada'))
-                  : (estado === 'entregado' ? t('entregado') : estado === 'enviado' ? t('enviado') : t('pendiente'));
+                  : (estado === 'entregado' ? t('entregado') : t('pendiente'));
                 return (
                 <TouchableOpacity style={[styles.facturaMiniCard, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]} 
                   onPress={() => router.push(`/(tabs)/documentos?facturaId=${item.id}` as any)}>

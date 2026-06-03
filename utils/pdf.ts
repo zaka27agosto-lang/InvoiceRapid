@@ -1,5 +1,6 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
 
 type PlantillaPDF = 'default' | 'elegante' | 'antigua' | 'colorida' | 'minimal';
 
@@ -26,7 +27,8 @@ export async function generarPDFPreviewAlbaran(albaran: any, items: any[], isPre
   try {
     const html = generarHTMLAlbaran(albaran, items, isPremium, plantilla, simboloMoneda, color, firmaData);
     const { uri } = await Print.printToFileAsync({ html, base64: false });
-    return uri;
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+    return `data:application/pdf;base64,${base64}`;
   } catch (error) {
     console.log('Error al generar preview PDF albarán:', error);
     return null;
@@ -129,7 +131,7 @@ function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean, _pla
           <div class="info-box">
             <h3>Cliente</h3>
             <strong>${albaran.cliente_nombre || '—'}</strong>
-            <p>${albaran.cliente_email || ''}<br>${albaran.cliente_direccion || ''}</p>
+            <p>${albaran.direccion_entrega || albaran.cliente_direccion || ''}</p>
           </div>
         </div>
         <div class="fechas">
@@ -205,7 +207,8 @@ export async function generarPDFPreview(factura: any, items: any[], isPremium: b
   try {
     const html = await generarHTMLFactura(factura, items, isPremium, plantilla, simboloMoneda, color);
     const { uri } = await Print.printToFileAsync({ html, base64: false });
-    return uri;
+    const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+    return `data:application/pdf;base64,${base64}`;
   } catch (error) {
     console.log('Error al generar preview PDF:', error);
     return null;

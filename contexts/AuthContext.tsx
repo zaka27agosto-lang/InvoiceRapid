@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { InteractionManager } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabase';
@@ -159,51 +160,59 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return;
 
     try {
-      // 🔥 Forzar estado a null INMEDIATAMENTE.
-      // La navegación a /auth/login la gestiona RootNavigator (app/_layout.tsx)
-      // mediante useSegments + useEffect — reacciona al cambio de user sin
-      // depender de navigators condicionales.
+      console.log('🚪 Cerrando sesión...');
+
+      // 🔥 Forzar estado a null INMEDIATAMENTE para que el layout
+      // navegue a /auth/login ANTES de cualquier limpieza de BD.
+      // Así evitamos que las pantallas actuales se rompan al perder
+      // los datos de la BD mientras están montadas.
       setUser(null);
       setSession(null);
 
-      console.log('🚪 Cerrando sesión...');
-
-      // 🔄 Sincronizar datos locales a la nube ANTES de limpiar la BD local.
-      // El autoSync corre cada 60s — si el usuario cierra sesión antes,
-      // los datos creados recientemente solo existen en local y se perderían.
-      // Hacemos un sync final para subirlos a la nube.
-      if (user) {
+      // Ejecutar limpieza en segundo plano DESPUÉS de que React
+      // haya procesado el cambio de estado y la navegación.
+      const userId = user?.id;
+      InteractionManager.runAfterInteractions(async () => {
         try {
-          const { syncService } = await import('../services/syncService');
-          const result = await syncService.syncAll(user.id);
-          console.log(`📤 Sync final antes de signOut: ${result.synced} subidos, ${result.errors} errores`);
-        } catch (e) {
-          console.warn('⚠️ Error en sync final antes de signOut:', e);
+          // Si ya hay sesión activa (otro usuario inició sesión), abortar limpieza
+          const { data } = await supabase!.auth.getSession();
+          if (data.session) {
+            console.log('✅ Nueva sesión detectada, se omite la limpieza');
+            return;
+          }
+          // 🔄 Sincronizar datos locales a la nube antes de limpiar
+          if (userId) {
+            try {
+              const { syncService } = await import('../services/syncService');
+              const result = await syncService.syncAll(userId);
+              console.log(`📤 Sync final antes de signOut: ${result.synced} subidos, ${result.errors} errores`);
+            } catch (e) {
+              console.warn('⚠️ Error en sync final antes de signOut:', e);
+            }
+          }
+
+          // Limpiar BD local
+          try {
+            const { clearAllData } = await import('../app/db/database');
+            clearAllData();
+          } catch (e) {
+            console.error('Error limpiando BD local:', e);
+          }
+
+          await Promise.all([
+            supabase!.auth.signOut().catch(e =>
+              console.error('Error en signOut de Supabase:', e)
+            ),
+            AsyncStorage.multiRemove(['is_premium']).catch(e =>
+              console.error('Error limpiando AsyncStorage:', e)
+            ),
+          ]);
+
+          console.log('✅ Sesión cerrada correctamente');
+        } catch (error) {
+          console.error('Sign out cleanup error:', error);
         }
-      }
-
-      // Limpiar BD local (NO borramos datos de la nube — el usuario
-      // quiere que sus datos persistan entre sesiones)
-      try {
-        const { clearAllData } = await import('../app/db/database');
-        clearAllData();
-      } catch (e) {
-        console.error('Error limpiando BD local:', e);
-      }
-
-      // Cerrar sesión en Supabase y limpiar solo datos de auth
-      // NO usar AsyncStorage.clear() — borraría el contador mensual de facturas,
-      // rewarded ads diarios, preferencias de idioma/moneda, etc.
-      await Promise.all([
-        supabase.auth.signOut().catch(e =>
-          console.error('Error en signOut de Supabase:', e)
-        ),
-        AsyncStorage.multiRemove(['is_premium']).catch(e =>
-          console.error('Error limpiando AsyncStorage:', e)
-        ),
-      ]);
-
-      console.log('✅ Sesión cerrada correctamente');
+      });
     } catch (error) {
       console.error('Sign out error:', error);
       setUser(null);

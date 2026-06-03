@@ -12,7 +12,7 @@ export default function AuthCallback() {
   const { currentTheme } = useTheme();
 
   const [status, setStatus] = useState<'processing' | 'success' | 'error' | 'reset_form'>('processing');
-  const [message, setMessage] = useState('Verificando...');
+  const [message, setMessage] = useState(t('cargando'));
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [saving, setSaving] = useState(false);
@@ -28,7 +28,7 @@ export default function AuthCallback() {
   async function handleCallback() {
     if (!supabase) {
       setStatus('error');
-      setMessage('Servicio no disponible');
+      setMessage(t('error'));
       return;
     }
 
@@ -60,7 +60,7 @@ export default function AuthCallback() {
       }
     } catch (error: any) {
       setStatus('error');
-      setMessage(error.message || 'Error al verificar');
+      setMessage(error.message || t('error'));
     }
   }
 
@@ -83,7 +83,7 @@ export default function AuthCallback() {
       setMessage(t('contraseña_actualizada'));
       setTimeout(() => router.replace('/(tabs)'), 1800);
     } catch (error: any) {
-      Alert.alert(t('error'), error.message || 'Error al actualizar contraseña');
+      Alert.alert(t('error'), error.message || t('error_actualizar_perfil'));
     } finally {
       setSaving(false);
     }

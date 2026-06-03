@@ -70,7 +70,9 @@ export default function NuevoAlbaran() {
   const [itemSeleccionadoParaProducto, setItemSeleccionadoParaProducto] = useState<string | null>(null);
   const [notas, setNotas] = useState("");
   const [fechaEntrega, setFechaEntrega] = useState("");
+  const [direccionEntrega, setDireccionEntrega] = useState("");
   const [firmaData, setFirmaData] = useState<string | null>(null);
+  const [scrollEnabled, setScrollEnabled] = useState(true);
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
   const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 10 });
@@ -178,6 +180,7 @@ export default function NuevoAlbaran() {
     setItems([nuevoItem()]);
     setNotas("");
     setFechaEntrega("");
+    setDireccionEntrega("");
     setFirmaData(null);
     setNumeroAlbaran(getNextNumeroAlbaran(numeracionConfig));
   }
@@ -185,7 +188,7 @@ export default function NuevoAlbaran() {
   function cargarAlbaran(id: number) {
     const albaran = getAlbaran(id) as any;
     if (!albaran) {
-      Alert.alert(t('error'), 'Albarán no encontrado');
+      Alert.alert(t('error'), t('albaran_no_encontrado'));
       router.back();
       return;
     }
@@ -194,6 +197,7 @@ export default function NuevoAlbaran() {
     setClienteSeleccionado({ id: albaran.cliente_id, nombre: albaran.cliente_nombre });
     setNotas(albaran.notas || "");
     setFechaEntrega(albaran.fecha_entrega || "");
+    setDireccionEntrega(albaran.direccion_entrega || "");
     setFirmaData(albaran.firma_data || null);
 
     const itemsCargados: Item[] = albaranItems.map((item: any) => ({
@@ -240,6 +244,7 @@ export default function NuevoAlbaran() {
         cliente_nombre: clienteSeleccionado?.nombre || '', subtotal: subtotalBruto, descuento: 0,
         iva_porcentaje: 0, iva_importe: 0, irpf_porcentaje: 0,
         irpf_importe: 0, total: subtotalBruto, notas, fecha_entrega: fechaEntrega,
+        direccion_entrega: direccionEntrega,
         fecha: new Date().toISOString(), estado: 'pendiente',
       };
       const itemsConCalculos = itemsValidos.map(item => ({
@@ -284,6 +289,7 @@ export default function NuevoAlbaran() {
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0,
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
           total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
+          direccion_entrega: direccionEntrega,
         });
         deleteAlbaranItems(parseInt(albaranId!));
         for (const item of itemsValidos) {
@@ -302,6 +308,7 @@ export default function NuevoAlbaran() {
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0,
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
           total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
+          direccion_entrega: direccionEntrega,
         });
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
         for (const item of itemsValidos) {
@@ -321,7 +328,8 @@ export default function NuevoAlbaran() {
         id: savedId, numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
         subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0, iva_importe: 0,
         irpf_porcentaje: 0, irpf_importe: 0, total: subtotalEnEuros, notas,
-        fecha_entrega: fechaEntrega, fecha: new Date().toISOString(), estado: 'pendiente',
+        fecha_entrega: fechaEntrega, direccion_entrega: direccionEntrega,
+        fecha: new Date().toISOString(), estado: 'pendiente',
       };
       const itemsConCalculos = itemsValidos.map(item => ({
         descripcion: item.descripcion, cantidad: item.cantidad, unidad: item.unidad,
@@ -383,6 +391,7 @@ export default function NuevoAlbaran() {
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0,
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
           total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
+          direccion_entrega: direccionEntrega,
         });
         deleteAlbaranItems(parseInt(albaranId!));
         for (const item of itemsValidos) {
@@ -402,6 +411,7 @@ export default function NuevoAlbaran() {
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0,
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
           total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
+          direccion_entrega: direccionEntrega,
         });
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
         for (const item of itemsValidos) {
@@ -428,6 +438,7 @@ export default function NuevoAlbaran() {
   function hayCambiosSinGuardar() {
     if (notas.trim().length > 0) return true;
     if (fechaEntrega.trim().length > 0) return true;
+    if (direccionEntrega.trim().length > 0) return true;
     if (clienteSeleccionado) return true;
     if (firmaData) return true;
     if (items.some(i => i.descripcion.trim().length > 0 || (!i.sinPrecio && (parseFloat(i.precio) || 0) > 0))) return true;
@@ -469,7 +480,7 @@ export default function NuevoAlbaran() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
+        <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false} scrollEnabled={scrollEnabled}>
 
           {/* Número de albarán */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
@@ -523,6 +534,20 @@ export default function NuevoAlbaran() {
             />
           </View>
 
+          {/* Dirección de entrega */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('direccion_entrega')}</Text>
+            <TextInput
+              style={[styles.input, styles.inputNotas]}
+              placeholder={t('direccion_entrega')}
+              placeholderTextColor="#bbb"
+              value={direccionEntrega}
+              onChangeText={setDireccionEntrega}
+              multiline
+              numberOfLines={2}
+            />
+          </View>
+
           {/* Artículos */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
             <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('articulos')}</Text>
@@ -561,7 +586,7 @@ export default function NuevoAlbaran() {
                     <Text style={styles.campoLabel}>{item.sinPrecio ? '' : `${t('precio')} (${simboloMoneda})`}</Text>
                     {item.sinPrecio ? (
                       <TouchableOpacity style={[styles.inputChico, { justifyContent: 'center', alignItems: 'center' }]} onPress={() => toggleSinPrecio(item.id)}>
-                        <Text style={{ color: '#888', fontSize: 13, fontStyle: 'italic' }}>Sin precio</Text>
+                        <Text style={{ color: '#888', fontSize: 13, fontStyle: 'italic' }}>{t('sin_precio')}</Text>
                       </TouchableOpacity>
                     ) : (
                       <TextInput style={styles.inputChico} placeholder="0.00" placeholderTextColor="#bbb" keyboardType="decimal-pad"
@@ -600,12 +625,25 @@ export default function NuevoAlbaran() {
               value={notas} onChangeText={setNotas} multiline numberOfLines={4} />
           </View>
 
+          {/* Separador visual antes de la firma */}
+          <View style={styles.firmaSeparador}>
+            <View style={[styles.firmaSeparadorLinea, { backgroundColor: currentTheme.colors.primary + '40' }]} />
+            <View style={[styles.firmaBanner, { backgroundColor: currentTheme.colors.primary + '12', borderColor: currentTheme.colors.primary + '30' }]}>
+              <Ionicons name="create-outline" size={14} color={currentTheme.colors.primary} />
+              <Text style={[styles.firmaBannerTexto, { color: currentTheme.colors.primary }]}>{t('zona_firma_receptor_titulo')}</Text>
+            </View>
+            <View style={[styles.firmaSeparadorLinea, { backgroundColor: currentTheme.colors.primary + '40' }]} />
+          </View>
+
           {/* Firma del receptor */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
             <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('firmaReceptor')}</Text>
             <Text style={[styles.firmaDescripcion, { color: currentTheme.colors.textSecondary }]}>{t('firmaDescripcion')}</Text>
+            <Text style={[styles.firmaClienteHint, { color: currentTheme.colors.primary }]}>{t('zona_firma_receptor_sub')}</Text>
             <SignaturePad
               onSignatureChange={setFirmaData}
+              onDrawStart={() => setScrollEnabled(false)}
+              onDrawEnd={() => setScrollEnabled(true)}
               primaryColor={currentTheme.colors.primary}
             />
           </View>
@@ -655,7 +693,12 @@ export default function NuevoAlbaran() {
                 <View style={styles.modalEmpty}><Text style={styles.modalEmptyTexto}>{t('no_hay_clientes')}</Text></View>
               ) : (
                 clientesFiltrados.map(c => (
-                  <TouchableOpacity key={c.id} style={styles.modalClienteItem} onPress={() => { setClienteSeleccionado(c); setMostrarClientes(false); }}>
+                  <TouchableOpacity key={c.id} style={styles.modalClienteItem} onPress={() => {
+                setClienteSeleccionado(c);
+                const addrParts = [c.calle, c.ciudad, c.cp, c.provincia].filter(Boolean);
+                setDireccionEntrega(addrParts.length > 0 ? addrParts.join(', ') : '');
+                setMostrarClientes(false);
+              }}>
                     <View style={styles.clienteAvatar}><Text style={styles.clienteAvatarLetra}>{c.nombre.charAt(0).toUpperCase()}</Text></View>
                     <View><Text style={styles.modalClienteNombre}>{c.nombre}</Text>{c.email ? <Text style={styles.modalClienteEmail}>{c.email}</Text> : null}</View>
                   </TouchableOpacity>
@@ -874,7 +917,12 @@ const styles = StyleSheet.create({
   previewTitle: { fontSize: 18, fontWeight: '800' },
   previewLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   // Firma
+  firmaSeparador: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 16, gap: 10 },
+  firmaSeparadorLinea: { flex: 1, height: 1.5, borderRadius: 1 },
+  firmaBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, borderWidth: 1 },
+  firmaBannerTexto: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   firmaDescripcion: { fontSize: 13, marginBottom: 14, lineHeight: 18 },
+  firmaClienteHint: { fontSize: 12, fontWeight: '500', marginBottom: 12, textAlign: 'center' },
   firmaArea: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 12, height: 120, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
   firmaPlaceholder: { fontSize: 13, fontStyle: 'italic', marginTop: 8 },
   firmaToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 14, borderWidth: 1.5 },

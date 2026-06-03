@@ -109,6 +109,7 @@ export function initDB() {
       fecha_entrega TEXT,
       notas TEXT,
       firma_data TEXT,
+      direccion_entrega TEXT DEFAULT '',
       sync_status TEXT DEFAULT 'pending',
       FOREIGN KEY (cliente_id) REFERENCES clientes(id)
     );
@@ -130,6 +131,13 @@ export function initDB() {
   // Migration: add firma_data column if it doesn't exist yet (for existing databases)
   try {
     db.execSync('ALTER TABLE albaranes ADD COLUMN firma_data TEXT;');
+  } catch (_) {
+    // Column already exists, ignore
+  }
+
+  // Migration: add direccion_entrega column if it doesn't exist yet
+  try {
+    db.execSync('ALTER TABLE albaranes ADD COLUMN direccion_entrega TEXT DEFAULT \'\';');
   } catch (_) {
     // Column already exists, ignore
   }

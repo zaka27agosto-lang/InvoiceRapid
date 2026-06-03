@@ -2,9 +2,12 @@ import React, { useRef, useCallback, useState } from 'react';
 import { StyleSheet, View, TouchableOpacity, Text, ActivityIndicator } from 'react-native';
 import { WebView, WebViewMessageEvent } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 interface SignaturePadProps {
   onSignatureChange: (signatureData: string | null) => void;
+  onDrawStart?: () => void;
+  onDrawEnd?: () => void;
   primaryColor?: string;
   width?: number;
   height?: number;
@@ -60,6 +63,7 @@ const SIGNATURE_HTML = `
       const pos = getPos(e);
       ctx.beginPath();
       ctx.moveTo(pos.x, pos.y);
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'drawStart' }));
     });
 
     canvas.addEventListener('touchmove', function(e) {
@@ -75,7 +79,15 @@ const SIGNATURE_HTML = `
       if (!isDrawing) return;
       isDrawing = false;
       const dataUrl = canvas.toDataURL('image/png');
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'drawEnd' }));
       window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'signature', data: dataUrl }));
+    });
+
+    canvas.addEventListener('touchcancel', function(e) {
+      e.preventDefault();
+      if (!isDrawing) return;
+      isDrawing = false;
+      window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'drawEnd' }));
     });
 
     function clearCanvas() {
@@ -93,7 +105,8 @@ const SIGNATURE_HTML = `
 </html>
 `;
 
-export function SignaturePad({ onSignatureChange, primaryColor = '#6C47FF', width = 300, height = 150 }: SignaturePadProps) {
+export function SignaturePad({ onSignatureChange, onDrawStart, onDrawEnd, primaryColor = '#6C47FF', width = 300, height = 150 }: SignaturePadProps) {
+  const { t } = useTranslation();
   const webViewRef = useRef<WebView>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -108,11 +121,15 @@ export function SignaturePad({ onSignatureChange, primaryColor = '#6C47FF', widt
       } else if (msg.type === 'cleared') {
         setSignatureData(null);
         onSignatureChange(null);
+      } else if (msg.type === 'drawStart') {
+        onDrawStart?.();
+      } else if (msg.type === 'drawEnd') {
+        onDrawEnd?.();
       }
     } catch (e) {
       // ignore parse errors
     }
-  }, [onSignatureChange]);
+  }, [onSignatureChange, onDrawStart, onDrawEnd]);
 
   const handleClear = useCallback(() => {
     webViewRef.current?.postMessage('clear');
@@ -131,9 +148,9 @@ export function SignaturePad({ onSignatureChange, primaryColor = '#6C47FF', widt
         {error ? (
           <View style={styles.errorOverlay}>
             <Ionicons name="alert-circle-outline" size={24} color="#FF4757" />
-            <Text style={styles.errorText}>Error al cargar la firma</Text>
+            <Text style={styles.errorText}>{t('error_cargar_firma')}</Text>
             <TouchableOpacity onPress={() => { setError(false); setLoading(true); }} style={[styles.retryBtn, { borderColor: primaryColor }]}>
-              <Text style={[styles.retryBtnText, { color: primaryColor }]}>Reintentar</Text>
+              <Text style={[styles.retryBtnText, { color: primaryColor }]}>{t('reintentar')}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -158,10 +175,10 @@ export function SignaturePad({ onSignatureChange, primaryColor = '#6C47FF', widt
       {signatureData ? (
         <TouchableOpacity style={[styles.clearBtn, { borderColor: primaryColor }]} onPress={handleClear}>
           <Ionicons name="close-circle-outline" size={16} color={primaryColor} />
-          <Text style={[styles.clearBtnText, { color: primaryColor }]}>Borrar firma</Text>
+          <Text style={[styles.clearBtnText, { color: primaryColor }]}>{t('borrar_firma')}</Text>
         </TouchableOpacity>
       ) : (
-        <Text style={styles.hintText}>Firma aquí con el dedo</Text>
+        <Text style={styles.hintText}>{t('firma_aqui')}</Text>
       )}
     </View>
   );

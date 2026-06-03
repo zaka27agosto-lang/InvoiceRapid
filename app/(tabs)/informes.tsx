@@ -189,9 +189,9 @@ export default function Informes() {
     try {
       const facturasAll = getFacturas() as any[];
       
-      const headers = ['Tipo', 'Número', 'Cliente', 'Fecha', 'Subtotal', 'IVA%', 'IVA', 'IRPF%', 'IRPF', 'Total', 'Estado', 'Método Pago'];
+      const headers = [t('factura'), t('numero_factura'), t('cliente'), t('fecha_creacion'), t('subtotal'), 'IVA%', t('iva'), 'IRPF%', t('irpf'), t('total'), t('estado'), t('metodo_pago')];
       const facturasRows = facturasAll.map((f: any) => [
-        'Factura', f.numero,
+        t('factura'), f.numero,
         `"${(f.cliente_nombre || '').replace(/"/g, '""')}"`,
         new Date(f.fecha).toLocaleDateString('es-ES'),
         (f.subtotal || 0).toFixed(2), f.iva_porcentaje || 0, (f.iva_importe || 0).toFixed(2),

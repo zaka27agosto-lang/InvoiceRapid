@@ -31,16 +31,18 @@ export function insertAlbaran(data: {
   notas: string;
   fecha_entrega: string;
   firma_data?: string | null;
+  direccion_entrega?: string;
 }) {
   const result = db.runSync(
     `INSERT INTO albaranes 
-      (numero, cliente_id, cliente_nombre, subtotal, descuento, iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total, notas, fecha_entrega, firma_data)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (numero, cliente_id, cliente_nombre, subtotal, descuento, iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total, notas, fecha_entrega, firma_data, direccion_entrega)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.numero, data.cliente_id, data.cliente_nombre,
       data.subtotal, data.descuento, data.iva_porcentaje, data.iva_importe,
       data.irpf_porcentaje, data.irpf_importe, data.total,
-      data.notas, data.fecha_entrega, data.firma_data ?? null
+      data.notas, data.fecha_entrega, data.firma_data ?? null,
+      data.direccion_entrega ?? ''
     ]
   );
   return result.lastInsertRowId;
@@ -92,18 +94,19 @@ export function updateAlbaran(id: number, data: {
   notas: string;
   fecha_entrega: string;
   firma_data?: string | null;
+  direccion_entrega?: string;
 }) {
   return db.runSync(
     `UPDATE albaranes 
      SET numero = ?, cliente_id = ?, cliente_nombre = ?, subtotal = ?, descuento = ?, 
          iva_porcentaje = ?, iva_importe = ?, irpf_porcentaje = ?, irpf_importe = ?, 
-         total = ?, notas = ?, fecha_entrega = ?, firma_data = ?
+         total = ?, notas = ?, fecha_entrega = ?, firma_data = ?, direccion_entrega = ?
      WHERE id = ?`,
     [
       data.numero, data.cliente_id, data.cliente_nombre,
       data.subtotal, data.descuento, data.iva_porcentaje, data.iva_importe,
       data.irpf_porcentaje, data.irpf_importe, data.total,
-      data.notas, data.fecha_entrega, data.firma_data ?? null, id
+      data.notas, data.fecha_entrega, data.firma_data ?? null, data.direccion_entrega ?? '', id
     ]
   );
 }

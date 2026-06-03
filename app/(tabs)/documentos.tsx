@@ -28,7 +28,7 @@ import { syncService } from "../../services/syncService";
 import { useSync } from "../../hooks/useSync";
 
 const ESTADOS_FACTURAS = ['todas', 'no_enviada', 'pendiente', 'pagada', 'impagada'];
-const ESTADOS_ALBARANES = ['todas', 'pendiente', 'enviado', 'entregado'];
+const ESTADOS_ALBARANES = ['todas', 'pendiente', 'entregado'];
 
 export default function Documentos() {
   const { t } = useTranslation();
@@ -39,7 +39,7 @@ export default function Documentos() {
     'no_enviada': t('no_enviada'), 'todas': t('todas'),
   };
   const ESTADOS_ALBARANES_LABELS: Record<string, string> = {
-    'pendiente': t('pendiente'), 'enviado': t('enviado'), 'entregado': t('entregado'), 'todas': t('todas'),
+    'pendiente': t('pendiente'), 'entregado': t('entregado'), 'todas': t('todas'),
   };
 
   const { filtro: filtroParam, facturaId: facturaIdParam } = useLocalSearchParams<{ filtro?: string; facturaId?: string }>();
@@ -297,6 +297,7 @@ export default function Documentos() {
       iva_importe: albaranDetalle.iva_importe, irpf_porcentaje: albaranDetalle.irpf_porcentaje,
       irpf_importe: albaranDetalle.irpf_importe, total: albaranDetalle.total, notas: albaranDetalle.notas,
       fecha_entrega: albaranDetalle.fecha_entrega, firma_data: albaranDetalle.firma_data,
+      direccion_entrega: albaranDetalle.direccion_entrega || '',
     });
     itemsOriginales.forEach((item: any) => insertAlbaranItem({
       albaran_id: newId as number, descripcion: item.descripcion, cantidad: item.cantidad,
@@ -340,7 +341,7 @@ export default function Documentos() {
 
   function estadoLabelAlbaran(estado: string) { return ESTADOS_ALBARANES_LABELS[estado] || estado; }
   function estadoColorAlbaran(estado: string) {
-    switch (estado) { case 'entregado': return '#26de81'; case 'enviado': return '#FF9F43'; default: return currentTheme.colors.primary; }
+    switch (estado) { case 'entregado': return '#26de81'; default: return currentTheme.colors.primary; }
   }
 
   async function handleVistaPreviaAlbaran() {
@@ -455,7 +456,7 @@ export default function Documentos() {
 
   const esFacturas = modo === 'facturas';
   const tituloSeccion = esFacturas ? t('facturas') : t('albaranes');
-  const placeholderBusqueda = esFacturas ? 'Buscar factura o cliente' : t('buscar_albaran_placeholder');
+  const placeholderBusqueda = esFacturas ? t('buscar_factura_placeholder') : t('buscar_albaran_placeholder');
   const emptyIcono = esFacturas ? 'document-text-outline' : 'clipboard-outline';
   const emptyTexto = esFacturas ? t('no_facturas') : t('no_albaranes');
   const emptySub = filtrosSeleccionados.includes('todas') ? (esFacturas ? t('pulsa_crear') : t('pulsa_crear_albaran')) : emptyTexto;
@@ -545,7 +546,7 @@ export default function Documentos() {
                 <View style={styles.filtroImporteRow}>
                   <Text style={[styles.filtroImporteInputLabel, { color: currentTheme.colors.textSecondary }]}>Máximo:</Text>
                   <TextInput style={[styles.filtroImporteInput, { color: currentTheme.colors.text, backgroundColor: currentTheme.colors.background }]}
-                    placeholder="Sin límite" placeholderTextColor={currentTheme.colors.textSecondary} value={importeMaximo} onChangeText={setImporteMaximo} keyboardType="decimal-pad" />
+                    placeholder={t('sin_limite')} placeholderTextColor={currentTheme.colors.textSecondary} value={importeMaximo} onChangeText={setImporteMaximo} keyboardType="decimal-pad" />
                 </View>
               </View>
             )}
@@ -553,7 +554,7 @@ export default function Documentos() {
 
         {datosFiltrados.length === 0 ? (
           <View style={{ flex: 1, justifyContent: 'center' }}>
-            <View style={[styles.emptyState, { backgroundColor: currentTheme.colors.card, flex: undefined }]}>
+            <View style={[styles.emptyState, { flex: undefined }]}>
               <Ionicons name={emptyIcono as any} size={60} color={currentTheme.colors.textSecondary} />
               <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{emptyTexto}</Text>
               <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>{emptySub}</Text>
@@ -722,7 +723,7 @@ export default function Documentos() {
               {!isPremium && (
                 <TouchableOpacity style={[styles.detallePremiumBanner, { backgroundColor: currentTheme.colors.primary }]} onPress={() => { setMostrarDetalle(false); setTimeout(() => setMostrarPaywall(true), 100); }}>
                   <Ionicons name="diamond-outline" size={20} color="#fff" />
-                  <View style={styles.detallePremiumBannerTextoContainer}><Text style={styles.detallePremiumBannerTitulo}>Desbloquear PDF PRO</Text><Text style={styles.detallePremiumBannerSub}>Ilimitadas y sin marcas de agua</Text></View>
+                  <View style={styles.detallePremiumBannerTextoContainer}><Text style={styles.detallePremiumBannerTitulo}>{t('desbloquear_pdf_pro')}</Text><Text style={styles.detallePremiumBannerSub}>{t('ilimitadas_sin_marca')}</Text></View>
                   <Ionicons name="chevron-forward" size={20} color="#fff" />
                 </TouchableOpacity>
               )}
@@ -791,13 +792,10 @@ export default function Documentos() {
                 </View>
               )}
               <View style={styles.detalleEstadoAcciones}>
-                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { borderColor: albaranDetalle?.estado === 'pendiente' ? currentTheme.colors.primary : currentTheme.colors.border, borderWidth: 2, width: '31%' }]} onPress={() => handleCambiarEstadoAlbaran('pendiente')}>
+                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { borderColor: albaranDetalle?.estado === 'pendiente' ? currentTheme.colors.primary : currentTheme.colors.border, borderWidth: 2, width: '48%' }]} onPress={() => handleCambiarEstadoAlbaran('pendiente')}>
                   <Ionicons name="time-outline" size={16} color={currentTheme.colors.primary} /><Text style={[styles.detalleEstadoBtnTextoCompact, { color: albaranDetalle?.estado === 'pendiente' ? currentTheme.colors.primary : currentTheme.colors.text }]}>{t('pendiente')}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { borderColor: albaranDetalle?.estado === 'enviado' ? '#FF9F43' : currentTheme.colors.border, borderWidth: 2, width: '31%' }]} onPress={() => handleCambiarEstadoAlbaran('enviado')}>
-                  <Ionicons name="send-outline" size={16} color="#FF9F43" /><Text style={[styles.detalleEstadoBtnTextoCompact, { color: albaranDetalle?.estado === 'enviado' ? '#FF9F43' : currentTheme.colors.text }]}>{t('enviado')}</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { borderColor: albaranDetalle?.estado === 'entregado' ? '#26de81' : currentTheme.colors.border, borderWidth: 2, width: '31%' }]} onPress={() => handleCambiarEstadoAlbaran('entregado')}>
+                <TouchableOpacity style={[styles.detalleEstadoBtnCompact, { borderColor: albaranDetalle?.estado === 'entregado' ? '#26de81' : currentTheme.colors.border, borderWidth: 2, width: '48%' }]} onPress={() => handleCambiarEstadoAlbaran('entregado')}>
                   <Ionicons name="checkmark-circle-outline" size={16} color="#26de81" /><Text style={[styles.detalleEstadoBtnTextoCompact, { color: albaranDetalle?.estado === 'entregado' ? '#26de81' : currentTheme.colors.text }]}>{t('entregado')}</Text>
                 </TouchableOpacity>
               </View>
@@ -821,7 +819,7 @@ export default function Documentos() {
               {!isPremium && (
                 <TouchableOpacity style={[styles.detallePremiumBanner, { backgroundColor: currentTheme.colors.primary }]} onPress={() => { setMostrarDetalleAlbaran(false); setTimeout(() => setMostrarPaywall(true), 100); }}>
                   <Ionicons name="diamond-outline" size={20} color="#fff" />
-                  <View style={styles.detallePremiumBannerTextoContainer}><Text style={styles.detallePremiumBannerTitulo}>Desbloquear PDF PRO</Text><Text style={styles.detallePremiumBannerSub}>Ilimitadas y sin marcas de agua</Text></View>
+                  <View style={styles.detallePremiumBannerTextoContainer}><Text style={styles.detallePremiumBannerTitulo}>{t('desbloquear_pdf_pro')}</Text><Text style={styles.detallePremiumBannerSub}>{t('ilimitadas_sin_marca')}</Text></View>
                   <Ionicons name="chevron-forward" size={20} color="#fff" />
                 </TouchableOpacity>
               )}
@@ -877,7 +875,7 @@ export default function Documentos() {
         <View style={styles.datePickerWrapper}>
           <View style={styles.datePickerHeader}>
             <TouchableOpacity onPress={() => setMostrarDatePicker(false)}><Ionicons name="close" size={24} color="#1a1a1a" /></TouchableOpacity>
-            <Text style={styles.datePickerTitulo}>Seleccionar fecha</Text>
+            <Text style={styles.datePickerTitulo}>{t('seleccionar_fecha')}</Text>
             <TouchableOpacity onPress={() => { setBusqueda(formatearFechaSync(new Date(añoSeleccionado, mesSeleccionado - 1, diaSeleccionado))); setMostrarDatePicker(false); }}><Text style={styles.datePickerConfirmar}>Confirmar</Text></TouchableOpacity>
           </View>
           <View style={styles.datePickerContent}>
