@@ -156,6 +156,9 @@ export default function Privacy() {
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             Para ejercer sus derechos de privacidad, utilice las opciones disponibles en Ajustes {'>'} Privacidad y Datos dentro de la aplicación.
           </Text>
+          <Text style={{ fontSize: 11, color: currentTheme.colors.textSecondary, opacity: 0.4, marginTop: 20 }}>
+            zkrstudio.contact@gmail.com
+          </Text>
         </View>
 
         <View style={{ height: 40 }} />
