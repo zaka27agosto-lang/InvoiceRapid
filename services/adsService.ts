@@ -181,11 +181,22 @@ export class AdsService {
   }
 
   async resetConsent(): Promise<void> {
+    // Resetear estado local
     this.consentGiven = false;
     this.canShowAds = true;
     await AsyncStorage.removeItem(CONSENT_KEY);
     await AsyncStorage.removeItem(CONSENT_STATUS_KEY);
-    await this.requestConsent();
+
+    // Forzar mostrar el formulario de privacidad (equivalente a primer launch)
+    // Usamos showPrivacyOptions() en vez de requestConsent() porque
+    // loadAndShowConsentFormIfRequired() no muestra el form si ya se mostró antes.
+    // showPrivacyOptionsForm() fuerza mostrar el diálogo de Google.
+    try {
+      await this.showPrivacyOptions();
+    } catch (_e) {
+      // Si falla, intentar con requestConsent como fallback
+      await this.requestConsent();
+    }
   }
 
   getCanShowAds(): boolean {
@@ -207,8 +218,14 @@ export class AdsService {
   private rewardedRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   loadRewardedAd(): void {
-    if (!this.canShowAds) return;
-    if (!RewardedAd) return;
+    if (!this.canShowAds) {
+      console.log('[REWARDED] ❌ loadRewardedAd() — canShowAds=false, no se carga nada');
+      return;
+    }
+    if (!RewardedAd) {
+      console.log('[REWARDED] ❌ loadRewardedAd() — RewardedAd no disponible (¿web? ¿SDK no cargado?)');
+      return;
+    }
 
     // Limpiar retry programado previo
     if (this.rewardedRetryTimer) {
@@ -223,24 +240,34 @@ export class AdsService {
           ios: 'ca-app-pub-3758182602063783/8097499944',
         });
 
+    console.log('[REWARDED] 📥 Creando RewardedAd con adUnitId:', adUnitId);
+    console.log('[REWARDED]    consentGiven:', this.consentGiven, '| noPersonalizados:', !this.consentGiven);
+
     this.rewardedAd = RewardedAd.createForAdRequest(adUnitId!, {
       requestNonPersonalizedAdsOnly: !this.consentGiven,
       keywords: ['invoice', 'business', 'finance'],
     });
 
     this.rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
+      console.log('[REWARDED] ✅ LOADED — anuncio cargado correctamente');
       this.isRewardedLoaded = true;
       this.lastRewardedError = null; // Limpiar error al cargar con éxito
       this.rewardedRetryCount = 0; // Reset retry counter on success
     });
 
     this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
+      console.log('[REWARDED] ❌ ERROR — error completo:', JSON.stringify(error));
+      console.log('[REWARDED]    error.message:', error?.message);
+      console.log('[REWARDED]    error.code:', error?.code);
+      console.log('[REWARDED]    String(error):', String(error));
       this.isRewardedLoaded = false;
       // Detectar tipo de error
       const errorMsg = error?.message || String(error);
       if (errorMsg.includes('no-fill') || errorMsg.includes('No fill')) {
+        console.log('[REWARDED]    tipo: no_fill (AdMob sin anuncios disponibles)');
         this.lastRewardedError = 'no_fill';
       } else {
+        console.log('[REWARDED]    tipo: load_error');
         this.lastRewardedError = 'load_error';
       }
       // Si hay una promesa pendiente de show, resolverla como false
@@ -252,6 +279,7 @@ export class AdsService {
       // Reintentar carga automática (solo si no es no-fill, o si es no-fill con menos reintentos)
       if (this.rewardedRetryCount < this.maxRewardedRetries) {
         this.rewardedRetryCount++;
+        console.log(`[REWARDED] 🔄 Reintento ${this.rewardedRetryCount}/${this.maxRewardedRetries} en ${this.rewardedRetryDelay}ms`);
         this.rewardedRetryTimer = setTimeout(() => {
           this.loadRewardedAd();
         }, this.rewardedRetryDelay);
@@ -259,6 +287,7 @@ export class AdsService {
     });
 
     this.rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
+      console.log('[REWARDED] 🚪 CLOSED — anuncio cerrado (sin recompensa)');
       this.isRewardedLoaded = false;
       this.rewardedRetryCount = 0;
       // Si hay una promesa pendiente de show, resolverla como false (no ganó recompensa)
@@ -272,6 +301,7 @@ export class AdsService {
     });
 
     this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
+      console.log('[REWARDED] 🎁 EARNED_REWARD — ¡el usuario ganó la recompensa!');
       if (this.rewardedAdResolve) {
         this.rewardedAdResolve(true);
         this.rewardedAdResolve = null;
@@ -279,6 +309,7 @@ export class AdsService {
     });
 
     this.rewardedAd.load();
+    console.log('[REWARDED] 📤 load() llamado — esperando evento LOADED o ERROR...');
   }
 
   /**
@@ -290,21 +321,30 @@ export class AdsService {
    * - null: timeout, ads desactivados, o no inicializado
    */
   async showRewardedAd(): Promise<boolean> {
+    console.log('[REWARDED] 🎬 showRewardedAd() llamado');
+    console.log('[REWARDED]    canShowAds:', this.canShowAds);
+    console.log('[REWARDED]    rewardedAd existe:', !!this.rewardedAd);
+    console.log('[REWARDED]    isRewardedLoaded:', this.isRewardedLoaded);
+    console.log('[REWARDED]    lastRewardedError:', this.lastRewardedError);
+
     // Resetear contador para que cada intento del usuario tenga reintentos frescos
     this.rewardedRetryCount = 0;
 
     if (!this.canShowAds) {
+      console.log('[REWARDED] ❌ showRewardedAd — canShowAds=false, retornando false');
       this.lastRewardedError = null;
       return false;
     }
 
     if (!this.rewardedAd) {
+      console.log('[REWARDED] ❌ showRewardedAd — rewardedAd es null, llamando loadRewardedAd()');
       this.lastRewardedError = null;
       this.loadRewardedAd();
       return false;
     }
 
     if (!this.isRewardedLoaded) {
+      console.log('[REWARDED] ⏳ showRewardedAd — no cargado, esperando hasta 10s...');
       this.lastRewardedError = null; // Reset antes de intentar
       this.loadRewardedAd();
       
@@ -323,7 +363,11 @@ export class AdsService {
         check();
       });
       
-      if (!loaded) return false;
+      if (!loaded) {
+        console.log('[REWARDED] ⏳ timeout — anuncio no cargó en 10s, lastRewardedError:', this.lastRewardedError);
+        return false;
+      }
+      console.log('[REWARDED] ✅ anuncio cargado tras espera');
     }
 
     try {
@@ -346,6 +390,7 @@ export class AdsService {
         };
 
         this.rewardedAd.show().catch((error: any) => {
+          console.log('[REWARDED] ❌ show_error al mostrar el anuncio — error:', String(error));
           this.lastRewardedError = 'show_error';
           clearTimeout(timeout);
           this.isRewardedLoaded = false;

@@ -1,6 +1,5 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
 
 type PlantillaPDF = 'default' | 'elegante' | 'antigua' | 'colorida' | 'minimal';
 
@@ -209,28 +208,7 @@ export async function generarPDFPreview(factura: any, items: any[], isPremium: b
   }
 }
 
-/**
- * Convierte un archivo PDF (file:// URI) en un HTML con el PDF embebido en base64
- * para mostrarlo en un WebView de forma fiable en Android.
- */
-export async function fileToPreviewHtml(fileUri: string): Promise<string> {
-  const base64 = await FileSystem.readAsStringAsync(fileUri, {
-    encoding: 'base64' as any,
-  });
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"></head>
-    <body style="margin:0;padding:0;overflow:hidden;background:#525659;">
-      <embed src="data:application/pdf;base64,${base64}"
-             type="application/pdf"
-             width="100%"
-             height="100%"
-             style="border:none;min-height:100vh;">
-    </body>
-    </html>
-  `;
-}
+
 
 /**
  * Genera el HTML de la factura (extraído para reutilizar en preview y share)

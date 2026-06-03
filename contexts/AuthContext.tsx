@@ -176,22 +176,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (data.session) {
             return;
           }
-          // 🔄 Sincronizar datos locales a la nube antes de limpiar
+          // 🔄 Sincronizar datos locales a la nube antes de cerrar sesión
           if (userId) {
             try {
               const { syncService } = await import('../services/syncService');
-              const result = await syncService.syncAll(userId);
-            } catch (e) {
+              await syncService.syncAll(userId);
+            } catch (_e) {
             }
           }
 
-          // Limpiar BD local
-          try {
-            const { clearAllData } = await import('../app/db/database');
-            clearAllData();
-          } catch (e) {
-          }
-
+          // Cerrar sesión en Supabase y limpiar estado local
+          // NO limpiamos la BD local aquí porque podría interferir con
+          // pantallas aún montadas. La BD se limpia solo al eliminar cuenta.
           await Promise.all([
             supabase!.auth.signOut().catch(() => {}),
             AsyncStorage.multiRemove(['is_premium']).catch(() => {}),
