@@ -400,8 +400,13 @@ export class AdsService {
     });
 
     this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
-      this.isInterstitialLoaded = true;
-      this.interstitialRetryCount = 0; // Reset retry counter on success
+      // Pequeña pausa para asegurar que los assets creativos (imágenes/vídeo)
+      // se han descargado completamente antes de permitir mostrar el anuncio.
+      // Esto evita la pantalla negra en el primer anuncio.
+      this.interstitialRetryCount = 0;
+      setTimeout(() => {
+        this.isInterstitialLoaded = true;
+      }, 1200);
     });
 
     this.interstitialAd.addAdEventListener(AdEventType.ERROR, () => {

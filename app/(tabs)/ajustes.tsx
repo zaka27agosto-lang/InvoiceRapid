@@ -567,6 +567,13 @@ export default function Ajustes() {
             <Ionicons name="timer-outline" size={20} color="#FF9F43" />
             <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('poner_contador_9')}</Text>
           </TouchableOpacity>
+          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
+            await adsService.resetConsent();
+            Alert.alert('🔄 Consentimiento reseteado', 'Se ha borrado el consentimiento de anuncios. La próxima vez que se inicie la app, aparecerá el popup de Google.');
+          }}>
+            <Ionicons name="refresh-circle-outline" size={20} color="#FF9F43" />
+            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Resetear consentimiento</Text>
+          </TouchableOpacity>
         </View>
 
         <View style={{ height: 100 }} />

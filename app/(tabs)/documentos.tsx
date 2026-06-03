@@ -19,7 +19,7 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import SwipeNavigation from "../../components/SwipeNavigation";
 import { convertirDeEurosParaMostrar } from "../../utils/currency";
-import { generarYCompartirPDF, generarPDFPreview, generarYCompartirPDFAlbaran, generarPDFPreviewAlbaran } from "../../utils/pdf";
+import { generarYCompartirPDF, generarPDFPreview, generarYCompartirPDFAlbaran, generarPDFPreviewAlbaran, fileToPreviewHtml } from "../../utils/pdf";
 import { WebView } from 'react-native-webview';
 import { FormatoFecha, getFormatoFecha, getMoneda, getPlantillaPDF } from "../../utils/settings";
 import { deleteFactura, getFacturaItems, getFacturas, getNextNumeroFactura, insertFactura, insertFacturaItem, updateEstadoFactura } from "../db/facturas";
@@ -62,7 +62,7 @@ export default function Documentos() {
   const [comprando, setComprando] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [generandoPreview, setGenerandoPreview] = useState(false);
-  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [mostrarPreviewPdf, setMostrarPreviewPdf] = useState(false);
   const [mostrarFiltro, setMostrarFiltro] = useState(false);
   const [mostrarDatePicker, setMostrarDatePicker] = useState(false);
@@ -238,7 +238,7 @@ export default function Documentos() {
         precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
       }));
       const uri = await generarPDFPreview(facturaDetalleConvertida || facturaDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
-      if (uri) { setPreviewUri(uri); setMostrarPreviewPdf(true); }
+      if (uri) { const html = await fileToPreviewHtml(uri); setPreviewHtml(html); setMostrarPreviewPdf(true); }
     } catch { Alert.alert(t('error'), t('no_se_pudo_generar_pdf')); }
     finally { setGenerandoPreview(false); }
   }
@@ -353,8 +353,8 @@ export default function Documentos() {
         descripcion: item.descripcion, cantidad: item.cantidad, unidad: item.unidad,
         precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
       }));
-      const uri = await generarPDFPreviewAlbaran(albaranDetalleConvertida || albaranDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary, albaranDetalle.firma_data);
-      if (uri) { setPreviewUri(uri); setMostrarPreviewPdf(true); }
+      const uri2 = await generarPDFPreviewAlbaran(albaranDetalleConvertida || albaranDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary, albaranDetalle.firma_data);
+      if (uri2) { const html = await fileToPreviewHtml(uri2); setPreviewHtml(html); setMostrarPreviewPdf(true); }
     } catch { Alert.alert(t('error'), t('no_se_pudo_generar_pdf')); }
     finally { setGenerandoPreview(false); }
   }
@@ -862,11 +862,11 @@ export default function Documentos() {
       <Modal visible={mostrarPreviewPdf} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMostrarPreviewPdf(false)}>
         <View style={[styles.previewWrapper, { backgroundColor: currentTheme.colors.background }]}>
           <View style={[styles.previewHeader, { backgroundColor: currentTheme.colors.card, borderBottomColor: currentTheme.colors.border }]}>
-            <TouchableOpacity style={styles.previewCloseBtn} onPress={() => { setMostrarPreviewPdf(false); setPreviewUri(null); }}><Ionicons name="close" size={22} color={currentTheme.colors.text} /></TouchableOpacity>
+            <TouchableOpacity style={styles.previewCloseBtn} onPress={() => { setMostrarPreviewPdf(false); setPreviewHtml(null); }}><Ionicons name="close" size={22} color={currentTheme.colors.text} /></TouchableOpacity>
             <Text style={[styles.previewTitle, { color: currentTheme.colors.text }]}>{t('numeracion_vista_previa')}</Text>
             <View style={{ width: 36 }} />
           </View>
-          {previewUri ? (<WebView source={{ uri: previewUri }} style={{ flex: 1 }} originWhitelist={['*']} allowFileAccess={true} allowUniversalAccessFromFileURLs={true} javaScriptEnabled={true} />) : (<View style={styles.previewLoading}><Text style={{ color: currentTheme.colors.textSecondary }}>{t('cargando')}...</Text></View>)}
+          {previewHtml ? (<WebView source={{ html: previewHtml }} style={{ flex: 1 }} originWhitelist={['*']} javaScriptEnabled={true} />) : (<View style={styles.previewLoading}><Text style={{ color: currentTheme.colors.textSecondary }}>{t('cargando')}...</Text></View>)}
         </View>
       </Modal>
 

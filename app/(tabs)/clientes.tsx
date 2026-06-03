@@ -348,7 +348,7 @@ const styles = StyleSheet.create({
   clienteDato: { fontSize: 14, color: "#666", marginBottom: 2 },
   clienteActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   actionBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: "#f8f9fa", justifyContent: "center", alignItems: "center" },
-  fab: { position: "absolute", bottom: 30, right: 20, borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fab: { position: "absolute", bottom: 24, right: 20, borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
   fabTexto: { color: "#fff", fontWeight: "700", fontSize: 15 },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
   backBtn: { width: 40, height: 40, borderRadius: 12, backgroundColor: "#EEE9FF", justifyContent: "center", alignItems: "center" },

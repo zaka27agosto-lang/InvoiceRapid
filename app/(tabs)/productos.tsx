@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
   actionBtn: { width: 36, height: 36, borderRadius: 8, backgroundColor: "#f8f9fa", justifyContent: "center", alignItems: "center" },
   fab: {
     position: "absolute",
-    bottom: 30,
+    bottom: 24,
     right: 20,
     borderRadius: 30,
     paddingHorizontal: 22,

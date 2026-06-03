@@ -19,7 +19,7 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { adsService } from "../../services/adsService";
 import { convertirAEurosParaGuardar } from "../../utils/currency";
-import { generarYCompartirPDF, generarPDFPreview } from "../../utils/pdf";
+import { generarYCompartirPDF, generarPDFPreview, fileToPreviewHtml } from "../../utils/pdf";
 import { WebView } from 'react-native-webview';
 import { getMoneda, getNumeracionConfig, getPlantillaPDF } from "../../utils/settings";
 import { checkInvoiceLimitAsync, incrementInvoiceCounter, getRemainingRewardedAds, incrementRewardedAdCount } from "../../utils/subscription";
@@ -53,7 +53,7 @@ export default function NuevaFactura() {
   const [comprando, setComprando] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [generandoPreview, setGenerandoPreview] = useState(false);
-  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [previewHtml, setPreviewHtml] = useState<string | null>(null);
   const [mostrarPreviewPdf, setMostrarPreviewPdf] = useState(false);
   const [planSeleccionado, setPlanSeleccionado] = useState<any>(null);
   const [clienteSeleccionado, setClienteSeleccionado] = useState<any>(null);
@@ -325,7 +325,8 @@ export default function NuevaFactura() {
       const plantilla = await getPlantillaPDF();
       const uri = await generarPDFPreview(facturaPreview, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
       if (uri) {
-        setPreviewUri(uri);
+        const html = await fileToPreviewHtml(uri);
+        setPreviewHtml(html);
         setMostrarPreviewPdf(true);
       }
     } catch {
@@ -1209,14 +1210,14 @@ export default function NuevaFactura() {
         <Modal visible={mostrarPreviewPdf} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMostrarPreviewPdf(false)}>
           <View style={[styles.previewWrapper, { backgroundColor: currentTheme.colors.background }]}>
             <View style={[styles.previewHeader, { backgroundColor: currentTheme.colors.card, borderBottomColor: currentTheme.colors.border || '#f0f0f0' }]}>
-              <TouchableOpacity style={styles.previewCloseBtn} onPress={() => { setMostrarPreviewPdf(false); setPreviewUri(null); }}>
+              <TouchableOpacity style={styles.previewCloseBtn} onPress={() => { setMostrarPreviewPdf(false); setPreviewHtml(null); }}>
                 <Ionicons name="close" size={22} color={currentTheme.colors.text} />
               </TouchableOpacity>
               <Text style={[styles.previewTitle, { color: currentTheme.colors.text }]}>{t('numeracion_vista_previa')}</Text>
               <View style={{ width: 36 }} />
             </View>
-            {previewUri ? (
-              <WebView source={{ uri: previewUri }} style={{ flex: 1 }} originWhitelist={['*']} allowFileAccess={true} allowUniversalAccessFromFileURLs={true} javaScriptEnabled={true} />
+            {previewHtml ? (
+              <WebView source={{ html: previewHtml }} style={{ flex: 1 }} originWhitelist={['*']} javaScriptEnabled={true} />
             ) : (
               <View style={styles.previewLoading}><Text style={{ color: currentTheme.colors.textSecondary }}>{t('cargando')}...</Text></View>
             )}
