@@ -128,10 +128,7 @@ export default function Privacy() {
             • Exportar sus datos en formato PDF desde la sección "Privacidad y Datos" en Ajustes
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Solicitar la eliminación de su cuenta y todos sus datos desde Ajustes {'>'} Privacidad y Datos {'>'} Borrar cuenta, o enviando un correo a:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            📧 zkrstudio.contact@gmail.com
+            • Solicitar la eliminación de su cuenta y todos sus datos desde Ajustes {'>'} Privacidad y Datos {'>'} Borrar cuenta.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             • Retirar el consentimiento para anuncios personalizados desde Ajustes {'>'} Consentimiento de anuncios
@@ -157,10 +154,7 @@ export default function Privacy() {
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>10. Contacto</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Para dudas sobre esta política:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            📧 zkrstudio.contact@gmail.com
+            Para ejercer sus derechos de privacidad, utilice las opciones disponibles en Ajustes {'>'} Privacidad y Datos dentro de la aplicación.
           </Text>
         </View>
 
