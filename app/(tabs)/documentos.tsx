@@ -83,8 +83,6 @@ export default function Documentos() {
   const { isPremium, offerings, comprar, restaurar } = useSubscription();
 
   const estadosActuales = modo === 'facturas' ? ESTADOS_FACTURAS : ESTADOS_ALBARANES;
-  const estadosLabels = modo === 'facturas' ? ESTADOS_FACTURAS_LABELS : ESTADOS_ALBARANES_LABELS;
-
   const formatearFechaSync = (fecha: string | Date) => {
     const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
     if (formatoFecha === 'DD/MM/YYYY') {
@@ -993,7 +991,7 @@ const styles = StyleSheet.create({
   datePickerDaysGrid: { flexDirection: "row", flexWrap: "wrap" },
   datePickerDayEmpty: { width: "14.28%", height: 40 },
   datePickerDay: { width: "14.28%", height: 40, justifyContent: "center", alignItems: "center", borderRadius: 8 },
-  datePickerDayActivo: { backgroundColor: "#6C47FF" },
+  datePickerDayActivo: { backgroundColor: "#007AFF" },
   datePickerDayText: { fontSize: 15, fontWeight: "600", color: "#1a1a1a" }, datePickerDayTextActivo: { color: "#fff" },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 },
   seleccionarBtn: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10, borderWidth: 1.5 },

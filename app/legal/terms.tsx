@@ -23,7 +23,7 @@ export default function Terms() {
         <View style={[styles.content, { backgroundColor: currentTheme.colors.card }]}>
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Introducción</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Bienvenido a InvoiceRapid. Estos Términos y Condiciones ("Términos") rigen el uso de nuestra aplicación móvil de facturación. Al descargar, instalar o utilizar InvoiceRapid, usted acepta estos Términos.
+            Bienvenido a InvoiceRapid. Estos Términos y Condiciones (&quot;Términos&quot;) rigen el uso de nuestra aplicación móvil de facturación. Al descargar, instalar o utilizar InvoiceRapid, usted acepta estos Términos.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Uso del Servicio</Text>
@@ -73,7 +73,7 @@ export default function Terms() {
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Limitación de Responsabilidad</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid se proporciona "tal cual" sin garantías de ningún tipo. No somos responsables de:
+            InvoiceRapid se proporciona &quot;tal cual&quot; sin garantías de ningún tipo. No somos responsables de:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             • Pérdidas de datos o ingresos derivados del uso de la aplicación.

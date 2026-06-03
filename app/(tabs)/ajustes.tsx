@@ -22,13 +22,13 @@ import { supabase } from "../../services/supabase";
 import { adsService } from "../../services/adsService";
 import SwipeNavigation from "../../components/SwipeNavigation";
 import { generarPDFPreview } from "../../utils/pdf";
+import Pdf from 'react-native-pdf';
 import * as Sharing from "expo-sharing";
 import * as Print from "expo-print";
 import { getFacturaItems, getFacturas } from "../db/facturas";
 import { getClientes } from "../db/clientes";
 import { getProductos } from "../db/productos";
 
-import { advanceMonth, setInvoiceCounterTo9 } from "../../utils/subscription";
 import {
   DatosEmpresa,
   DEFAULT_NUMERACION,
@@ -60,7 +60,6 @@ export default function Ajustes() {
   const [mostrarNumeracion, setMostrarNumeracion] = useState(false);
   const [numeracionConfig, setNumeracionConfigState] = useState<NumeracionConfig>(DEFAULT_NUMERACION);
   const [comprando, setComprando] = useState(false);
-  const [notificacionesSuscripcion, setNotificacionesSuscripcion] = useState(true);
   const [monedaActual, setMonedaActual] = useState<Moneda>(MONEDAS[0]);
   const [plantillaActual, setPlantillaActual] = useState<PlantillaPDF>('default');
   const [formatoFechaActual, setFormatoFechaActual] = useState<FormatoFecha>('DD/MM/YYYY');
@@ -68,6 +67,8 @@ export default function Ajustes() {
     nombre: '', nif: '', direccion: '', telefono: '', email: '', incluirEnFactura: true
   });
   const [planSeleccionado, setPlanSeleccionado] = useState<any>(null);
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
+  const [mostrarPreviewPdf, setMostrarPreviewPdf] = useState(false);
 
   const tabOrder = ['/(tabs)/index', '/(tabs)/documentos', '/(tabs)/clientes', '/(tabs)/productos', '/(tabs)/informes', '/(tabs)/ajustes'];
 
@@ -95,9 +96,6 @@ export default function Ajustes() {
     getPlantillaPDF().then(setPlantillaActual);
     getFormatoFecha().then(setFormatoFechaActual);
     getNumeracionConfig().then(setNumeracionConfigState);
-    AsyncStorage.getItem('notificaciones_suscripcion').then(value => {
-      setNotificacionesSuscripcion(value !== 'false');
-    });
     if (params.paywall === 'true') {
       setMostrarPaywall(true);
     }
@@ -173,23 +171,13 @@ export default function Ajustes() {
         { descripcion: 'Desarrollo web', cantidad: '1', unidad: 'ud', precio_unitario: '350', descuento: '0', subtotal: 350 },
       ];
       const uri = await generarPDFPreview(facturaPreview, itemsPreview, true, plantilla, '€', currentTheme.colors.primary);
-      if (uri && (await Sharing.isAvailableAsync())) {
-        await Sharing.shareAsync(uri, {
-          mimeType: 'application/pdf',
-          dialogTitle: `Vista previa - Plantilla ${plantilla}`,
-          UTI: 'com.adobe.pdf',
-        });
+      if (uri) {
+        setPreviewUri(uri);
+        setMostrarPreviewPdf(true);
       }
-    } catch (e) {
+    } catch {
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
     }
-  }
-
-  async function toggleNotificacionesSuscripcion() {
-    const nuevoValor = !notificacionesSuscripcion;
-    setNotificacionesSuscripcion(nuevoValor);
-    await AsyncStorage.setItem('notificaciones_suscripcion', nuevoValor ? 'true' : 'false');
-    Alert.alert('✅', nuevoValor ? t('notificaciones_activadas') : t('notificaciones_desactivadas'));
   }
 
   async function handleExportData() {
@@ -234,7 +222,7 @@ export default function Ajustes() {
         await Sharing.shareAsync(uri, { UTI: 'com.adobe.pdf', mimeType: 'application/pdf', dialogTitle: 'Exportar datos' });
       }
       Alert.alert('✅', t('datos_exportados'));
-    } catch (error) {
+    } catch {
       Alert.alert(t('error'), t('error_exportar_datos'));
     }
   }
@@ -447,7 +435,6 @@ export default function Ajustes() {
             </TouchableOpacity>
           )}
 
-              {/* Opción de notificaciones eliminada según solicitud */}
         </View>
 
         {/* Suscripción */}
@@ -550,21 +537,7 @@ export default function Ajustes() {
             <Ionicons name="refresh-outline" size={20} color="#FF9F43" />
             <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('resetear_contador')}</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
-            const result = await advanceMonth();
-            Alert.alert('📅 Mes adelantado', `De ${result.oldMonth} → ${result.newMonth}\nContador reseteado a 0.`);
-          }}>
-            <Ionicons name="play-skip-forward-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('adelantar_mes_simular')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
-            const count = await setInvoiceCounterTo9();
-            Alert.alert('📊 Contador en 9/10', `El contador se ha fijado en ${count}/10. Crea una factura más para ver el límite.`);
-          }}>
-            <Ionicons name="timer-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('poner_contador_9')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
+<TouchableOpacity style={styles.opcionBoton} onPress={async () => {
             await adsService.resetConsent();
             Alert.alert('🔄 Consentimiento reseteado', 'Se ha borrado el consentimiento de anuncios. La próxima vez que se inicie la app, aparecerá el popup de Google.');
           }}>
@@ -704,7 +677,7 @@ export default function Ajustes() {
                 <Text style={styles.monedaCodigo}>{m.codigo}</Text>
               </View>
               {monedaActual.codigo === m.codigo && (
-                <Ionicons name="checkmark-circle" size={22} color="#6C47FF" />
+                <Ionicons name="checkmark-circle" size={22} color={currentTheme.colors.primary} />
               )}
             </TouchableOpacity>
           ))}
@@ -732,7 +705,7 @@ export default function Ajustes() {
                 onPress={() => handleSeleccionarPlantilla(plantilla.id)}
               >
                 <View style={styles.plantillaIcono}>
-                  <Ionicons name="document-text-outline" size={24} color={plantillaActual === plantilla.id ? "#6C47FF" : "#999"} />
+                  <Ionicons name="document-text-outline" size={24} color={plantillaActual === plantilla.id ? currentTheme.colors.primary : "#999"} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={[styles.plantillaNombre, plantillaActual === plantilla.id && styles.plantillaNombreActivo]}>
@@ -815,7 +788,7 @@ export default function Ajustes() {
                   <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: primaryColors[colorName].color }} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.plantillaNombre, primaryColor === colorName && styles.plantillaNombreActivo]}>
+                  <Text style={[styles.plantillaNombre, primaryColor === colorName && { color: currentTheme.colors.primary }]}>
                     {t(colorName)}
                   </Text>
                 </View>
@@ -901,9 +874,9 @@ export default function Ajustes() {
                 return (
                   <TouchableOpacity
                     key={i}
-                    style={[                    styles.planCard, 
-                    isAnual && [styles.planCardDestacado, { borderColor: currentTheme.colors.primary, backgroundColor: currentTheme.colors.primary + '15' }],
-                    planSeleccionado?.identifier === pkg.identifier && {
+                    style={[
+                      styles.planCard,
+                      planSeleccionado?.identifier === pkg.identifier && {
                         borderColor: currentTheme.colors.primary,
                         backgroundColor: currentTheme.colors.primary + '10'
                       }
@@ -964,6 +937,24 @@ export default function Ajustes() {
         </View>
       </Modal>
 
+      {/* Modal Vista previa PDF */}
+        <Modal visible={mostrarPreviewPdf} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setMostrarPreviewPdf(false)}>
+          <View style={[styles.previewWrapper, { backgroundColor: currentTheme.colors.background }]}>
+            <View style={[styles.previewHeader, { backgroundColor: currentTheme.colors.card, borderBottomColor: currentTheme.colors.border || '#f0f0f0' }]}>
+              <TouchableOpacity style={styles.previewCloseBtn} onPress={() => { setMostrarPreviewPdf(false); setPreviewUri(null); }}>
+                <Ionicons name="close" size={22} color={currentTheme.colors.text} />
+              </TouchableOpacity>
+              <Text style={[styles.previewTitle, { color: currentTheme.colors.text }]}>{t('vista_previa')}</Text>
+              <View style={{ width: 36 }} />
+            </View>
+            {previewUri ? (
+              <Pdf source={{ uri: previewUri }} style={{ flex: 1 }} />
+            ) : (
+              <View style={styles.previewLoading}><Text style={{ color: currentTheme.colors.textSecondary }}>{t('cargando')}...</Text></View>
+            )}
+          </View>
+        </Modal>
+
       <AuthModal
         visible={showAuthModal}
         onClose={handleCloseModal}
@@ -980,7 +971,7 @@ const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#F8F7FF' },
   scroll: { flex: 1, paddingTop: 55, paddingHorizontal: 16 },
   titulo: { fontSize: 26, fontWeight: '800', color: '#1a1a1a', marginBottom: 20, paddingHorizontal: 4 },
-  premiumBanner: { backgroundColor: '#6C47FF', borderRadius: 16, padding: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  premiumBanner: { backgroundColor: '#007AFF', borderRadius: 16, padding: 18, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   premiumBannerLeft: { flex: 1 },
   premiumBannerTitulo: { fontSize: 16, fontWeight: '800', color: '#fff', marginBottom: 4 },
   premiumBannerSub: { fontSize: 12, color: 'rgba(255,255,255,0.75)' },
@@ -993,14 +984,14 @@ const styles = StyleSheet.create({
   opcionValor: { fontSize: 14, color: '#888', fontWeight: '600', marginLeft: 16 },
   idiomaOpciones: { gap: 10 },
   idiomaBtn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: '#e8e8e8', backgroundColor: '#fafafa' },
-  idiomaBtnActivo: { borderColor: '#6C47FF', backgroundColor: '#EEE9FF' },
+  idiomaBtnActivo: { borderColor: '#007AFF', backgroundColor: '#EEE9FF' },
   idiomaFlag: { fontSize: 22 },
   idiomaBtnTexto: { flex: 1, fontSize: 15, color: '#888', fontWeight: '600' },
-  idiomaBtnTextoActivo: { color: '#6C47FF' },
+  idiomaBtnTextoActivo: { color: '#007AFF' },
   modalWrapper: { flex: 1, backgroundColor: '#fff', paddingTop: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   modalTitulo: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
-  modalGuardar: { fontSize: 16, fontWeight: '700', color: '#6C47FF' },
+  modalGuardar: { fontSize: 16, fontWeight: '700', color: '#007AFF' },
   campoWrapper: { marginBottom: 16 },
   campoLabel: { fontSize: 12, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
   campoInput: { borderWidth: 1.5, borderColor: '#e8e8e8', borderRadius: 12, padding: 14, fontSize: 15, color: '#1a1a1a', backgroundColor: '#fafafa' },
@@ -1008,7 +999,7 @@ const styles = StyleSheet.create({
   switchLabel: { fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
   monedaItem: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
   monedaItemActivo: { backgroundColor: '#F8F7FF' },
-  monedaSimbolo: { fontSize: 20, fontWeight: '700', color: '#6C47FF', width: 40 },
+  monedaSimbolo: { fontSize: 20, fontWeight: '700', color: '#007AFF', width: 40 },
   monedaNombre: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
   monedaCodigo: { fontSize: 12, color: '#888' },
   idiomaNombre: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', flex: 1 },
@@ -1023,7 +1014,6 @@ const styles = StyleSheet.create({
   featureTexto: { flex: 1, fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
   checkmarkContainer: { position: 'absolute', top: 10, right: 10 },
   planCard: { borderWidth: 1.5, borderColor: '#e8e8e8', borderRadius: 16, padding: 18, backgroundColor: '#fafafa' },
-  planCardDestacado: { borderColor: '#007AFF', backgroundColor: '#E8F2FF' },
   planBadge: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, marginBottom: 10 },
   planBadgeTexto: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   planNombre: { fontSize: 16, fontWeight: '700', color: '#1a1a1a', marginBottom: 4 },
@@ -1035,20 +1025,25 @@ const styles = StyleSheet.create({
   paywallNoDisponible: { alignItems: 'center', padding: 30, gap: 12 },
   paywallNoDisponibleTexto: { fontSize: 14, color: '#aaa', textAlign: 'center', lineHeight: 22 },
   restaurarBtn: { alignItems: 'center', paddingVertical: 16 },
-  restaurarTexto: { fontSize: 14, color: '#6C47FF', fontWeight: '600' },
+  restaurarTexto: { fontSize: 14, color: '#007AFF', fontWeight: '600' },
   legalTexto: { textAlign: 'center', fontSize: 12, color: '#ccc', paddingBottom: 10 },
   switchBtn: { width: 50, height: 28, borderRadius: 14, backgroundColor: '#e0e0e0', justifyContent: 'center', padding: 3 },
-  switchBtnActivo: { backgroundColor: '#6C47FF' },
+  switchBtnActivo: { backgroundColor: '#007AFF' },
   switchCircle: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
   switchCircleActivo: { alignSelf: 'flex-end' },
   ivaOpciones: { flexDirection: 'row', gap: 12 },
   ivaBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#e8e8e8', backgroundColor: '#fafafa', alignItems: 'center' },
   ivaBtnTexto: { fontSize: 16, fontWeight: '700', color: '#888' },
-  ivaBtnTextoActivo: { color: '#6C47FF' },
+  ivaBtnTextoActivo: { color: '#007AFF' },
   plantillaItem: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
   plantillaItemActivo: { backgroundColor: '#F8F7FF' },
   plantillaIcono: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#fafafa', justifyContent: 'center', alignItems: 'center' },
   plantillaNombre: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
-  plantillaNombreActivo: { color: '#6C47FF' },
+  plantillaNombreActivo: { color: '#007AFF' },
   plantillaDescripcion: { fontSize: 12, color: '#888', marginTop: 2 },
+  previewWrapper: { flex: 1, paddingTop: 20 },
+  previewHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1 },
+  previewCloseBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
+  previewTitle: { fontSize: 18, fontWeight: '800' },
+  previewLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });

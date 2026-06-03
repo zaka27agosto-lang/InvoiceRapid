@@ -146,6 +146,6 @@ export async function actualizarTiposDeCambio(): Promise<void> {
   try {
     const { getExchangeRates } = await import('./currency');
     await getExchangeRates();
-  } catch (error) {
+  } catch {
   }
 }

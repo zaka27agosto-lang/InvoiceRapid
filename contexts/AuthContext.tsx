@@ -54,7 +54,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(session?.user ?? null);
         }
       );
-    } catch (error) {
+    } catch {
       setIsLoading(false);
     }
   }
@@ -64,7 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: 'Supabase no está configurado' };
     }
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: 'Supabase no está configurado' };
     }
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -181,7 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
               const { syncService } = await import('../services/syncService');
               await syncService.syncAll(userId);
-            } catch (_e) {
+            } catch {
             }
           }
 
@@ -193,10 +193,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             AsyncStorage.multiRemove(['is_premium']).catch(() => {}),
           ]);
 
-        } catch (error) {
+        } catch {
         }
       });
-    } catch (error) {
+    } catch {
       setUser(null);
       setSession(null);
     }

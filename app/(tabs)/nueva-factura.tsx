@@ -73,7 +73,7 @@ export default function NuevaFactura() {
   const [fechaVencimiento, setFechaVencimiento] = useState("");
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
-  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 10 });
+  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 5 });
   const [numeroFactura, setNumeroFactura] = useState("");
   const [numeracionConfig, setNumeracionConfigState] = useState<{ prefijo: string; sufijo: string; digitos: number }>({ prefijo: 'F-', sufijo: '', digitos: 4 });
   const scrollRef = useRef<ScrollView>(null);
@@ -338,9 +338,10 @@ export default function NuevaFactura() {
   async function handleExportarPDF() {
     // Verificar límite mensual (misma lógica que guardarFactura)
     if (!esModoEdicion && !isPremium && !limiteInfo.canCreate) {
+      const diasRestH = getDiasRestantesMes();
       Alert.alert(
         t('limite_alcanzado'),
-        t('limite_desc'),
+        t('limite_desc') + '\n\n' + t('se_renueva_en', { dias: diasRestH }),
         [
           { text: t('cancelar'), style: 'cancel' },
           { text: t('unlock_premium'), onPress: () => router.push('/(tabs)/ajustes') }
@@ -411,12 +412,11 @@ export default function NuevaFactura() {
             cantidad: parseFloat(item.cantidad) || 1, unidad: item.unidad,
             precio_unitario: precioEnEuros, descuento: descuentoEnEuros, subtotal: subtotalItemEnEuros,
           });
+        }          if (!isRewardedSave) await incrementInvoiceCounter();
+          savedFacturaId = newId as number;
         }
-        if (!isRewardedSave) incrementInvoiceCounter();
-        savedFacturaId = newId as number;
-      }
 
-      // 2. Generar y compartir el PDF con los datos guardados
+        // 2. Generar y compartir el PDF con los datos guardados
       const facturaGuardada = {
         id: savedFacturaId,
         numero,
@@ -458,6 +458,13 @@ export default function NuevaFactura() {
     } finally {
       setGenerandoPDF(false);
     }
+  }
+
+  
+  function getDiasRestantesMes(): number {
+    const hoy = new Date();
+    const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    return Math.ceil((ultimoDia.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
   }
 
   async function guardarFactura() {
@@ -504,7 +511,9 @@ export default function NuevaFactura() {
         onPress: () => router.push('/(tabs)/ajustes'),
       });
 
-      Alert.alert(t('limite_alcanzado'), t('limite_desc'), buttons);
+      const diasRest = getDiasRestantesMes();
+      const mensajeLimite = t('limite_desc') + '\n\n' + t('se_renueva_en', { dias: diasRest });
+      Alert.alert(t('limite_alcanzado'), mensajeLimite, buttons);
       return;
     }
 
@@ -514,9 +523,10 @@ export default function NuevaFactura() {
 
     // Para usuarios gratuitos en modo edición, verificar límite antes de editar
     if (esModoEdicion && !isPremium && !limiteInfo.canCreate) {
+      const diasRestE = getDiasRestantesMes();
       Alert.alert(
         t('limite_alcanzado'),
-        t('limite_desc'),
+        t('limite_desc') + '\n\n' + t('se_renueva_en', { dias: diasRestE }),
         [
           { text: t('cancelar'), style: 'cancel' },
           { text: t('unlock_premium'), onPress: () => router.push('/(tabs)/ajustes') }
@@ -625,7 +635,7 @@ export default function NuevaFactura() {
           }
 
           // Incrementar contador mensual (solo si NO es un rewarded save)
-          if (!isRewardedSave) incrementInvoiceCounter();
+          if (!isRewardedSave) await incrementInvoiceCounter();
 
           // Mostrar anuncio intersticial cada 3 acciones
           await adsService.incrementAction(isPremium);
@@ -670,7 +680,7 @@ export default function NuevaFactura() {
         }
 
         // Incrementar contador mensual (solo si NO es un rewarded save)
-        if (!isRewardedSave) incrementInvoiceCounter();
+        if (!isRewardedSave) await incrementInvoiceCounter();
 
         // Mostrar anuncio intersticial cada 3 acciones
         await adsService.incrementAction(isPremium);
@@ -731,6 +741,30 @@ export default function NuevaFactura() {
               <Text style={styles.headerSavePillText}>{t('guardar')}</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Límite mensual */}
+          {!isPremium && (
+            <View style={{ marginHorizontal: 16, marginBottom: 8 }}>
+              {limiteInfo.canCreate ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: currentTheme.colors.card, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: currentTheme.colors.border || '#f0f0f0' }}>
+                  <Ionicons name="document-text-outline" size={14} color={currentTheme.colors.textSecondary} />
+                  <Text style={{ fontSize: 12, color: currentTheme.colors.textSecondary, fontWeight: '500' }}>
+                    {limiteInfo.currentCount} {t('de')} {limiteInfo.limit} {t('facturas_restantes')}
+                  </Text>
+                  <View style={{ flex: 1, height: 4, backgroundColor: (currentTheme.colors.border || '#e8e8e8'), borderRadius: 2, marginHorizontal: 4, maxWidth: 60 }}>
+                    <View style={{ width: ((limiteInfo.currentCount / limiteInfo.limit) * 100 + '%') as any, height: 4, backgroundColor: '#FF9F43', borderRadius: 2 }} />
+                  </View>
+                </View>
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF3E0', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: '#FFB74D' }}>
+                  <Ionicons name="alert-circle-outline" size={14} color="#FF4757" />
+                  <Text style={{ fontSize: 12, color: '#FF4757', fontWeight: '600' }}>
+                    {t('limite_alcanzado')} {'\u00b7'} {t('se_renueva_en', { dias: getDiasRestantesMes() })}
+                  </Text>
+                </View>
+              )}
+            </View>
+          )}
 
           <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
 
@@ -1170,11 +1204,11 @@ export default function NuevaFactura() {
                   {offerings.availablePackages.map((pkg: any) => (
                     <TouchableOpacity
                       key={pkg.identifier}
-                      style={[styles.paywallPlan, { borderColor: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : pkg.packageType === 'ANNUAL' ? currentTheme.colors.primary : '#e8e8e8', backgroundColor: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary + '10' : '#fff' }]}
+                      style={[styles.paywallPlan, { borderColor: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : '#e8e8e8', backgroundColor: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary + '10' : '#fff' }]}
                       onPress={() => setPlanSeleccionado(pkg)}
                       disabled={comprando}
                     >
-                      <Text style={[styles.paywallPlanTitulo, { color: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : '#1a1a1a' }]}>{pkg.packageType === 'ANNUAL' ? t('anual') : pkg.packageType === 'MONTHLY' ? t('mensual') : t('lifetime')}</Text>
+                      <Text style={[styles.paywallPlanTitulo, { color: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : '#1a1a1a' }]}>{pkg.packageType === 'ANNUAL' ? t('anual') : t('mensual')}</Text>
                       <Text style={[styles.paywallPlanPrecio, { color: planSeleccionado?.identifier === pkg.identifier ? currentTheme.colors.primary : '#1a1a1a' }]}>{pkg.product.priceString}</Text>
                       {pkg.packageType === 'ANNUAL' && (
                         <Text style={[styles.paywallPlanRecomendado, { color: currentTheme.colors.primary }]}>{t('recomendado')}</Text>
@@ -1269,7 +1303,7 @@ const styles = StyleSheet.create({
   clienteBtnSecundario: { backgroundColor: "#fff" },
   clienteBtnTexto: { fontWeight: "600", fontSize: 12 },
   clienteSeleccionado: { flexDirection: "row", alignItems: "center", gap: 12, backgroundColor: "#F8F7FF", borderRadius: 12, padding: 12 },
-  clienteAvatar: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center", backgroundColor: "#6C47FF" },
+  clienteAvatar: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center", backgroundColor: "#007AFF" },
   clienteAvatarLetra: { color: "#fff", fontSize: 18, fontWeight: "700" },
   clienteNombre: { fontSize: 15, fontWeight: "700", color: "#1a1a1a" },
   clienteEmail: { fontSize: 12, color: "#888", marginTop: 2 },
@@ -1297,7 +1331,7 @@ const styles = StyleSheet.create({
   addItemTexto: { fontWeight: "600", fontSize: 14 },
   ivaOpciones: { flexDirection: "row", gap: 8, flexWrap: "wrap" },
   ivaBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5, borderColor: "#e8e8e8", backgroundColor: "#fff" },
-  ivaBtnActivo: { borderColor: "#6C47FF" },
+  ivaBtnActivo: { borderColor: "#007AFF" },
   ivaBtnTexto: { color: "#888", fontWeight: "600", fontSize: 14 },
   ivaBtnTextoActivo: { color: "#fff" },
   seccionTotales: { backgroundColor: "#fff", borderRadius: 16, marginHorizontal: 16, marginBottom: 16, padding: 18 },
@@ -1309,9 +1343,9 @@ const styles = StyleSheet.create({
   totalValorFinal: { fontSize: 22, fontWeight: "800" },
   pagoOpciones: { flexDirection: "row", flexWrap: "wrap", gap: 10, justifyContent: "space-between" },
   pagoBtn: { width: "47%", flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingHorizontal: 10, paddingVertical: 12, borderRadius: 12, borderWidth: 1.5, borderColor: "#e8e8e8", backgroundColor: "#fff" },
-  pagoBtnActivo: { borderColor: "#6C47FF", backgroundColor: "#EEE9FF" },
+  pagoBtnActivo: { borderColor: "#007AFF", backgroundColor: "#EEE9FF" },
   pagoBtnTexto: { fontSize: 13, color: "#aaa", fontWeight: "600" },
-  pagoBtnTextoActivo: { color: "#6C47FF" },
+  pagoBtnTextoActivo: { color: "#007AFF" },
   botonGuardar: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 10, marginHorizontal: 16, borderRadius: 16, paddingVertical: 18 },
   botonExportarPdf: { marginTop: 12, borderWidth: 1.5 },
   botonGuardarTexto: { color: "#fff", fontWeight: "800", fontSize: 17 },

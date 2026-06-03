@@ -2,29 +2,24 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, Dimensions, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from "../../contexts/ThemeContext";
-import { useSubscription } from "../../contexts/SubscriptionContext";
 import SwipeNavigation from "../../components/SwipeNavigation";
 import { convertirDeEurosParaMostrar } from "../../utils/currency";
 import { getMoneda } from "../../utils/settings";
 import { getFacturas } from "../db/facturas";
 import { useSync } from "../../hooks/useSync";
 
-const { width } = Dimensions.get('window');
-
 export default function Informes() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
-  const { isPremium } = useSubscription();
   const { lastSync } = useSync();
   const router = useRouter();
   const [facturas, setFacturas] = useState<any[]>([]);
-  const [periodoSeleccionado, setPeriodoSeleccionado] = useState<'mes' | 'trimestre' | 'año'>('mes');
   const [simboloMoneda, setSimboloMoneda] = useState('€');
-  const [codigoMoneda, setCodigoMoneda] = useState('EUR');
+  const [, setCodigoMoneda] = useState('EUR');
   const [totalMesConvertido, setTotalMesConvertido] = useState(0);
   const [totalGeneralConvertido, setTotalGeneralConvertido] = useState(0);
   const [pendienteCobroConvertido, setPendienteCobroConvertido] = useState(0);
@@ -423,7 +418,7 @@ const styles = StyleSheet.create({
   leyendaTexto: { fontSize: 11, color: '#888', fontWeight: '500' },
   grafico: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 160 },
   barraCol: { flex: 1, alignItems: 'center', gap: 6 },
-  barraValor: { fontSize: 9, color: '#6C47FF', fontWeight: '700', textAlign: 'center' },
+  barraValor: { fontSize: 9, color: '#007AFF', fontWeight: '700', textAlign: 'center' },
   barraWrapper: { height: 120, justifyContent: 'flex-end', width: '70%' },
   barra: { borderRadius: 6, width: '100%' },
   barraLabel: { fontSize: 11, color: '#888', fontWeight: '500' },
@@ -450,7 +445,7 @@ const styles = StyleSheet.create({
   estadoBadgeTexto: { fontSize: 11, fontWeight: '700' },
   clienteFila: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   clienteRank: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#EEE9FF', justifyContent: 'center', alignItems: 'center' },
-  clienteRankNum: { fontSize: 13, fontWeight: '800', color: '#6C47FF' },
+  clienteRankNum: { fontSize: 13, fontWeight: '800', color: '#007AFF' },
   clienteNombre: { flex: 1, fontSize: 14, color: '#1a1a1a', fontWeight: '500' },
   clienteTotal: { fontSize: 14, fontWeight: '700', color: '#1a1a1a' },
 });

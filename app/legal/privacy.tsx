@@ -28,7 +28,7 @@ export default function Privacy() {
           </Text>
 
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid PRO ("la Aplicación"), desarrollada por ZKR Studio, se compromete a proteger la privacidad de los usuarios. Esta Política de Privacidad explica qué datos se recopilan, cómo se utilizan y qué derechos tiene el usuario, cumpliendo con el Reglamento General de Protección de Datos (RGPD) de la Unión Europea.
+            InvoiceRapid PRO ({'"'}la Aplicaci{'\u00F3'}n{'"'}), desarrollada por ZKR Studio, se compromete a proteger la privacidad de los usuarios. Esta Pol{'\u00ED'}tica de Privacidad explica qu{'\u00E9'} datos se recopilan, c{'\u00F3'}mo se utilizan y qu{'\u00E9'} derechos tiene el usuario, cumpliendo con el Reglamento General de Protecci{'\u00F3'}n de Datos (RGPD) de la Uni{'\u00F3'}n Europea.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. Datos que recopilamos</Text>
@@ -125,7 +125,7 @@ export default function Privacy() {
             • Rectificar información incorrecta
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Exportar sus datos en formato PDF desde la sección "Privacidad y Datos" en Ajustes
+            {'\u2022'} Exportar sus datos en formato PDF desde la secci{'\u00F3'}n {'"'}Privacidad y Datos{'"'} en Ajustes
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             • Solicitar la eliminación de su cuenta y todos sus datos desde Ajustes {'>'} Privacidad y Datos {'>'} Borrar cuenta.

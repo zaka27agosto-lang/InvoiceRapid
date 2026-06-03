@@ -21,12 +21,12 @@ export default function Inicio() {
   const [facturasConvertidas, setFacturasConvertidas] = useState<any[]>([]);
   const [albaranes, setAlbaranes] = useState<any[]>([]);
   const [albaranesConvertidos, setAlbaranesConvertidos] = useState<any[]>([]);
-  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 10 });
+  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 5 });
   const [remainingRewardedAds, setRemainingRewardedAds] = useState(0);
   const [esPrimeraVez, setEsPrimeraVez] = useState(false);
   const [formatoFecha, setFormatoFecha] = useState<FormatoFecha>('DD/MM/YYYY');
   const [simboloMoneda, setSimboloMoneda] = useState('€');
-  const [codigoMoneda, setCodigoMoneda] = useState('EUR');
+  const [, setCodigoMoneda] = useState('EUR');
   const [statsConvertidos, setStatsConvertidos] = useState({ porCobrar: 0, impagadas: 0, noEnviadas: 0, pagadas: 0 });
   const [albaranesStatsConvertidos, setAlbaranesStatsConvertidos] = useState({ pendiente: 0, entregado: 0 });
   const router = useRouter();
@@ -66,6 +66,12 @@ export default function Inicio() {
       return `${año}-${mes}-${dia}`;
     }
   };
+
+  function getDiasRestantesMes(): number {
+    const hoy = new Date();
+    const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
+    return Math.ceil((ultimoDia.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+  }
 
   function cargarDatos() {
     const facturasData = getFacturas() as any[];
@@ -109,20 +115,6 @@ export default function Inicio() {
         }))
       );
       albaranesConTotalesConvertidos.then(setAlbaranesConvertidos);
-
-      // Stats de facturas
-      const stats = {
-        porCobrar: facturasData.filter(f => f.estado === 'pendiente').reduce((acc, f) => acc + (f.total || 0), 0),
-        impagadas: facturasData.filter(f => f.estado === 'impagada').reduce((acc, f) => acc + (f.total || 0), 0),
-        noEnviadas: facturasData.filter(f => f.estado === 'no_enviada').reduce((acc, f) => acc + (f.total || 0), 0),
-        pagadas: facturasData.filter(f => f.estado === 'pagada').reduce((acc, f) => acc + (f.total || 0), 0),
-      };
-
-      // Stats de albaranes
-      const albaranesStats = {
-        pendiente: albaranesData.filter(a => a.estado === 'pendiente').reduce((acc, a) => acc + (a.total || 0), 0),
-        entregado: albaranesData.filter(a => a.estado === 'entregado').reduce((acc, a) => acc + (a.total || 0), 0),
-      };
 
       // Convertir cada estadística de facturas
       Promise.all([
@@ -245,8 +237,10 @@ export default function Inicio() {
                 <View style={styles.contadorTop}>
                   <Text style={[styles.contadorTexto, { color: currentTheme.colors.textSecondary }]}>
                     <Text style={[styles.contadorNum, { color: '#FF4757' }]}>{limiteInfo.currentCount}</Text> {t('de')} <Text style={[styles.contadorNum, { color: '#FF4757' }]}>{limiteInfo.limit}</Text> {t('usadas_este_mes')}
-                  </Text>
-                  <Text style={{ fontSize: 13, fontWeight: '600', color: '#FF4757' }}>{t('completo')}</Text>
+                  </Text>                      <View style={{ alignItems: 'flex-end' }}>
+                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#FF4757' }}>{t('completo')}</Text>
+                        <Text style={{ fontSize: 11, color: '#FF4757', marginTop: 2 }}>{t('se_renueva_en', { dias: getDiasRestantesMes() })}</Text>
+                      </View>
                 </View>
                 <View style={styles.contadorBarra}>
                   <View style={[styles.contadorBarraRelleno, { width: '100%', backgroundColor: '#FF4757' }]} />

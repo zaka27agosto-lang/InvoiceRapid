@@ -118,7 +118,12 @@ export function getNextNumeroAlbaran(config?: { prefijo: string; sufijo: string;
   const sufijo = config?.sufijo ?? '';
   const digitos = config?.digitos ?? 4;
   
-  const lastAlbaran = db.getFirstSync(`SELECT numero FROM albaranes ORDER BY id DESC LIMIT 1`) as any;
+  const lastAlbaran = db.getFirstSync(
+    `SELECT numero FROM albaranes 
+     ORDER BY CAST(REPLACE(REPLACE(numero, ?, ''), ?, '') AS INTEGER) DESC 
+     LIMIT 1`,
+    [prefijo, sufijo]
+  ) as any;
   
   if (!lastAlbaran || !lastAlbaran.numero) {
     return `${prefijo}${String(1).padStart(digitos, '0')}${sufijo}`;

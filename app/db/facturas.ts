@@ -137,8 +137,13 @@ export function getNextNumeroFactura(config?: { prefijo: string; sufijo: string;
   const sufijo = config?.sufijo ?? '';
   const digitos = config?.digitos ?? 4;
   
-  // Obtener la última factura para detectar su número
-  const lastFactura = db.getFirstSync(`SELECT numero FROM facturas ORDER BY id DESC LIMIT 1`) as any;
+  // Obtener el número más alto existente (para evitar repeticiones al borrar la última)
+  const lastFactura = db.getFirstSync(
+    `SELECT numero FROM facturas 
+     ORDER BY CAST(REPLACE(REPLACE(numero, ?, ''), ?, '') AS INTEGER) DESC 
+     LIMIT 1`,
+    [prefijo, sufijo]
+  ) as any;
   
   if (!lastFactura || !lastFactura.numero) {
     return `${prefijo}${String(1).padStart(digitos, '0')}${sufijo}`;

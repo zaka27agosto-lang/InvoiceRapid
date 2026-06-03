@@ -14,6 +14,11 @@ export default function Profile() {
   const { user, signOut, signInWithGoogle } = useAuth();
 
   const [loading, setLoading] = useState(false);
+  const [mostrarCambiarNombre, setMostrarCambiarNombre] = useState(false);
+  const [mostrarEstablecerPassword, setMostrarEstablecerPassword] = useState(false);
+  const [nuevoNombre, setNuevoNombre] = useState(user?.user_metadata?.name || '');
+  const [nuevaPassword, setNuevaPassword] = useState('');
+  const [nuevaPasswordConfirm, setNuevaPasswordConfirm] = useState('');
 
   async function handleSignOut() {
     Alert.alert(
@@ -105,13 +110,6 @@ export default function Profile() {
       </View>
     );
   }
-
-  // Estado para modales
-  const [mostrarCambiarNombre, setMostrarCambiarNombre] = useState(false);
-  const [mostrarEstablecerPassword, setMostrarEstablecerPassword] = useState(false);
-  const [nuevoNombre, setNuevoNombre] = useState(user?.user_metadata?.name || '');
-  const [nuevaPassword, setNuevaPassword] = useState('');
-  const [nuevaPasswordConfirm, setNuevaPasswordConfirm] = useState('');
 
   // Detectar si el usuario se registró con Google (no tiene email/password identity)
   const esCuentaGoogle = user?.app_metadata?.provider === 'google' || 
@@ -356,7 +354,7 @@ const styles = StyleSheet.create({
   modalWrapper: { flex: 1, backgroundColor: '#fff', paddingTop: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   modalTitulo: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
-  modalGuardar: { fontSize: 16, fontWeight: '700', color: '#6C47FF' },
+  modalGuardar: { fontSize: 16, fontWeight: '700', color: '#007AFF' },
   campoLabel: { fontSize: 12, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
   campoInput: { borderWidth: 1.5, borderColor: '#e8e8e8', borderRadius: 12, padding: 14, fontSize: 15, color: '#1a1a1a', backgroundColor: '#fafafa' },
 });

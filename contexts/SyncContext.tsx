@@ -127,7 +127,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           (clientesResult.synced || 0) +
           (productosResult.synced || 0) +
           (albaranesResult.synced || 0);
-      } catch (e) {
+      } catch {
         downloadError = true;
       }
 
@@ -138,7 +138,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         message: downloadError ? 'Error al descargar datos de la nube' : undefined,
       });
       setLastSync(new Date());
-    } catch (error) {
+    } catch {
     } finally {
       setIsSyncing(false);
       setHasInitialSync(true);
@@ -155,7 +155,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setLastSync(new Date());
 
       await syncService.processQueue(user.id);
-    } catch (error) {
+    } catch {
     } finally {
       setIsSyncing(false);
     }

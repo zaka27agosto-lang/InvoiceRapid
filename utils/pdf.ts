@@ -1,12 +1,13 @@
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import { getDatosEmpresa } from './settings';
 
 type PlantillaPDF = 'default' | 'elegante' | 'antigua' | 'colorida' | 'minimal';
 
 // ──────────────── ALBARANES PDF ────────────────
 
 export async function generarYCompartirPDFAlbaran(albaran: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF', firmaData?: string | null) {
-  const html = generarHTMLAlbaran(albaran, items, isPremium, plantilla, simboloMoneda, color, firmaData);
+  const html = await generarHTMLAlbaran(albaran, items, isPremium, plantilla, simboloMoneda, color, firmaData);
   const { uri } = await Print.printToFileAsync({ html, base64: false });
 
   if (await Sharing.isAvailableAsync()) {
@@ -23,7 +24,7 @@ export async function generarYCompartirPDFAlbaran(albaran: any, items: any[], is
 
 export async function generarPDFPreviewAlbaran(albaran: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF', firmaData?: string | null): Promise<string | null> {
   try {
-    const html = generarHTMLAlbaran(albaran, items, isPremium, plantilla, simboloMoneda, color, firmaData);
+    const html = await generarHTMLAlbaran(albaran, items, isPremium, plantilla, simboloMoneda, color, firmaData);
     const { uri } = await Print.printToFileAsync({ html, base64: false });
     return uri;
   } catch (error) {
@@ -31,7 +32,8 @@ export async function generarPDFPreviewAlbaran(albaran: any, items: any[], isPre
   }
 }
 
-function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean, _plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF', firmaData?: string | null): string {
+async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean, _plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF', firmaData?: string | null): Promise<string> {
+  const empresa = await getDatosEmpresa();
   const fechaEmision = new Date(albaran.fecha).toLocaleDateString('es-ES', {
     day: '2-digit', month: 'long', year: 'numeric'
   });
@@ -121,8 +123,8 @@ function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean, _pla
         <div class="info-grid">
           <div class="info-box">
             <h3>Emitido por</h3>
-            <strong>Mi Empresa / Autónomo</strong>
-            <p>NIF: —<br>Dirección: —</p>
+            <strong>${empresa.nombre || 'Mi Empresa / Autónomo'}</strong>
+            <p>${empresa.incluirEnFactura ? `${empresa.nif ? `NIF: ${empresa.nif}<br>` : ''}${empresa.direccion || ''}${empresa.telefono ? `<br>${empresa.telefono}` : ''}${empresa.email ? `<br>${empresa.email}` : ''}` : ''}</p>
           </div>
           <div class="info-box">
             <h3>Cliente</h3>
@@ -214,6 +216,7 @@ export async function generarPDFPreview(factura: any, items: any[], isPremium: b
  * Genera el HTML de la factura (extraído para reutilizar en preview y share)
  */
 async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF'): Promise<string> {
+  const empresa = await getDatosEmpresa();
   const fechaCreacion = new Date(factura.fecha).toLocaleDateString('es-ES', {
     day: '2-digit', month: 'long', year: 'numeric'
   });
@@ -425,8 +428,8 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
         <div class="info-grid">
           <div class="info-box">
             <h3>Facturado por</h3>
-            <strong>Mi Empresa / Autónomo</strong>
-            <p>NIF: —<br>Dirección: —</p>
+            <strong>${empresa.nombre || 'Mi Empresa / Autónomo'}</strong>
+            <p>${empresa.incluirEnFactura ? `${empresa.nif ? `NIF: ${empresa.nif}<br>` : ''}${empresa.direccion || ''}${empresa.telefono ? `<br>${empresa.telefono}` : ''}${empresa.email ? `<br>${empresa.email}` : ''}` : ''}</p>
           </div>
           <div class="info-box">
             <h3>Facturado a</h3>

@@ -43,7 +43,7 @@ export class SyncService {
 
       for (const invoice of localInvoices) {
         try {
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from('facturas')
             .upsert({
               id: invoice.id,
@@ -148,7 +148,7 @@ export class SyncService {
 
       for (const albaran of localAlbaranes) {
         try {
-          const { data, error } = await supabase
+          const { error } = await supabase
             .from('albaranes')
             .upsert({
               id: albaran.id,
@@ -168,6 +168,7 @@ export class SyncService {
               fecha_entrega: albaran.fecha_entrega,
               notas: albaran.notas,
               firma_data: albaran.firma_data,
+              direccion_entrega: albaran.direccion_entrega ?? '',
               sync_status: 'synced',
               updated_at: new Date().toISOString(),
             })
@@ -462,7 +463,8 @@ export class SyncService {
     userId: string,
     localRecords: any[]
   ): Promise<void> {
-    if (!supabase || localRecords.length === 0) return;
+    if (!supabase) return;
+    // Si no hay registros locales, todos los de la nube son huérfanos — continuar para borrarlos
     
     try {
       // Obtener todos los IDs de la nube para este usuario
@@ -701,25 +703,25 @@ export class SyncService {
           db.runSync(
             `UPDATE albaranes SET numero=?, cliente_id=?, cliente_nombre=?, subtotal=?, descuento=?,
              iva_porcentaje=?, iva_importe=?, irpf_porcentaje=?, irpf_importe=?, total=?,
-             estado=?, fecha=?, fecha_entrega=?, notas=?, firma_data=?, sync_status=?
+             estado=?, fecha=?, fecha_entrega=?, notas=?, firma_data=?, direccion_entrega=?, sync_status=?
              WHERE id=?`,
             [albaran.numero, albaran.cliente_id, albaran.cliente_nombre, albaran.subtotal,
              albaran.descuento, albaran.iva_porcentaje, albaran.iva_importe,
              albaran.irpf_porcentaje, albaran.irpf_importe, albaran.total,
              albaran.estado, albaran.fecha, albaran.fecha_entrega,
-             albaran.notas, albaran.firma_data, albaran.sync_status || 'pending', albaran.id]
+             albaran.notas, albaran.firma_data, albaran.direccion_entrega ?? '', albaran.sync_status || 'pending', albaran.id]
           );
         } else {
           db.runSync(
             `INSERT INTO albaranes (id, numero, cliente_id, cliente_nombre, subtotal, descuento,
              iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total,
-             estado, fecha, fecha_entrega, notas, firma_data, sync_status)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             estado, fecha, fecha_entrega, notas, firma_data, direccion_entrega, sync_status)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [albaran.id, albaran.numero, albaran.cliente_id, albaran.cliente_nombre, albaran.subtotal,
              albaran.descuento, albaran.iva_porcentaje, albaran.iva_importe,
              albaran.irpf_porcentaje, albaran.irpf_importe, albaran.total,
              albaran.estado, albaran.fecha, albaran.fecha_entrega,
-             albaran.notas, albaran.firma_data, albaran.sync_status || 'pending']
+             albaran.notas, albaran.firma_data, albaran.direccion_entrega ?? '', albaran.sync_status || 'pending']
           );
         }
       }

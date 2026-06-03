@@ -1,11 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Platform } from 'react-native';
+import { Alert, Platform } from 'react-native';
 
 // Solo importar Google Mobile Ads en plataformas nativas
 let mobileAds: any = null;
 let AdEventType: any = null;
-let AdsConsent: any = null;
-let AdsConsentStatus: any = null;
 let BannerAdSize: any = null;
 let InterstitialAd: any = null;
 let MaxAdContentRating: any = null;
@@ -14,11 +12,10 @@ let RewardedAd: any = null;
 let RewardedAdEventType: any = null;
 
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   const ads = require('react-native-google-mobile-ads');
   mobileAds = ads.mobileAds;
   AdEventType = ads.AdEventType;
-  AdsConsent = ads.AdsConsent;
-  AdsConsentStatus = ads.AdsConsentStatus;
   BannerAdSize = ads.BannerAdSize;
   InterstitialAd = ads.InterstitialAd;
   MaxAdContentRating = ads.MaxAdContentRating;
@@ -94,109 +91,93 @@ export class AdsService {
         this.loadInterstitial();
         this.loadRewardedAd();
       }
-    } catch (error) {
+    } catch {
       // Si falla la inicialización, permitir anuncios no personalizados como fallback
       this.canShowAds = true;
       this.notifyListeners();
-      try { this.loadInterstitial(); } catch (_e) {}
-      try { this.loadRewardedAd(); } catch (_e) {}
+      try { this.loadInterstitial(); } catch {}
+      try { this.loadRewardedAd(); } catch {}
     }
   }
 
+  private showConsentDialog(): Promise<boolean> {
+    return new Promise((resolve) => {
+      Alert.alert(
+        'Consentimiento de anuncios',
+        'Esta app usa anuncios para mantenerse gratuita.\n\n¿Aceptas que se muestren anuncios personalizados?\n\nSi eliges "No, anuncios genéricos", seguirás viendo anuncios pero no basados en tu perfil.',
+        [
+          {
+            text: 'No, anuncios genéricos',
+            style: 'cancel',
+            onPress: () => resolve(false),
+          },
+          {
+            text: 'Sí, aceptar',
+            onPress: () => resolve(true),
+          },
+        ],
+      );
+    });
+  }
+
   async requestConsent(): Promise<void> {
-    try {
-      const consentInfo = await AdsConsent.requestInfoUpdate();
+    try {  if (__DEV__) console.log('[CONSENT] 📡 requestConsent() — mostrando Alert personalizado...');
+      const accepted = await this.showConsentDialog();
 
-      if (consentInfo.isConsentFormAvailable) {
-        const result = await AdsConsent.loadAndShowConsentFormIfRequired();
-
-        if (result.status === AdsConsentStatus.OBTAINED) {
-          this.consentGiven = true;
-          this.canShowAds = true;
-          this.notifyListeners();
-          await AsyncStorage.setItem(CONSENT_KEY, 'true');
-          await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'obtained');
-        } else if (result.status === AdsConsentStatus.NOT_REQUIRED) {
-          this.consentGiven = true;
-          this.canShowAds = true;
-          this.notifyListeners();
-          await AsyncStorage.setItem(CONSENT_KEY, 'true');
-          await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'not_required');
-      } else {
-        // Estado inesperado (UNKNOWN, etc.) — mostrar anuncios no personalizados igualmente
+      if (accepted) {  if (__DEV__) console.log('[CONSENT] ✅ Usuario ACEPTÓ anuncios personalizados');
+        this.consentGiven = true;
+        this.canShowAds = true;
+        await AsyncStorage.setItem(CONSENT_KEY, 'true');
+        await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'obtained');
+      } else {  if (__DEV__) console.log('[CONSENT] ❌ Usuario RECHAZÓ — se muestran anuncios no personalizados');
         this.consentGiven = false;
         this.canShowAds = true;
-        this.notifyListeners();
         await AsyncStorage.setItem(CONSENT_KEY, 'false');
         await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'denied');
       }
-      } else {
-        // Consent not required in this region
-        this.consentGiven = true;
-        this.canShowAds = true;
-        this.notifyListeners();
-        await AsyncStorage.setItem(CONSENT_KEY, 'true');
-        await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'not_required');
-      }
 
-      // Pre-cargar interstitial y rewarded ahora que tenemos consentimiento
-      if (this.canShowAds) {
+      this.notifyListeners();
+
+      if (this.canShowAds) {  if (__DEV__) console.log('[CONSENT] 🚀 Precargando interstitial y rewarded');
         this.loadInterstitial();
         this.loadRewardedAd();
       }
-    } catch (error) {
-      // Si falla el consentimiento, permitir anuncios no personalizados como fallback
+    } catch (error) {  if (__DEV__) console.log('[CONSENT] 💥 ERROR en requestConsent():', String(error));
       this.canShowAds = true;
       this.notifyListeners();
     }
   }
 
   async showPrivacyOptions(): Promise<void> {
-    try {
-      const result = await AdsConsent.showPrivacyOptionsForm();
-      
-      if (result.status === AdsConsentStatus.OBTAINED) {
+    try {  if (__DEV__) console.log('[CONSENT] 🔄 showPrivacyOptions() — mostrando Alert personalizado...');
+      const accepted = await this.showConsentDialog();
+
+      if (accepted) {  if (__DEV__) console.log('[CONSENT] ✅ Usuario ACEPTÓ anuncios personalizados');
         this.consentGiven = true;
-        this.canShowAds = true;
         await AsyncStorage.setItem(CONSENT_KEY, 'true');
         await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'obtained');
-      } else if (result.status === AdsConsentStatus.NOT_REQUIRED) {
-        this.consentGiven = true;
-        this.canShowAds = true;
-        await AsyncStorage.setItem(CONSENT_KEY, 'true');
-        await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'not_required');
-      } else {
-        // Si el usuario denegó o estado inesperado, mostrar anuncios no personalizados
+      } else {  if (__DEV__) console.log('[CONSENT] ❌ Usuario RECHAZÓ — anuncios no personalizados');
         this.consentGiven = false;
-        this.canShowAds = true;
-        this.notifyListeners();
         await AsyncStorage.setItem(CONSENT_KEY, 'false');
         await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'denied');
       }
-    } catch (error) {
+
       this.canShowAds = true;
       this.notifyListeners();
-      try { this.loadRewardedAd(); } catch (_e) {}
+      try { this.loadRewardedAd(); } catch {}
+    } catch {
+      this.canShowAds = true;
+      this.notifyListeners();
+      try { this.loadRewardedAd(); } catch {}
     }
   }
 
   async resetConsent(): Promise<void> {
-    // Resetear estado local
     this.consentGiven = false;
     this.canShowAds = true;
     await AsyncStorage.removeItem(CONSENT_KEY);
     await AsyncStorage.removeItem(CONSENT_STATUS_KEY);
-
-    // Forzar mostrar el formulario de privacidad (equivalente a primer launch)
-    // Usamos showPrivacyOptions() en vez de requestConsent() porque
-    // loadAndShowConsentFormIfRequired() no muestra el form si ya se mostró antes.
-    // showPrivacyOptionsForm() fuerza mostrar el diálogo de Google.
-    try {
-      await this.showPrivacyOptions();
-    } catch (_e) {
-      // Si falla, intentar con requestConsent como fallback
-      await this.requestConsent();
-    }
+    await this.requestConsent();
   }
 
   getCanShowAds(): boolean {
@@ -218,12 +199,10 @@ export class AdsService {
   private rewardedRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   loadRewardedAd(): void {
-    if (!this.canShowAds) {
-      console.log('[REWARDED] ❌ loadRewardedAd() — canShowAds=false, no se carga nada');
+    if (!this.canShowAds) {  if (__DEV__) console.log('[REWARDED] ❌ loadRewardedAd() — canShowAds=false, no se carga nada');
       return;
     }
-    if (!RewardedAd) {
-      console.log('[REWARDED] ❌ loadRewardedAd() — RewardedAd no disponible (¿web? ¿SDK no cargado?)');
+    if (!RewardedAd) {  if (__DEV__) console.log('[REWARDED] ❌ loadRewardedAd() — RewardedAd no disponible (¿web? ¿SDK no cargado?)');
       return;
     }
 
@@ -238,36 +217,26 @@ export class AdsService {
       : Platform.select({
           android: 'ca-app-pub-3758182602063783/8097499944',
           ios: 'ca-app-pub-3758182602063783/8097499944',
-        });
-
-    console.log('[REWARDED] 📥 Creando RewardedAd con adUnitId:', adUnitId);
-    console.log('[REWARDED]    consentGiven:', this.consentGiven, '| noPersonalizados:', !this.consentGiven);
+        });  if (__DEV__) console.log('[REWARDED] 📥 Creando RewardedAd con adUnitId:', adUnitId);  if (__DEV__) console.log('[REWARDED]    consentGiven:', this.consentGiven, '| noPersonalizados:', !this.consentGiven);
 
     this.rewardedAd = RewardedAd.createForAdRequest(adUnitId!, {
       requestNonPersonalizedAdsOnly: !this.consentGiven,
       keywords: ['invoice', 'business', 'finance'],
     });
 
-    this.rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
-      console.log('[REWARDED] ✅ LOADED — anuncio cargado correctamente');
+    this.rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {  if (__DEV__) console.log('[REWARDED] ✅ LOADED — anuncio cargado correctamente');
       this.isRewardedLoaded = true;
       this.lastRewardedError = null; // Limpiar error al cargar con éxito
       this.rewardedRetryCount = 0; // Reset retry counter on success
     });
 
-    this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
-      console.log('[REWARDED] ❌ ERROR — error completo:', JSON.stringify(error));
-      console.log('[REWARDED]    error.message:', error?.message);
-      console.log('[REWARDED]    error.code:', error?.code);
-      console.log('[REWARDED]    String(error):', String(error));
+    this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {  if (__DEV__) console.log('[REWARDED] ❌ ERROR — error completo:', JSON.stringify(error));  if (__DEV__) console.log('[REWARDED]    error.message:', error?.message);  if (__DEV__) console.log('[REWARDED]    error.code:', error?.code);  if (__DEV__) console.log('[REWARDED]    String(error):', String(error));
       this.isRewardedLoaded = false;
       // Detectar tipo de error
       const errorMsg = error?.message || String(error);
-      if (errorMsg.includes('no-fill') || errorMsg.includes('No fill')) {
-        console.log('[REWARDED]    tipo: no_fill (AdMob sin anuncios disponibles)');
+      if (errorMsg.includes('no-fill') || errorMsg.includes('No fill')) {  if (__DEV__) console.log('[REWARDED]    tipo: no_fill (AdMob sin anuncios disponibles)');
         this.lastRewardedError = 'no_fill';
-      } else {
-        console.log('[REWARDED]    tipo: load_error');
+      } else {  if (__DEV__) console.log('[REWARDED]    tipo: load_error');
         this.lastRewardedError = 'load_error';
       }
       // Si hay una promesa pendiente de show, resolverla como false
@@ -278,16 +247,14 @@ export class AdsService {
       }
       // Reintentar carga automática (solo si no es no-fill, o si es no-fill con menos reintentos)
       if (this.rewardedRetryCount < this.maxRewardedRetries) {
-        this.rewardedRetryCount++;
-        console.log(`[REWARDED] 🔄 Reintento ${this.rewardedRetryCount}/${this.maxRewardedRetries} en ${this.rewardedRetryDelay}ms`);
+        this.rewardedRetryCount++;  if (__DEV__) console.log(`[REWARDED] 🔄 Reintento ${this.rewardedRetryCount}/${this.maxRewardedRetries} en ${this.rewardedRetryDelay}ms`);
         this.rewardedRetryTimer = setTimeout(() => {
           this.loadRewardedAd();
         }, this.rewardedRetryDelay);
       }
     });
 
-    this.rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
-      console.log('[REWARDED] 🚪 CLOSED — anuncio cerrado (sin recompensa)');
+    this.rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {  if (__DEV__) console.log('[REWARDED] 🚪 CLOSED — anuncio cerrado (sin recompensa)');
       this.isRewardedLoaded = false;
       this.rewardedRetryCount = 0;
       // Si hay una promesa pendiente de show, resolverla como false (no ganó recompensa)
@@ -300,16 +267,14 @@ export class AdsService {
       setTimeout(() => this.loadRewardedAd(), 1000);
     });
 
-    this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
-      console.log('[REWARDED] 🎁 EARNED_REWARD — ¡el usuario ganó la recompensa!');
+    this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {  if (__DEV__) console.log('[REWARDED] 🎁 EARNED_REWARD — ¡el usuario ganó la recompensa!');
       if (this.rewardedAdResolve) {
         this.rewardedAdResolve(true);
         this.rewardedAdResolve = null;
       }
     });
 
-    this.rewardedAd.load();
-    console.log('[REWARDED] 📤 load() llamado — esperando evento LOADED o ERROR...');
+    this.rewardedAd.load();  if (__DEV__) console.log('[REWARDED] 📤 load() llamado — esperando evento LOADED o ERROR...');
   }
 
   /**
@@ -320,41 +285,33 @@ export class AdsService {
    * - 'show_error': Error al mostrar el anuncio
    * - null: timeout, ads desactivados, o no inicializado
    */
-  async showRewardedAd(): Promise<boolean> {
-    console.log('[REWARDED] 🎬 showRewardedAd() llamado');
-    console.log('[REWARDED]    canShowAds:', this.canShowAds);
-    console.log('[REWARDED]    rewardedAd existe:', !!this.rewardedAd);
-    console.log('[REWARDED]    isRewardedLoaded:', this.isRewardedLoaded);
-    console.log('[REWARDED]    lastRewardedError:', this.lastRewardedError);
+  async showRewardedAd(): Promise<boolean> {  if (__DEV__) console.log('[REWARDED] 🎬 showRewardedAd() llamado');  if (__DEV__) console.log('[REWARDED]    canShowAds:', this.canShowAds);  if (__DEV__) console.log('[REWARDED]    rewardedAd existe:', !!this.rewardedAd);  if (__DEV__) console.log('[REWARDED]    isRewardedLoaded:', this.isRewardedLoaded);  if (__DEV__) console.log('[REWARDED]    lastRewardedError:', this.lastRewardedError);
 
     // Resetear contador para que cada intento del usuario tenga reintentos frescos
     this.rewardedRetryCount = 0;
 
-    if (!this.canShowAds) {
-      console.log('[REWARDED] ❌ showRewardedAd — canShowAds=false, retornando false');
+    if (!this.canShowAds) {  if (__DEV__) console.log('[REWARDED] ❌ showRewardedAd — canShowAds=false, retornando false');
       this.lastRewardedError = null;
       return false;
     }
 
-    if (!this.rewardedAd) {
-      console.log('[REWARDED] ❌ showRewardedAd — rewardedAd es null, llamando loadRewardedAd()');
+    if (!this.rewardedAd) {  if (__DEV__) console.log('[REWARDED] ❌ showRewardedAd — rewardedAd es null, llamando loadRewardedAd()');
       this.lastRewardedError = null;
       this.loadRewardedAd();
       return false;
     }
 
-    if (!this.isRewardedLoaded) {
-      console.log('[REWARDED] ⏳ showRewardedAd — no cargado, esperando hasta 10s...');
+    if (!this.isRewardedLoaded) {  if (__DEV__) console.log('[REWARDED] ⏳ showRewardedAd — no cargado, esperando hasta 10s...');
       this.lastRewardedError = null; // Reset antes de intentar
       this.loadRewardedAd();
       
-      // Esperar hasta 10 segundos (reducido de 15s para no hacer esperar tanto)
+      // Esperar hasta 15 segundos para dar tiempo a los reintentos automáticos (cada 5s)
       const loaded = await new Promise<boolean>((resolve) => {
         const startTime = Date.now();
         const check = () => {
           if (this.isRewardedLoaded) {
             resolve(true);
-          } else if (Date.now() - startTime > 10000) {
+          } else if (Date.now() - startTime > 15000) {
             resolve(false);
           } else {
             setTimeout(check, 300);
@@ -363,11 +320,9 @@ export class AdsService {
         check();
       });
       
-      if (!loaded) {
-        console.log('[REWARDED] ⏳ timeout — anuncio no cargó en 10s, lastRewardedError:', this.lastRewardedError);
+      if (!loaded) {  if (__DEV__) console.log('[REWARDED] ⏳ timeout — anuncio no cargó en 15s, lastRewardedError:', this.lastRewardedError);
         return false;
-      }
-      console.log('[REWARDED] ✅ anuncio cargado tras espera');
+      }  if (__DEV__) console.log('[REWARDED] ✅ anuncio cargado tras espera');
     }
 
     try {
@@ -389,15 +344,14 @@ export class AdsService {
           originalResolve(rewarded);
         };
 
-        this.rewardedAd.show().catch((error: any) => {
-          console.log('[REWARDED] ❌ show_error al mostrar el anuncio — error:', String(error));
+        this.rewardedAd.show().catch((error: any) => {  if (__DEV__) console.log('[REWARDED] ❌ show_error al mostrar el anuncio — error:', String(error));
           this.lastRewardedError = 'show_error';
           clearTimeout(timeout);
           this.isRewardedLoaded = false;
           resolve(false);
         });
       });
-    } catch (error) {
+    } catch {
       this.isRewardedLoaded = false;
       return false;
     }
@@ -462,7 +416,7 @@ export class AdsService {
     try {
       await this.interstitialAd.show();
       return true;
-    } catch (error) {
+    } catch {
       return false;
     }
   }
@@ -491,7 +445,7 @@ export class AdsService {
         this.loadInterstitial();
       }
       return shown;
-    } catch (error) {
+    } catch {
       return false;
     }
   }

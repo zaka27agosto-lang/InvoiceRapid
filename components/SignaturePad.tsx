@@ -105,7 +105,7 @@ const SIGNATURE_HTML = `
 </html>
 `;
 
-export function SignaturePad({ onSignatureChange, onDrawStart, onDrawEnd, primaryColor = '#6C47FF', width = 300, height = 150 }: SignaturePadProps) {
+export function SignaturePad({ onSignatureChange, onDrawStart, onDrawEnd, primaryColor = '#007AFF', width = 300, height = 150 }: SignaturePadProps) {
   const { t } = useTranslation();
   const webViewRef = useRef<WebView>(null);
   const [signatureData, setSignatureData] = useState<string | null>(null);

@@ -14,7 +14,6 @@ export default function Login() {
   const { currentTheme } = useTheme();    const { signInWithEmail, signInWithGoogle, signOut, resetPassword } = useAuth();
   
   const [email, setEmail] = useState('');
-  const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
@@ -301,24 +300,22 @@ export default function Login() {
             <Text style={styles.buttonText}>{loading ? t('cargando') : t('iniciar_sesion')}</Text>
           </TouchableOpacity>
 
-          {true && (
-            <>
-              <View style={styles.divider}>
-                <View style={[styles.dividerLine, { backgroundColor: currentTheme.colors.border }]} />
-                <Text style={[styles.dividerText, { color: currentTheme.colors.textSecondary }]}>{t('o')}</Text>
-                <View style={[styles.dividerLine, { backgroundColor: currentTheme.colors.border }]} />
-              </View>
+          <>
+            <View style={styles.divider}>
+              <View style={[styles.dividerLine, { backgroundColor: currentTheme.colors.border }]} />
+              <Text style={[styles.dividerText, { color: currentTheme.colors.textSecondary }]}>{t('o')}</Text>
+              <View style={[styles.dividerLine, { backgroundColor: currentTheme.colors.border }]} />
+            </View>
 
-              <TouchableOpacity 
-                style={[styles.googleButton, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]}
-                onPress={handleGoogleLogin}
-                disabled={loading}
-              >
-                <Ionicons name="logo-google" size={20} color="#DB4437" />
-                <Text style={[styles.googleButtonText, { color: currentTheme.colors.text }]}>{t('continuar_google')}</Text>
-              </TouchableOpacity>
-            </>
-          )}
+            <TouchableOpacity 
+              style={[styles.googleButton, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]}
+              onPress={handleGoogleLogin}
+              disabled={loading}
+            >
+              <Ionicons name="logo-google" size={20} color="#DB4437" />
+              <Text style={[styles.googleButtonText, { color: currentTheme.colors.text }]}>{t('continuar_google')}</Text>
+            </TouchableOpacity>
+          </>
 
           <TouchableOpacity 
             style={[styles.registerButton, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.primary }]}

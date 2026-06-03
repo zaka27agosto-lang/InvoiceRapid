@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { notifyPremiumChange } from '../utils/premiumEvents';
-import { resetMonthlyCounter } from '../utils/subscription';
+import { setPlantillaPDF } from '../utils/settings';
 
 const REVENUECAT_API_KEY = 'goog_LDnwkOlgqirTVPkaDRbvvGQWEHz';
 const ENTITLEMENT_ID = 'RapidInvoice Pro';
@@ -51,7 +51,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       await checkPremiumStatus();
       const off = await Purchases.getOfferings();
       if (off.all && off.all['default']) setOfferings(off.all['default']);
-    } catch (e) {
+    } catch {
       const cached = await AsyncStorage.getItem('is_premium');
       setIsPremium(cached === 'true');
     } finally {
@@ -65,7 +65,7 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const premium = info.entitlements.active[ENTITLEMENT_ID] !== undefined;
       setIsPremium(premium);
       await AsyncStorage.setItem('is_premium', premium ? 'true' : 'false');
-    } catch (e) {
+    } catch {
       const cached = await AsyncStorage.getItem('is_premium');
       setIsPremium(cached === 'true');
     }
@@ -130,14 +130,15 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   async function aumentarLimiteFacturas() {
     // Resetear el contador mensual para pruebas
-    await resetMonthlyCounter();
+    await AsyncStorage.setItem('monthly_invoice_counter', JSON.stringify({ month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`, count: 0 }));
   }
 
   async function onPremiumExpired() {
     // Resetear el color a azul cuando expire premium
     try {
       await AsyncStorage.setItem('primaryColor', 'blue');
-    } catch (e) {
+      await setPlantillaPDF('default');
+    } catch {
     }
   }
 

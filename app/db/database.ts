@@ -5,6 +5,7 @@ let db: any = null;
 let SQLite: any = null;
 
 if (Platform.OS !== 'web') {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
   SQLite = require('expo-sqlite');
   db = SQLite.openDatabaseSync('facturas2.db');
 }
@@ -128,7 +129,7 @@ export function initDB() {
   // Migration: add firma_data column if it doesn't exist yet (for existing databases)
   try {
     db.execSync('ALTER TABLE albaranes ADD COLUMN firma_data TEXT;');
-  } catch (_) {
+  } catch {
     // Column already exists, ignore
   }
 

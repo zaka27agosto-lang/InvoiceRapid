@@ -22,8 +22,7 @@ function TabsContent() {
 
   useEffect(() => {
     // Actualizar tipos de cambio al abrir la app
-    getExchangeRates().catch(err => {
-    });
+    getExchangeRates().catch(err => console.log('[Currency] Error al actualizar tipos de cambio:', err));
   }, []);
 
   return (
@@ -33,11 +32,11 @@ function TabsContent() {
         screenOptions={{
           headerShown: false,
           tabBarActiveTintColor: currentTheme.colors.primary,
-          tabBarInactiveTintColor: "#aaa",
+          tabBarInactiveTintColor: currentTheme.colors.textSecondary,
           tabBarStyle: {
-            backgroundColor: "#fff",
+            backgroundColor: currentTheme.colors.card,
             borderTopWidth: 1,
-            borderTopColor: "#f0f0f0",
+            borderTopColor: currentTheme.colors.border,
             height: 80,
             paddingBottom: 20,
             paddingTop: 10,
