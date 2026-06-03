@@ -18,7 +18,6 @@ export async function generarYCompartirPDFAlbaran(albaran: any, items: any[], is
         UTI: 'com.adobe.pdf',
       });
     } catch (error) {
-      console.log('Error al compartir PDF albarán:', error);
     }
   }
 }
@@ -29,7 +28,6 @@ export async function generarPDFPreviewAlbaran(albaran: any, items: any[], isPre
     const { uri } = await Print.printToFileAsync({ html, base64: false });
     return uri;
   } catch (error) {
-    console.log('Error al generar preview PDF albarán:', error);
     return null;
   }
 }
@@ -193,7 +191,6 @@ export async function generarYCompartirPDF(factura: any, items: any[], isPremium
         UTI: 'com.adobe.pdf',
       });
     } catch (error) {
-      console.log('Error al compartir PDF:', error);
     }
   }
 }
@@ -208,7 +205,6 @@ export async function generarPDFPreview(factura: any, items: any[], isPremium: b
     const { uri } = await Print.printToFileAsync({ html, base64: false });
     return uri;
   } catch (error) {
-    console.log('Error al generar preview PDF:', error);
     return null;
   }
 }

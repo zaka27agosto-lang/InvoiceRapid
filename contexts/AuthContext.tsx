@@ -33,7 +33,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       // Si Supabase no está configurado, no hacer nada
       if (!supabase) {
-        console.log('Supabase no está configurado');
         setIsLoading(false);
         return;
       }
@@ -56,7 +55,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       );
     } catch (error) {
-      console.error('Auth initialization error:', error);
       setIsLoading(false);
     }
   }
@@ -160,7 +158,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return;
 
     try {
-      console.log('🚪 Cerrando sesión...');
 
       // 🔥 Forzar estado a null INMEDIATAMENTE para que el layout
       // navegue a /auth/login ANTES de cualquier limpieza de BD.
@@ -177,7 +174,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Si ya hay sesión activa (otro usuario inició sesión), abortar limpieza
           const { data } = await supabase!.auth.getSession();
           if (data.session) {
-            console.log('✅ Nueva sesión detectada, se omite la limpieza');
             return;
           }
           // 🔄 Sincronizar datos locales a la nube antes de limpiar
@@ -185,9 +181,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             try {
               const { syncService } = await import('../services/syncService');
               const result = await syncService.syncAll(userId);
-              console.log(`📤 Sync final antes de signOut: ${result.synced} subidos, ${result.errors} errores`);
             } catch (e) {
-              console.warn('⚠️ Error en sync final antes de signOut:', e);
             }
           }
 
@@ -196,25 +190,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             const { clearAllData } = await import('../app/db/database');
             clearAllData();
           } catch (e) {
-            console.error('Error limpiando BD local:', e);
           }
 
           await Promise.all([
-            supabase!.auth.signOut().catch(e =>
-              console.error('Error en signOut de Supabase:', e)
-            ),
-            AsyncStorage.multiRemove(['is_premium']).catch(e =>
-              console.error('Error limpiando AsyncStorage:', e)
-            ),
+            supabase!.auth.signOut().catch(() => {}),
+            AsyncStorage.multiRemove(['is_premium']).catch(() => {}),
           ]);
 
-          console.log('✅ Sesión cerrada correctamente');
         } catch (error) {
-          console.error('Sign out cleanup error:', error);
         }
       });
     } catch (error) {
-      console.error('Sign out error:', error);
       setUser(null);
       setSession(null);
     }

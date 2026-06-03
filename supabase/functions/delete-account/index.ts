@@ -28,7 +28,7 @@ serve(async (req) => {
 
     const userId = user.id
     const userEmail = user.email
-    console.log(`🔄 Soft delete iniciado para: ${userId} (${userEmail})`)
+    `)
 
     // Verificar si ya existe una solicitud pendiente
     const { data: existing } = await supabaseAdmin
@@ -58,14 +58,12 @@ serve(async (req) => {
       })
 
     if (insertError) {
-      console.error('Error insertando account_deletions:', insertError)
       return new Response(
         JSON.stringify({ error: 'Error al procesar la solicitud: ' + insertError.message }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`✅ Soft delete registrado para ${userId}. Expira en 30 días.`)
 
     return new Response(
       JSON.stringify({
@@ -76,7 +74,6 @@ serve(async (req) => {
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error en delete-account:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }

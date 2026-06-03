@@ -39,7 +39,6 @@ export async function getExchangeRates(): Promise<ExchangeRates> {
     // Si no hay caché o expiró, obtener de la API
     return await fetchExchangeRatesFromAPI();
   } catch (error) {
-    console.error('Error al obtener tipos de cambio:', error);
     // En caso de error, usar tipos por defecto
     return DEFAULT_RATES;
   }
@@ -61,7 +60,6 @@ async function fetchExchangeRatesFromAPI(): Promise<ExchangeRates> {
     
     // Verificar que data.rates existe
     if (!data || !data.rates) {
-      console.error('API response invalid:', data);
       throw new Error('Respuesta de API inválida');
     }
     
@@ -77,7 +75,6 @@ async function fetchExchangeRatesFromAPI(): Promise<ExchangeRates> {
     
     return rates;
   } catch (error) {
-    console.error('Error fetching exchange rates from API:', error);
     // En caso de error, intentar usar caché antiguo
     const cached = await AsyncStorage.getItem(CACHE_KEY);
     if (cached) {
@@ -97,7 +94,6 @@ export async function refreshExchangeRates(): Promise<ExchangeRates> {
     const rates = await fetchExchangeRatesFromAPI();
     return rates;
   } catch (error) {
-    console.error('Error al actualizar tipos de cambio:', error);
     throw error;
   }
 }

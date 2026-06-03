@@ -81,7 +81,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       if (connected && user) {
         // Si el pull inicial falló por falta de conexión, reintentarlo ahora
         if (initialPullAttempted && !hasInitialSync) {
-          console.log('🔁 Reintentando pull inicial tras recuperar conexión...');
           pullCloudData();
         } else {
           autoSync();
@@ -101,7 +100,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     const online = await syncService.isOnline();
     if (!online) {
-      console.log('📥 Pull inicial pendiente (sin conexión) — se reintentará al conectar');
       setInitialPullAttempted(true);
       return;
     }
@@ -114,7 +112,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       // creados localmente que aún no se sincronizaron.
       // Los métodos pull*Only ya hacen upsert por ID, así que los
       // registros existentes se actualizan y los nuevos se insertan.
-      console.log('📥 Descargando datos desde la nube...');
       let totalSynced = 0;
       let downloadError = false;
 
@@ -130,9 +127,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
           (clientesResult.synced || 0) +
           (productosResult.synced || 0) +
           (albaranesResult.synced || 0);
-        console.log(`✅ ${totalSynced} registros descargados de la nube`);
       } catch (e) {
-        console.error('Error descargando datos de la nube:', e);
         downloadError = true;
       }
 
@@ -143,9 +138,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         message: downloadError ? 'Error al descargar datos de la nube' : undefined,
       });
       setLastSync(new Date());
-      console.log('✅ Pull inicial completado');
     } catch (error) {
-      console.error('Error en pull inicial:', error);
     } finally {
       setIsSyncing(false);
       setHasInitialSync(true);
@@ -163,7 +156,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
       await syncService.processQueue(user.id);
     } catch (error) {
-      console.error('Auto-sync error:', error);
     } finally {
       setIsSyncing(false);
     }

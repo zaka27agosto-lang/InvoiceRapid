@@ -195,7 +195,7 @@ export default function Clientes() {
             try {
               deleteCliente(cliente.id);
               // Eliminar también de la nube para que no reaparezca
-              syncService.deleteClientFromCloud(cliente.id).catch((e) => console.error('Error eliminando cliente de la nube:', e));
+              syncService.deleteClientFromCloud(cliente.id).catch(() => {});
               setClientes(getClientes() as Cliente[]);
             } catch (error) {
               Alert.alert(t('error'), t('no_se_pudo_eliminar_el_cliente'));

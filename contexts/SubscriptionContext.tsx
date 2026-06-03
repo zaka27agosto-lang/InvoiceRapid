@@ -52,7 +52,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       const off = await Purchases.getOfferings();
       if (off.all && off.all['default']) setOfferings(off.all['default']);
     } catch (e) {
-      console.log('RevenueCat error:', e);
       const cached = await AsyncStorage.getItem('is_premium');
       setIsPremium(cached === 'true');
     } finally {
@@ -74,12 +73,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   async function comprar(packageToBuy: any) {
     try {
-      console.log('🎯 Comprando paquete:', packageToBuy);
-      console.log('📦 Paquete identifier:', packageToBuy?.identifier);
-      console.log('📦 Paquete product:', packageToBuy?.product);
       
       if (!packageToBuy || !packageToBuy.identifier) {
-        console.error('❌ Paquete inválido o sin identifier');
         return { success: false, error: 'Paquete inválido' };
       }
       
@@ -89,13 +84,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.setItem('is_premium', premium ? 'true' : 'false');
       return { success: true };
     } catch (e: any) {
-      console.error('❌ Error en compra:', e);
-      console.error('❌ Error details:', {
-        message: e.message,
-        code: e.code,
-        userCancelled: e.userCancelled,
-        underlyingError: e.underlyingError
-      });
       
       if (e.userCancelled) {
         return { success: false, cancelled: true };
@@ -150,7 +138,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     try {
       await AsyncStorage.setItem('primaryColor', 'blue');
     } catch (e) {
-      console.log('Error reseteando color:', e);
     }
   }
 

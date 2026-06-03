@@ -33,7 +33,6 @@ serve(async (req) => {
   try {
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret)
   } catch (err) {
-    console.error(`Webhook signature verification failed:`, err)
     return new Response('Invalid signature', { status: 400 })
   }
 
@@ -125,7 +124,6 @@ serve(async (req) => {
       }
 
       default:
-        console.log(`Unhandled event type: ${event.type}`)
     }
 
     return new Response(JSON.stringify({ received: true }), {
@@ -133,7 +131,6 @@ serve(async (req) => {
       headers: { 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    console.error('Error processing webhook:', error)
     return new Response('Webhook handler failed', { status: 500 })
   }
 })

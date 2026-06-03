@@ -341,7 +341,6 @@ export default function NuevoAlbaran() {
       await adsService.incrementAction(isPremium);
       router.back();
     } catch (e: any) {
-      console.log("Error:", e?.message);
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
       setGenerandoPDF(false);
@@ -428,7 +427,6 @@ export default function NuevoAlbaran() {
         router.back();
       }
     } catch (e: any) {
-      console.log("Error:", e?.message);
       Alert.alert(t('error'), `${t('error_guardar')}: ${e?.message || ''}`);
     }
   }

@@ -18,7 +18,6 @@ serve(async (req) => {
     }
 
     const normalizedEmail = email.toLowerCase().trim()
-    console.log(`🔍 Verificando estado de cuenta para: ${normalizedEmail}`)
 
     // 1. Verificar si el email está en deleted_emails (bloqueo permanente)
     const { data: permanentlyDeleted } = await supabaseAdmin
@@ -93,7 +92,6 @@ serve(async (req) => {
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error en check-account-status:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }

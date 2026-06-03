@@ -108,10 +108,8 @@ export default function Ajustes() {
   }, [executePendingAction, user]);
 
   async function handleComprar(pkg: any) {
-    console.log('🎯 handleComprar llamado con paquete:', pkg);
     setComprando(true);
     const result = await comprar(pkg);
-    console.log('📊 Resultado de comprar:', result);
     setComprando(false);
     if (result.success) {
       setMostrarPaywall(false);
@@ -321,7 +319,6 @@ export default function Ajustes() {
       await adsService.showPrivacyOptions();
       Alert.alert('✅', t('consentimiento_actualizado'));
     } catch (error: any) {
-      console.error('Error al abrir opciones de privacidad:', error);
       // Si el error es que el formulario no está disponible (fuera del EEE o ya gestionado)
       if (error?.message?.includes('not available') || error?.message?.includes('form')) {
         Alert.alert(t('info'), t('consentimiento_no_disponible'));

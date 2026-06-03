@@ -95,12 +95,11 @@ export class AdsService {
         this.loadRewardedAd();
       }
     } catch (error) {
-      console.error('Ads initialization error:', error);
       // Si falla la inicialización, permitir anuncios no personalizados como fallback
       this.canShowAds = true;
       this.notifyListeners();
-      try { this.loadInterstitial(); } catch (e) { console.error('Error loading interstitial after init failure:', e); }
-      try { this.loadRewardedAd(); } catch (e) { console.error('Error loading rewarded ad after init failure:', e); }
+      try { this.loadInterstitial(); } catch (_e) {}
+      try { this.loadRewardedAd(); } catch (_e) {}
     }
   }
 
@@ -146,7 +145,6 @@ export class AdsService {
         this.loadRewardedAd();
       }
     } catch (error) {
-      console.error('Consent request error:', error);
       // Si falla el consentimiento, permitir anuncios no personalizados como fallback
       this.canShowAds = true;
       this.notifyListeners();
@@ -176,10 +174,9 @@ export class AdsService {
         await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'denied');
       }
     } catch (error) {
-      console.error('Privacy options error:', error);
       this.canShowAds = true;
       this.notifyListeners();
-      try { this.loadRewardedAd(); } catch (e) { console.error('Error loading rewarded ad after privacy change:', e); }
+      try { this.loadRewardedAd(); } catch (_e) {}
     }
   }
 
@@ -235,7 +232,6 @@ export class AdsService {
       this.isRewardedLoaded = true;
       this.lastRewardedError = null; // Limpiar error al cargar con éxito
       this.rewardedRetryCount = 0; // Reset retry counter on success
-      console.log('🎁 Rewarded ad loaded successfully');
     });
 
     this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
@@ -244,10 +240,8 @@ export class AdsService {
       const errorMsg = error?.message || String(error);
       if (errorMsg.includes('no-fill') || errorMsg.includes('No fill')) {
         this.lastRewardedError = 'no_fill';
-        console.warn('⚠️ Rewarded ad — sin anuncios disponibles (no fill)');
       } else {
         this.lastRewardedError = 'load_error';
-        console.warn('❌ Error loading rewarded ad:', errorMsg);
       }
       // Si hay una promesa pendiente de show, resolverla como false
       if (this.rewardedAdResolve) {
@@ -258,12 +252,9 @@ export class AdsService {
       // Reintentar carga automática (solo si no es no-fill, o si es no-fill con menos reintentos)
       if (this.rewardedRetryCount < this.maxRewardedRetries) {
         this.rewardedRetryCount++;
-        console.log(`🔄 Reintentando cargar rewarded ad (${this.rewardedRetryCount}/${this.maxRewardedRetries})...`);
         this.rewardedRetryTimer = setTimeout(() => {
           this.loadRewardedAd();
         }, this.rewardedRetryDelay);
-      } else {
-        console.warn('❌ Rewarded ad no disponible tras', this.rewardedRetryCount, 'intentos');
       }
     });
 
@@ -281,7 +272,6 @@ export class AdsService {
     });
 
     this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
-      console.log('🎁 Rewarded ad — usuario ganó la recompensa');
       if (this.rewardedAdResolve) {
         this.rewardedAdResolve(true);
         this.rewardedAdResolve = null;
@@ -300,26 +290,21 @@ export class AdsService {
    * - null: timeout, ads desactivados, o no inicializado
    */
   async showRewardedAd(): Promise<boolean> {
-    console.log('🎬 showRewardedAd() llamado - canShowAds:', this.canShowAds, 'rewardedAd:', !!this.rewardedAd, 'isRewardedLoaded:', this.isRewardedLoaded);
-
     // Resetear contador para que cada intento del usuario tenga reintentos frescos
     this.rewardedRetryCount = 0;
 
     if (!this.canShowAds) {
-      console.log('❌ Rewarded ad — ads no disponibles (canShowAds=false)');
       this.lastRewardedError = null;
       return false;
     }
 
     if (!this.rewardedAd) {
-      console.log('❌ Rewarded ad — objeto no inicializado, cargando...');
       this.lastRewardedError = null;
       this.loadRewardedAd();
       return false;
     }
 
     if (!this.isRewardedLoaded) {
-      console.log('⏳ Rewarded ad — no cargado aún, esperando...');
       this.lastRewardedError = null; // Reset antes de intentar
       this.loadRewardedAd();
       
@@ -328,10 +313,8 @@ export class AdsService {
         const startTime = Date.now();
         const check = () => {
           if (this.isRewardedLoaded) {
-            console.log('✅ Rewarded ad cargado tras espera');
             resolve(true);
           } else if (Date.now() - startTime > 10000) {
-            console.log('❌ Rewarded ad — timeout esperando carga (lastError:', this.lastRewardedError, ')');
             resolve(false);
           } else {
             setTimeout(check, 300);
@@ -351,7 +334,6 @@ export class AdsService {
 
         // Timeout de seguridad: si no hay evento en 60s, resolver como fallo
         const timeout = setTimeout(() => {
-          console.log('⏱️ Rewarded ad timeout');
           this.rewardedAdResolve = null;
           resolve(false);
         }, 60000);
@@ -364,7 +346,6 @@ export class AdsService {
         };
 
         this.rewardedAd.show().catch((error: any) => {
-          console.error('Error showing rewarded ad:', error);
           this.lastRewardedError = 'show_error';
           clearTimeout(timeout);
           this.isRewardedLoaded = false;
@@ -372,7 +353,6 @@ export class AdsService {
         });
       });
     } catch (error) {
-      console.error('Error showing rewarded ad:', error);
       this.isRewardedLoaded = false;
       return false;
     }
@@ -414,12 +394,9 @@ export class AdsService {
       // Reintentar carga automática si no hemos agotado los intentos
       if (this.interstitialRetryCount < this.maxInterstitialRetries) {
         this.interstitialRetryCount++;
-        console.log(`🔄 Reintentando cargar interstitial (${this.interstitialRetryCount}/${this.maxInterstitialRetries})...`);
         this.interstitialRetryTimer = setTimeout(() => {
           this.loadInterstitial();
         }, this.interstitialRetryDelay);
-      } else {
-        console.warn('❌ Interstitial no disponible tras', this.maxInterstitialRetries, 'intentos');
       }
     });
 
@@ -441,7 +418,6 @@ export class AdsService {
       await this.interstitialAd.show();
       return true;
     } catch (error) {
-      console.error('Error showing interstitial:', error);
       return false;
     }
   }
@@ -471,7 +447,6 @@ export class AdsService {
       }
       return shown;
     } catch (error) {
-      console.error('Error al mostrar anuncio intersticial:', error);
       return false;
     }
   }

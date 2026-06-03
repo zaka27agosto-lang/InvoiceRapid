@@ -68,7 +68,6 @@ export default function Productos() {
       );
       setProductosConvertidos(convertidos);
     } catch (err) {
-      console.error("Error al cargar moneda en productos:", err);
       setProductosConvertidos([]);
     }
   }, []);
@@ -177,7 +176,7 @@ export default function Productos() {
           try {
             deleteProducto(producto.id);
             // Eliminar también de la nube para que no reaparezca
-            syncService.deleteProductFromCloud(producto.id).catch((e) => console.error('Error eliminando producto de la nube:', e));
+            syncService.deleteProductFromCloud(producto.id).catch(() => {});
             void cargarProductos();
           } catch (error) {
             Alert.alert(t("error"), t("no_se_pudo_eliminar_el_producto"));

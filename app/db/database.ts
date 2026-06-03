@@ -20,16 +20,13 @@ export function clearAllData() {
       DELETE FROM clientes;
       DELETE FROM productos;
     `);
-    console.log('✅ Datos locales eliminados correctamente');
   } catch (error) {
-    console.error('Error al limpiar datos locales:', error);
   }
 }
 
 export function initDB() {
   // No inicializar SQLite en web
   if (Platform.OS === 'web' || !db) {
-    console.log('SQLite no está disponible en web');
     return;
   }
 

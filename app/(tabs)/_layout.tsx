@@ -23,7 +23,6 @@ function TabsContent() {
   useEffect(() => {
     // Actualizar tipos de cambio al abrir la app
     getExchangeRates().catch(err => {
-      console.error('Error al actualizar tipos de cambio al iniciar la app:', err);
     });
   }, []);
 

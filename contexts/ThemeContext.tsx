@@ -33,7 +33,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setModeState(newMode);
       setCurrentTheme(getTheme(newColor, newMode));
     } catch (e) {
-      console.error('Error loading theme settings:', e);
     }
   }
 
@@ -43,7 +42,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setPrimaryColorState(color);
       setCurrentTheme(getTheme(color, mode));
     } catch (e) {
-      console.error('Error saving primary color:', e);
     }
   }
 
@@ -53,7 +51,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       setModeState(newMode);
       setCurrentTheme(getTheme(primaryColor, newMode));
     } catch (e) {
-      console.error('Error saving theme mode:', e);
     }
   }
 

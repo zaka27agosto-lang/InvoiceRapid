@@ -8,7 +8,6 @@ const supabaseAdmin = createClient(
 
 serve(async (req) => {
   try {
-    console.log('⏰ Iniciando finalize-deletion cron job...')
 
     // Buscar todas las eliminaciones pendientes que han expirado
     const { data: expiredDeletions, error: lookupError } = await supabaseAdmin
@@ -18,7 +17,6 @@ serve(async (req) => {
       .lte('expires_at', new Date().toISOString())
 
     if (lookupError) {
-      console.error('Error buscando eliminaciones expiradas:', lookupError)
       return new Response(
         JSON.stringify({ error: lookupError.message }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
@@ -26,22 +24,18 @@ serve(async (req) => {
     }
 
     if (!expiredDeletions || expiredDeletions.length === 0) {
-      console.log('✅ No hay eliminaciones pendientes para finalizar')
       return new Response(
         JSON.stringify({ processed: 0, message: 'No pending deletions to finalize' }),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`🔍 Encontradas ${expiredDeletions.length} eliminaciones expiradas`)
 
     const results = []
 
     for (const deletion of expiredDeletions) {
       const userId = deletion.user_id
       const userEmail = deletion.email
-      console.log(`🗑️ Finalizando eliminación para: ${userId} (${userEmail})`)
-
       try {
         // 1. Eliminar datos del usuario en orden (FK constraints)
         const tables = [
@@ -60,19 +54,15 @@ serve(async (req) => {
             .eq('user_id', userId)
 
           if (deleteError) {
-            console.error(`Error eliminando ${table} para ${userId}:`, deleteError)
           } else {
-            console.log(`  ✅ ${table} eliminados`)
           }
         }
 
         // 2. Eliminar usuario de Auth
         const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
         if (authDeleteError) {
-          console.error(`Error eliminando auth user ${userId}:`, authDeleteError)
           // Continuar de todas formas — el registro en account_deletions es la fuente de verdad
         } else {
-          console.log(`  ✅ Usuario Auth eliminado`)
         }
 
         // 3. Insertar en deleted_emails (bloqueo permanente)
@@ -85,9 +75,7 @@ serve(async (req) => {
 
         if (insertEmailError) {
           // Podría ser un duplicado — no es crítico
-          console.error(`Error insertando en deleted_emails para ${userEmail}:`, insertEmailError)
         } else {
-          console.log(`  ✅ Email ${userEmail} bloqueado permanentemente`)
         }
 
         // 4. Marcar account_deletion como finalizada
@@ -100,13 +88,10 @@ serve(async (req) => {
           .eq('id', deletion.id)
 
         if (updateError) {
-          console.error(`Error actualizando account_deletion ${deletion.id}:`, updateError)
         }
 
         results.push({ userId, email: userEmail, status: 'finalized' })
-        console.log(`  ✅ Eliminación finalizada para ${userEmail}`)
       } catch (innerError) {
-        console.error(`Error procesando eliminación para ${userId}:`, innerError)
         results.push({ userId, email: userEmail, status: 'error', error: innerError.message })
       }
     }
@@ -119,7 +104,6 @@ serve(async (req) => {
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error en finalize-deletion:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }

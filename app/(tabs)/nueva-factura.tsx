@@ -455,7 +455,6 @@ export default function NuevaFactura() {
       // 4. Volver atrás
       router.back();
     } catch (e: any) {
-      console.log("Error:", e?.message);
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
       setGenerandoPDF(false);
@@ -680,7 +679,6 @@ export default function NuevaFactura() {
         router.back();
       }
     } catch (e: any) {
-      console.log("Error:", e?.message);
       Alert.alert(t('error'), `${t('error_guardar')}: ${e?.message || ''}`);
     }
   }

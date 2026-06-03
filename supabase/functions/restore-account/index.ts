@@ -27,7 +27,6 @@ serve(async (req) => {
     }
 
     const userId = user.id
-    console.log(`🔄 Restaurando cuenta: ${userId}`)
 
     // Verificar que existe una solicitud pendiente
     const { data: deletion, error: lookupError } = await supabaseAdmin
@@ -68,14 +67,12 @@ serve(async (req) => {
       .eq('id', deletion.id)
 
     if (updateError) {
-      console.error('Error restaurando:', updateError)
       return new Response(
         JSON.stringify({ error: 'Error al restaurar la cuenta' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    console.log(`✅ Cuenta ${userId} restaurada exitosamente`)
 
     return new Response(
       JSON.stringify({
@@ -85,7 +82,6 @@ serve(async (req) => {
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error en restore-account:', error)
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }

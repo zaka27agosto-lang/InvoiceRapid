@@ -217,7 +217,7 @@ export default function Documentos() {
       { text: t('cancelar'), style: "cancel" },
       { text: t('eliminar'), style: "destructive", onPress: () => {
         deleteFactura(facturaDetalle.id);
-        syncService.deleteInvoiceFromCloud(facturaDetalle.id).catch((e) => console.error('Error:', e));
+        syncService.deleteInvoiceFromCloud(facturaDetalle.id).catch(() => {});
         setMostrarDetalle(false); cargarDatos();
       }}
     ]);
@@ -312,7 +312,7 @@ export default function Documentos() {
       { text: t('cancelar'), style: "cancel" },
       { text: t('eliminar'), style: "destructive", onPress: () => {
         deleteAlbaran(albaranDetalle.id);
-        syncService.deleteAlbaranFromCloud(albaranDetalle.id).catch((e) => console.error('Error:', e));
+        syncService.deleteAlbaranFromCloud(albaranDetalle.id).catch(() => {});
         setMostrarDetalleAlbaran(false); cargarDatos();
       }}
     ]);

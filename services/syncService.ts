@@ -78,7 +78,6 @@ export class SyncService {
               db.runSync('UPDATE facturas SET sync_status = ? WHERE id = ?', ['synced', invoice.id]);
             }
           } catch (e) {
-            console.error('Error updating local sync_status for invoice', invoice.id, ':', e);
           }
 
           // ── Sincronizar factura_items (líneas de factura) ──
@@ -92,7 +91,6 @@ export class SyncService {
               .eq('factura_id', invoice.id)
               .eq('user_id', userId);
             if (delErr) {
-              console.error('Error deleting cloud items for invoice', invoice.id, ':', delErr);
             } else if (items.length > 0) {
               // Insertar items actuales
               for (const item of items) {
@@ -112,20 +110,16 @@ export class SyncService {
                     updated_at: new Date().toISOString(),
                   });
                 if (insErr) {
-                  console.error('Error upserting item', item.id, ':', insErr);
                   errors++;
                 } else {
                   synced++;
                 }
               }
-              console.log(`📦 ${items.length} items sync para factura ${invoice.id}`);
             }
           } catch (e) {
-            console.error('Error syncing items for invoice', invoice.id, ':', e);
             errors++;
           }
         } catch (e) {
-          console.error('Error syncing invoice:', e);
           errors++;
         }
       }
@@ -135,7 +129,6 @@ export class SyncService {
 
       return { success: true, synced, errors };
     } catch (error) {
-      console.error('Sync invoices error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar facturas' };
     }
   }
@@ -190,7 +183,6 @@ export class SyncService {
               db.runSync('UPDATE albaranes SET sync_status = ? WHERE id = ?', ['synced', albaran.id]);
             }
           } catch (e) {
-            console.error('Error updating local sync_status for albaran', albaran.id, ':', e);
           }
 
           // ── Sincronizar albaran_items ──
@@ -202,7 +194,6 @@ export class SyncService {
               .eq('albaran_id', albaran.id)
               .eq('user_id', userId);
             if (delErr) {
-              console.error('Error deleting cloud items for albaran', albaran.id, ':', delErr);
             } else if (items.length > 0) {
               for (const item of items) {
                 const { error: insErr } = await supabase
@@ -221,20 +212,16 @@ export class SyncService {
                     updated_at: new Date().toISOString(),
                   });
                 if (insErr) {
-                  console.error('Error upserting albaran item', item.id, ':', insErr);
                   errors++;
                 } else {
                   synced++;
                 }
               }
-              console.log(`📦 ${items.length} items sync para albaran ${albaran.id}`);
             }
           } catch (e) {
-            console.error('Error syncing items for albaran', albaran.id, ':', e);
             errors++;
           }
         } catch (e) {
-          console.error('Error syncing albaran:', e);
           errors++;
         }
       }
@@ -244,7 +231,6 @@ export class SyncService {
 
       return { success: true, synced, errors };
     } catch (error) {
-      console.error('Sync albaranes error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar albaranes' };
     }
   }
@@ -281,7 +267,6 @@ export class SyncService {
       const totalSynced = (cloudInvoices?.length || 0) + (cloudItems?.length || 0);
       return { success: true, synced: totalSynced, errors: 0 };
     } catch (error) {
-      console.error('Pull invoices error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al descargar facturas' };
     }
   }
@@ -326,7 +311,6 @@ export class SyncService {
           if (error) throw error;
           synced++;
         } catch (e) {
-          console.error('Error syncing client:', e);
           errors++;
         }
       }
@@ -338,7 +322,6 @@ export class SyncService {
 
       return { success: true, synced, errors };
     } catch (error) {
-      console.error('Sync clients error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar clientes' };
     }
   }
@@ -364,7 +347,6 @@ export class SyncService {
 
       return { success: true, synced: cloudClients?.length || 0, errors: 0 };
     } catch (error) {
-      console.error('Pull clients error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al descargar clientes' };
     }
   }
@@ -400,7 +382,6 @@ export class SyncService {
       const totalSynced = (cloudAlbaranes?.length || 0) + (cloudItems?.length || 0);
       return { success: true, synced: totalSynced, errors: 0 };
     } catch (error) {
-      console.error('Pull albaranes error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al descargar albaranes' };
     }
   }
@@ -435,7 +416,6 @@ export class SyncService {
           if (error) throw error;
           synced++;
         } catch (e) {
-          console.error('Error syncing product:', e);
           errors++;
         }
       }
@@ -447,7 +427,6 @@ export class SyncService {
 
       return { success: true, synced, errors };
     } catch (error) {
-      console.error('Sync products error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al sincronizar productos' };
     }
   }
@@ -473,7 +452,6 @@ export class SyncService {
 
       return { success: true, synced: cloudProducts?.length || 0, errors: 0 };
     } catch (error) {
-      console.error('Pull products error:', error);
       return { success: false, synced: 0, errors: 0, message: 'Error al descargar productos' };
     }
   }
@@ -502,7 +480,6 @@ export class SyncService {
 
       if (orphanIds.length === 0) return;
 
-      console.log(`🧹 Eliminando ${orphanIds.length} registros huérfanos de ${table} en la nube...`);
       
       // Eliminar en lotes para evitar URLs demasiado largas
       const BATCH_SIZE = 50;
@@ -515,13 +492,10 @@ export class SyncService {
           .eq('user_id', userId);
         
         if (error) {
-          console.error(`Error eliminando huérfanos de ${table}:`, error);
         } else {
-          console.log(`✅ ${batch.length} huérfanos eliminados de ${table}`);
         }
       }
     } catch (e) {
-      console.error(`Error en deleteOrphanedCloudRecords para ${table}:`, e);
     }
   }
 
@@ -601,9 +575,7 @@ export class SyncService {
           );
         }
       }
-      console.log('✅ Facturas guardadas localmente:', invoices.length);
     } catch (e) {
-      console.error('Error saving local invoices:', e);
     }
   }
 
@@ -642,9 +614,7 @@ export class SyncService {
           );
         }
       }
-      console.log('✅ Clientes guardados localmente:', clients.length);
     } catch (e) {
-      console.error('Error saving local clients:', e);
     }
   }
 
@@ -676,9 +646,7 @@ export class SyncService {
           );
         }
       }
-      console.log('✅ Productos guardados localmente:', products.length);
     } catch (e) {
-      console.error('Error saving local products:', e);
     }
   }
 
@@ -708,9 +676,7 @@ export class SyncService {
            item.unidad, item.precio_unitario, item.descuento, item.subtotal]
         );
       }
-      console.log('✅ Items guardados localmente:', items.length);
     } catch (e) {
-      console.error('Error saving local invoice items:', e);
     }
   }
 
@@ -757,9 +723,7 @@ export class SyncService {
           );
         }
       }
-      console.log('✅ Albaranes guardados localmente:', albaranes.length);
     } catch (e) {
-      console.error('Error saving local albaranes:', e);
     }
   }
 
@@ -786,9 +750,7 @@ export class SyncService {
            item.unidad, item.precio_unitario, item.descuento, item.subtotal]
         );
       }
-      console.log('✅ Albaran items guardados localmente:', items.length);
     } catch (e) {
-      console.error('Error saving local albaran items:', e);
     }
   }
 
@@ -808,7 +770,6 @@ export class SyncService {
       try {
         await this.executeOperation(operation, userId);
       } catch (error) {
-        console.error('Error processing queue operation:', error);
         this.syncQueue.push(operation);
       }
     }
@@ -854,12 +815,9 @@ export class SyncService {
         .eq('id', invoiceId)
         .eq('user_id', userId);
       if (error) {
-        console.error('Error deleting invoice from cloud:', error);
       } else {
-        console.log('✅ Factura eliminada de la nube:', invoiceId);
       }
     } catch (e) {
-      console.error('Error in deleteInvoiceFromCloud:', e);
     }
   }
 
@@ -875,12 +833,9 @@ export class SyncService {
         .eq('id', clientId)
         .eq('user_id', userId);
       if (error) {
-        console.error('Error deleting client from cloud:', error);
       } else {
-        console.log('✅ Cliente eliminado de la nube:', clientId);
       }
     } catch (e) {
-      console.error('Error in deleteClientFromCloud:', e);
     }
   }
 
@@ -896,12 +851,9 @@ export class SyncService {
         .eq('id', productId)
         .eq('user_id', userId);
       if (error) {
-        console.error('Error deleting product from cloud:', error);
       } else {
-        console.log('✅ Producto eliminado de la nube:', productId);
       }
     } catch (e) {
-      console.error('Error in deleteProductFromCloud:', e);
     }
   }
 
@@ -917,12 +869,9 @@ export class SyncService {
         .eq('id', albaranId)
         .eq('user_id', userId);
       if (error) {
-        console.error('Error deleting albaran from cloud:', error);
       } else {
-        console.log('✅ Albaran eliminado de la nube:', albaranId);
       }
     } catch (e) {
-      console.error('Error in deleteAlbaranFromCloud:', e);
     }
   }
 

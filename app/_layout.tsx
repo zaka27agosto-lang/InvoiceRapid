@@ -76,13 +76,12 @@ export default function RootLayout() {
   useEffect(() => {
     initDB();
     cargarIdioma();
-    adsService.initialize().catch(err => console.error('Ads init error:', err));
+    adsService.initialize().catch(() => {});
     WebBrowser.maybeCompleteAuthSession();
 
     // Recargar rewarded ad cuando la app vuelve a foreground
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
-        console.log('📱 App returned to foreground, reloading rewarded ad');
         adsService.reloadRewardedAd();
       }
       appState.current = nextAppState;
