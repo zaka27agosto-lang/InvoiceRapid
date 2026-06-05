@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 // Solo importar Google Mobile Ads en plataformas nativas
 let mobileAds: any = null;
@@ -10,6 +10,8 @@ let MaxAdContentRating: any = null;
 let TestIds: any = null;
 let RewardedAd: any = null;
 let RewardedAdEventType: any = null;
+let AdsConsent: any = null;
+let AdsConsentStatus: any = null;
 
 if (Platform.OS !== 'web') {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -22,6 +24,8 @@ if (Platform.OS !== 'web') {
   TestIds = ads.TestIds;
   RewardedAd = ads.RewardedAd;
   RewardedAdEventType = ads.RewardedAdEventType;
+  AdsConsent = ads.AdsConsent;
+  AdsConsentStatus = ads.AdsConsentStatus;
 }
 
 const CONSENT_KEY = 'ads_consent_given';
@@ -62,37 +66,29 @@ export class AdsService {
 
   async initialize(): Promise<void> {
     try {
-      // Check if consent was previously given
-      const savedConsent = await AsyncStorage.getItem(CONSENT_KEY);
-      this.consentGiven = savedConsent === 'true';
+      // 1. Gather consent VÍA UMP DE GOOGLE (Google-rendered form) — ANTES de inicializar MobileAds.
+      //    Google exige que el popup UMP aparezca en el primer arranque ANTES de mostrar anuncios.
+      await this.gatherConsentUMP();
 
-      // Configure ads
-      await mobileAds().setRequestConfiguration({
-        // Configure ad content rating
-        maxAdContentRating: MaxAdContentRating.G,
-        // Configure for test devices (remove in production)
-        testDeviceIdentifiers: __DEV__ ? ['EMULATOR'] : [],
-      });
-
-      // Initialize Mobile Ads SDK
-      await mobileAds().initialize();
-
-      // Request consent if not given
-      if (!this.consentGiven) {
-        await this.requestConsent();
-      } else {
-        this.canShowAds = true;
-        this.notifyListeners();
-      }
-
-      // Load interstitial and rewarded ads
-      // Only load if ads can be shown
+      // 2. Si podemos mostrar anuncios, inicializar MobileAds SDK y precargar
       if (this.canShowAds) {
+        await mobileAds().setRequestConfiguration({
+          maxAdContentRating: MaxAdContentRating.G,
+          testDeviceIdentifiers: __DEV__ ? ['EMULATOR'] : [],
+        });
+        await mobileAds().initialize();
+
+        // 3. Pre-calentamiento del engine nativo (evita pantalla negra en primer interstitial)
+        await this.prewarmNativeEngine();
+
+        // 4. Cargar anuncios
         this.loadInterstitial();
         this.loadRewardedAd();
       }
+
+      this.notifyListeners();
     } catch {
-      // Si falla la inicialización, permitir anuncios no personalizados como fallback
+      // Fallback: si falla UMP o la inicialización, permitir anuncios no personalizados
       this.canShowAds = true;
       this.notifyListeners();
       try { this.loadInterstitial(); } catch {}
@@ -100,84 +96,133 @@ export class AdsService {
     }
   }
 
-  private showConsentDialog(): Promise<boolean> {
-    return new Promise((resolve) => {
-      Alert.alert(
-        'Consentimiento de anuncios',
-        'Esta app usa anuncios para mantenerse gratuita.\n\n¿Aceptas que se muestren anuncios personalizados?\n\nSi eliges "No, anuncios genéricos", seguirás viendo anuncios pero no basados en tu perfil.',
-        [
-          {
-            text: 'No, anuncios genéricos',
-            style: 'cancel',
-            onPress: () => resolve(false),
-          },
-          {
-            text: 'Sí, aceptar',
-            onPress: () => resolve(true),
-          },
-        ],
-      );
-    });
-  }
-
-  async requestConsent(): Promise<void> {
-    try {  if (__DEV__) console.log('[CONSENT] 📡 requestConsent() — mostrando Alert personalizado...');
-      const accepted = await this.showConsentDialog();
-
-      if (accepted) {  if (__DEV__) console.log('[CONSENT] ✅ Usuario ACEPTÓ anuncios personalizados');
-        this.consentGiven = true;
-        this.canShowAds = true;
-        await AsyncStorage.setItem(CONSENT_KEY, 'true');
-        await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'obtained');
-      } else {  if (__DEV__) console.log('[CONSENT] ❌ Usuario RECHAZÓ — se muestran anuncios no personalizados');
-        this.consentGiven = false;
-        this.canShowAds = true;
-        await AsyncStorage.setItem(CONSENT_KEY, 'false');
-        await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'denied');
-      }
-
-      this.notifyListeners();
-
-      if (this.canShowAds) {  if (__DEV__) console.log('[CONSENT] 🚀 Precargando interstitial y rewarded');
-        this.loadInterstitial();
-        this.loadRewardedAd();
-      }
-    } catch (error) {  if (__DEV__) console.log('[CONSENT] 💥 ERROR en requestConsent():', String(error));
+  /**
+   * Recolecta consentimiento usando UMP (User Messaging Platform) de Google.
+   * Muestra el formulario nativo de Google si es necesario.
+   * Google exige que esto ocurra en el primer arranque, ANTES de inicializar MobileAds.
+   */
+  private async gatherConsentUMP(): Promise<void> {
+    if (!AdsConsent || !AdsConsentStatus) {
+      // Si UMP no está disponible (web), permitir anuncios
+      this.consentGiven = true;
       this.canShowAds = true;
-      this.notifyListeners();
+      return;
     }
-  }
 
-  async showPrivacyOptions(): Promise<void> {
-    try {  if (__DEV__) console.log('[CONSENT] 🔄 showPrivacyOptions() — mostrando Alert personalizado...');
-      const accepted = await this.showConsentDialog();
+    try {
+      // gatherConsent() internamente llama a requestInfoUpdate() y,
+      // si se requiere consentimiento, muestra automáticamente el formulario UMP de Google.
+      const consentInfo = await AdsConsent.gatherConsent({
+        debugGeography: __DEV__ ? 1 : undefined, // 1 = EEA (para probar el flujo de consentimiento en desarrollo)
+        testDeviceIdentifiers: __DEV__ ? ['EMULATOR'] : [],
+      });
 
-      if (accepted) {  if (__DEV__) console.log('[CONSENT] ✅ Usuario ACEPTÓ anuncios personalizados');
-        this.consentGiven = true;
-        await AsyncStorage.setItem(CONSENT_KEY, 'true');
-        await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'obtained');
-      } else {  if (__DEV__) console.log('[CONSENT] ❌ Usuario RECHAZÓ — anuncios no personalizados');
-        this.consentGiven = false;
-        await AsyncStorage.setItem(CONSENT_KEY, 'false');
-        await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'denied');
-      }
+      // NOT_REQUIRED = fuera de EEA (mayoría del mundo): Google permite anuncios personalizados
+      // OBTAINED = usuario dio consentimiento explícito en el formulario UMP
+      // Ambos casos = podemos usar anuncios personalizados (mayor revenue)
+      this.consentGiven = consentInfo.status === AdsConsentStatus.OBTAINED ||
+                          consentInfo.status === AdsConsentStatus.NOT_REQUIRED;
+      this.canShowAds = consentInfo.canRequestAds;
 
-      this.canShowAds = true;
-      this.notifyListeners();
-      try { this.loadRewardedAd(); } catch {}
+      // Persistir estado para referencia offline
+      await AsyncStorage.setItem(CONSENT_KEY, this.consentGiven ? 'true' : 'false');
+      await AsyncStorage.setItem(CONSENT_STATUS_KEY, this.consentGiven ? 'obtained' : 'denied');
+      // NOTA: No notificar aquí para evitar doble notificación —
+      // initialize() o requestConsent() llaman a notifyListeners() después de cargar los anuncios.
     } catch {
+      // Fallback: si UMP falla, mostrar anuncios no personalizados
+      // (mejor mostrar anuncios no-personalizados que no mostrar nada,
+      //  así al menos generamos ingresos aunque sean reducidos)
+      this.consentGiven = false;
       this.canShowAds = true;
-      this.notifyListeners();
-      try { this.loadRewardedAd(); } catch {}
+      await AsyncStorage.setItem(CONSENT_KEY, 'false');
+      await AsyncStorage.setItem(CONSENT_STATUS_KEY, 'denied');
+      // No notificar aquí — initialize() es el único notificador después de cargar ads
     }
   }
 
-  async resetConsent(): Promise<void> {
-    this.consentGiven = false;
+  /**
+   * Permite al usuario establecer el consentimiento manualmente (cuando UMP no está disponible).
+   */
+  async setConsentManually(given: boolean): Promise<void> {
+    this.consentGiven = given;
     this.canShowAds = true;
+    await AsyncStorage.setItem(CONSENT_KEY, given ? 'true' : 'false');
+    await AsyncStorage.setItem(CONSENT_STATUS_KEY, given ? 'obtained' : 'denied');
+    // Recargar anuncios con la nueva configuración
+    try { this.loadInterstitial(); } catch {}
+    try { this.loadRewardedAd(); } catch {}
+    this.notifyListeners();
+  }
+  async requestConsent(): Promise<void> {
+    await this.gatherConsentUMP();
+    if (this.canShowAds) {
+      this.loadInterstitial();
+      this.loadRewardedAd();
+    }
+  }
+
+  /**
+   * Muestra el formulario de opciones de privacidad de Google UMP.
+   * Si no está disponible (fuera de EEA), permite elegir manualmente.
+   * @returns true si se pudo cambiar el consentimiento, false si se canceló
+   */
+  async showPrivacyOptions(): Promise<boolean> {
+    if (!AdsConsent) {
+      // Fallback: no se puede cambiar, devolver false
+      return false;
+    }
+
+    try {
+      // showPrivacyOptionsForm() muestra el formulario nativo de Google
+      // donde el usuario puede modificar sus opciones de consentimiento.
+      await AdsConsent.showPrivacyOptionsForm();
+
+      // Re-verificar el estado después de que el usuario cierre el formulario
+      const consentInfo = await AdsConsent.getConsentInfo();
+      this.consentGiven = consentInfo.status === AdsConsentStatus.OBTAINED ||
+                          consentInfo.status === AdsConsentStatus.NOT_REQUIRED;
+      this.canShowAds = consentInfo.canRequestAds;
+
+      await AsyncStorage.setItem(CONSENT_KEY, this.consentGiven ? 'true' : 'false');
+      await AsyncStorage.setItem(CONSENT_STATUS_KEY, this.consentGiven ? 'obtained' : 'denied');
+
+      this.notifyListeners();
+      if (this.canShowAds) {
+        try { this.loadRewardedAd(); } catch {}
+      }
+      return true;
+    } catch {
+      // Formulario no disponible (fuera de EEA o error)
+      return false;
+    }
+  }
+
+  /**
+   * Resetea completamente el consentimiento usando UMP.reset().
+   * Borra todo el estado de UMP y vuelve a recolectar consentimiento desde cero.
+   */
+  async resetConsent(): Promise<void> {
+    // Resetear UMP (borra cookies, TC String, todo el estado de consentimiento)
+    if (AdsConsent) {
+      AdsConsent.reset();
+    }
+
+    this.consentGiven = false;
+    this.canShowAds = false;
     await AsyncStorage.removeItem(CONSENT_KEY);
     await AsyncStorage.removeItem(CONSENT_STATUS_KEY);
-    await this.requestConsent();
+
+    // Re-ejecutar el flujo completo de consentimiento
+    await this.gatherConsentUMP();
+
+    // Si ahora podemos mostrar anuncios, cargarlos
+    if (this.canShowAds) {
+      try { this.loadInterstitial(); } catch {}
+      try { this.loadRewardedAd(); } catch {}
+    }
+
+    this.notifyListeners();
   }
 
   getCanShowAds(): boolean {
@@ -192,6 +237,48 @@ export class AdsService {
   private readonly maxInterstitialRetries = 3;
   private readonly interstitialRetryDelay = 10000; // 10 seconds between retries
   private interstitialRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Indica si ya se ha mostrado al menos un interstitial en esta sesión (para delays progresivos) */
+  private firstInterstitialShown = false;
+
+  /**
+   * Pre-calentamiento del engine nativo de anuncios.
+   * Carga un interstitial de TEST para forzar la inicialización de la WebView
+   * y otros recursos nativos ANTES del primer anuncio real.
+   * Esto evita la pantalla negra en el primer interstitial.
+   */
+  private async prewarmNativeEngine(): Promise<void> {
+    if (!InterstitialAd || !TestIds) return;
+
+    try {
+      await new Promise<void>((resolve) => {
+        const prewarmAd = InterstitialAd.createForAdRequest(TestIds.INTERSTITIAL, {
+          requestNonPersonalizedAdsOnly: true,
+        });
+
+        let settled = false;
+        const finish = () => {
+          if (settled) return;
+          settled = true;
+          resolve();
+        };
+
+        prewarmAd.addAdEventListener(AdEventType.LOADED, () => {
+          finish();
+        });
+
+        prewarmAd.addAdEventListener(AdEventType.ERROR, () => {
+          finish(); // Incluso si falla, la inicialización pudo haber ocurrido
+        });
+
+        prewarmAd.load();
+
+        // Timeout de seguridad: no esperar más de 8s
+        setTimeout(finish, 8000);
+      });
+    } catch {
+      // Silencioso — si falla la precarga, no bloqueamos la inicialización
+    }
+  }
 
   private rewardedRetryCount = 0;
   private readonly maxRewardedRetries = 10;
@@ -199,10 +286,10 @@ export class AdsService {
   private rewardedRetryTimer: ReturnType<typeof setTimeout> | null = null;
 
   loadRewardedAd(): void {
-    if (!this.canShowAds) {  if (__DEV__) console.log('[REWARDED] ❌ loadRewardedAd() — canShowAds=false, no se carga nada');
+    if (!this.canShowAds) {
       return;
     }
-    if (!RewardedAd) {  if (__DEV__) console.log('[REWARDED] ❌ loadRewardedAd() — RewardedAd no disponible (¿web? ¿SDK no cargado?)');
+    if (!RewardedAd) {
       return;
     }
 
@@ -217,64 +304,59 @@ export class AdsService {
       : Platform.select({
           android: 'ca-app-pub-3758182602063783/8097499944',
           ios: 'ca-app-pub-3758182602063783/8097499944',
-        });  if (__DEV__) console.log('[REWARDED] 📥 Creando RewardedAd con adUnitId:', adUnitId);  if (__DEV__) console.log('[REWARDED]    consentGiven:', this.consentGiven, '| noPersonalizados:', !this.consentGiven);
+        });
 
     this.rewardedAd = RewardedAd.createForAdRequest(adUnitId!, {
       requestNonPersonalizedAdsOnly: !this.consentGiven,
       keywords: ['invoice', 'business', 'finance'],
     });
 
-    this.rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {  if (__DEV__) console.log('[REWARDED] ✅ LOADED — anuncio cargado correctamente');
+    this.rewardedAd.addAdEventListener(RewardedAdEventType.LOADED, () => {
       this.isRewardedLoaded = true;
-      this.lastRewardedError = null; // Limpiar error al cargar con éxito
-      this.rewardedRetryCount = 0; // Reset retry counter on success
+      this.lastRewardedError = null;
+      this.rewardedRetryCount = 0;
     });
 
-    this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {  if (__DEV__) console.log('[REWARDED] ❌ ERROR — error completo:', JSON.stringify(error));  if (__DEV__) console.log('[REWARDED]    error.message:', error?.message);  if (__DEV__) console.log('[REWARDED]    error.code:', error?.code);  if (__DEV__) console.log('[REWARDED]    String(error):', String(error));
+    this.rewardedAd.addAdEventListener(AdEventType.ERROR, (error: any) => {
       this.isRewardedLoaded = false;
-      // Detectar tipo de error
       const errorMsg = error?.message || String(error);
-      if (errorMsg.includes('no-fill') || errorMsg.includes('No fill')) {  if (__DEV__) console.log('[REWARDED]    tipo: no_fill (AdMob sin anuncios disponibles)');
+      if (errorMsg.includes('no-fill') || errorMsg.includes('No fill')) {
         this.lastRewardedError = 'no_fill';
-      } else {  if (__DEV__) console.log('[REWARDED]    tipo: load_error');
+      } else {
         this.lastRewardedError = 'load_error';
       }
-      // Si hay una promesa pendiente de show, resolverla como false
       if (this.rewardedAdResolve) {
         const cb = this.rewardedAdResolve;
         this.rewardedAdResolve = null;
         cb(false);
       }
-      // Reintentar carga automática (solo si no es no-fill, o si es no-fill con menos reintentos)
       if (this.rewardedRetryCount < this.maxRewardedRetries) {
-        this.rewardedRetryCount++;  if (__DEV__) console.log(`[REWARDED] 🔄 Reintento ${this.rewardedRetryCount}/${this.maxRewardedRetries} en ${this.rewardedRetryDelay}ms`);
+        this.rewardedRetryCount++;
         this.rewardedRetryTimer = setTimeout(() => {
           this.loadRewardedAd();
         }, this.rewardedRetryDelay);
       }
     });
 
-    this.rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {  if (__DEV__) console.log('[REWARDED] 🚪 CLOSED — anuncio cerrado (sin recompensa)');
+    this.rewardedAd.addAdEventListener(AdEventType.CLOSED, () => {
       this.isRewardedLoaded = false;
       this.rewardedRetryCount = 0;
-      // Si hay una promesa pendiente de show, resolverla como false (no ganó recompensa)
       if (this.rewardedAdResolve) {
         const cb = this.rewardedAdResolve;
         this.rewardedAdResolve = null;
         cb(false);
       }
-      // Recargar para la próxima vez
       setTimeout(() => this.loadRewardedAd(), 1000);
     });
 
-    this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {  if (__DEV__) console.log('[REWARDED] 🎁 EARNED_REWARD — ¡el usuario ganó la recompensa!');
+    this.rewardedAd.addAdEventListener(RewardedAdEventType.EARNED_REWARD, () => {
       if (this.rewardedAdResolve) {
         this.rewardedAdResolve(true);
         this.rewardedAdResolve = null;
       }
     });
 
-    this.rewardedAd.load();  if (__DEV__) console.log('[REWARDED] 📤 load() llamado — esperando evento LOADED o ERROR...');
+    this.rewardedAd.load();
   }
 
   /**
@@ -285,27 +367,25 @@ export class AdsService {
    * - 'show_error': Error al mostrar el anuncio
    * - null: timeout, ads desactivados, o no inicializado
    */
-  async showRewardedAd(): Promise<boolean> {  if (__DEV__) console.log('[REWARDED] 🎬 showRewardedAd() llamado');  if (__DEV__) console.log('[REWARDED]    canShowAds:', this.canShowAds);  if (__DEV__) console.log('[REWARDED]    rewardedAd existe:', !!this.rewardedAd);  if (__DEV__) console.log('[REWARDED]    isRewardedLoaded:', this.isRewardedLoaded);  if (__DEV__) console.log('[REWARDED]    lastRewardedError:', this.lastRewardedError);
-
-    // Resetear contador para que cada intento del usuario tenga reintentos frescos
+  async showRewardedAd(): Promise<boolean> {
     this.rewardedRetryCount = 0;
 
-    if (!this.canShowAds) {  if (__DEV__) console.log('[REWARDED] ❌ showRewardedAd — canShowAds=false, retornando false');
+    if (!this.canShowAds) {
       this.lastRewardedError = null;
       return false;
     }
 
-    if (!this.rewardedAd) {  if (__DEV__) console.log('[REWARDED] ❌ showRewardedAd — rewardedAd es null, llamando loadRewardedAd()');
+    if (!this.rewardedAd) {
       this.lastRewardedError = null;
       this.loadRewardedAd();
       return false;
     }
 
-    if (!this.isRewardedLoaded) {  if (__DEV__) console.log('[REWARDED] ⏳ showRewardedAd — no cargado, esperando hasta 10s...');
-      this.lastRewardedError = null; // Reset antes de intentar
+    if (!this.isRewardedLoaded) {
+      this.lastRewardedError = null;
       this.loadRewardedAd();
-      
-      // Esperar hasta 15 segundos para dar tiempo a los reintentos automáticos (cada 5s)
+
+      // Esperar hasta 15 segundos
       const loaded = await new Promise<boolean>((resolve) => {
         const startTime = Date.now();
         const check = () => {
@@ -319,32 +399,28 @@ export class AdsService {
         };
         check();
       });
-      
-      if (!loaded) {  if (__DEV__) console.log('[REWARDED] ⏳ timeout — anuncio no cargó en 15s, lastRewardedError:', this.lastRewardedError);
+
+      if (!loaded) {
         return false;
-      }  if (__DEV__) console.log('[REWARDED] ✅ anuncio cargado tras espera');
+      }
     }
 
     try {
-      // Crear una promesa que se resuelve cuando el usuario gana la recompensa
-      // o cuando se cierra sin haber completado
       return new Promise<boolean>((resolve) => {
         this.rewardedAdResolve = resolve;
 
-        // Timeout de seguridad: si no hay evento en 60s, resolver como fallo
         const timeout = setTimeout(() => {
           this.rewardedAdResolve = null;
           resolve(false);
         }, 60000);
 
-        // Guardar referencia a resolve original para limpiar timeout
         const originalResolve = resolve;
         this.rewardedAdResolve = (rewarded: boolean) => {
           clearTimeout(timeout);
           originalResolve(rewarded);
         };
 
-        this.rewardedAd.show().catch((error: any) => {  if (__DEV__) console.log('[REWARDED] ❌ show_error al mostrar el anuncio — error:', String(error));
+        this.rewardedAd.show().catch(() => {
           this.lastRewardedError = 'show_error';
           clearTimeout(timeout);
           this.isRewardedLoaded = false;
@@ -360,14 +436,13 @@ export class AdsService {
   loadInterstitial(): void {
     if (!this.canShowAds) return;
 
-    // Limpiar retry programado previo
     if (this.interstitialRetryTimer) {
       clearTimeout(this.interstitialRetryTimer);
       this.interstitialRetryTimer = null;
     }
 
-    const adUnitId = __DEV__ 
-      ? TestIds.INTERSTITIAL 
+    const adUnitId = __DEV__
+      ? TestIds.INTERSTITIAL
       : Platform.select({
           android: 'ca-app-pub-3758182602063783/4421373572',
           ios: 'ca-app-pub-3758182602063783/4421373572',
@@ -379,18 +454,15 @@ export class AdsService {
     });
 
     this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
-      // Pequeña pausa para asegurar que los assets creativos (imágenes/vídeo)
-      // se han descargado completamente antes de permitir mostrar el anuncio.
-      // Esto evita la pantalla negra en el primer anuncio.
       this.interstitialRetryCount = 0;
+      const delay = this.firstInterstitialShown ? 1000 : 5000;
       setTimeout(() => {
         this.isInterstitialLoaded = true;
-      }, 1200);
+      }, delay);
     });
 
     this.interstitialAd.addAdEventListener(AdEventType.ERROR, () => {
       this.isInterstitialLoaded = false;
-      // Reintentar carga automática si no hemos agotado los intentos
       if (this.interstitialRetryCount < this.maxInterstitialRetries) {
         this.interstitialRetryCount++;
         this.interstitialRetryTimer = setTimeout(() => {
@@ -399,10 +471,15 @@ export class AdsService {
       }
     });
 
+    this.interstitialAd.addAdEventListener(AdEventType.OPENED, () => {
+      this.firstInterstitialShown = true;
+    });
+
     this.interstitialAd.addAdEventListener(AdEventType.CLOSED, () => {
       this.isInterstitialLoaded = false;
       this.interstitialRetryCount = 0;
-      this.loadInterstitial(); // Preload next ad
+      this.firstInterstitialShown = true;
+      this.loadInterstitial();
     });
 
     this.interstitialAd.load();
@@ -433,15 +510,12 @@ export class AdsService {
     }
 
     try {
-      // Mostrar anuncio en CADA acción
       const shown = await this.showInterstitial();
       if (shown) {
-        // Precargar el siguiente anuncio para la próxima acción
         setTimeout(() => {
           this.loadInterstitial();
         }, 1000);
       } else {
-        // Si falló, reintentar cargar para la próxima
         this.loadInterstitial();
       }
       return shown;
@@ -464,8 +538,8 @@ export class AdsService {
   }
 
   getBannerAdUnitId(): string {
-    return __DEV__ 
-      ? TestIds.BANNER 
+    return __DEV__
+      ? TestIds.BANNER
       : Platform.select({
           android: 'ca-app-pub-3758182602063783/5253589032',
           ios: 'ca-app-pub-3758182602063783/5253589032',

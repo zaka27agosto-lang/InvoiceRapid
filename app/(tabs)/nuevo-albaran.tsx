@@ -85,7 +85,7 @@ export default function NuevoAlbaran() {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
     });
-    checkInvoiceLimitAsync().then(setLimiteInfo);
+    checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
     getNumeracionConfig().then(cfg => {
       // Para albaranes usamos prefijo 'A-' por defecto
       setNumeracionConfigState({ prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos });
@@ -109,7 +109,7 @@ export default function NuevoAlbaran() {
   useFocusEffect(
     useCallback(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
-      checkInvoiceLimitAsync().then(setLimiteInfo);
+      checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
       getMoneda().then(m => {
         setSimboloMoneda(m.simbolo);
         setCodigoMoneda(m.codigo);
@@ -153,13 +153,13 @@ export default function NuevoAlbaran() {
   const subtotalBruto = items.reduce((acc, item) => acc + (item.sinPrecio ? 0 : calcularSubtotalItem(item)), 0);
 
   function abrirSelectorClientes() {
-    setClientes(getClientes() as any[]);
+    setClientes(getClientes());
     setBusquedaCliente("");
     setMostrarClientes(true);
   }
 
   function abrirSelectorProductos(itemId: string) {
-    setProductos(getProductos() as any[]);
+    setProductos(getProductos());
     setBusquedaProducto("");
     setItemSeleccionadoParaProducto(itemId);
     setMostrarProductos(true);
@@ -186,13 +186,13 @@ export default function NuevoAlbaran() {
   }
 
   function cargarAlbaran(id: number) {
-    const albaran = getAlbaran(id) as any;
+    const albaran = getAlbaran(id);
     if (!albaran) {
       Alert.alert(t('error'), t('albaran_no_encontrado'));
       router.back();
       return;
     }
-    const albaranItems = getAlbaranItems(id) as any[];
+    const albaranItems = getAlbaranItems(id);
     setNumeroAlbaran(albaran.numero);
     setClienteSeleccionado({ id: albaran.cliente_id, nombre: albaran.cliente_nombre });
     setNotas(albaran.notas || "");
@@ -386,6 +386,20 @@ export default function NuevoAlbaran() {
 
     const isRewardedSave = pendingRewardedSave;
     if (pendingRewardedSave) setPendingRewardedSave(false);
+
+    // Para usuarios gratuitos en modo edición, verificar límite antes de editar
+    if (esModoEdicion && !isPremium && !limiteInfo.canCreate) {
+      const diasRestE = getDiasRestantesMes();
+      Alert.alert(
+        t('limite_alcanzado'),
+        t('limite_desc') + '\n\n' + t('se_renueva_en', { dias: diasRestE }),
+        [
+          { text: t('cancelar'), style: 'cancel' },
+          { text: t('unlock_premium'), onPress: () => router.push('/(tabs)/ajustes') }
+        ]
+      );
+      return;
+    }
 
     if (!clienteSeleccionado) { Alert.alert(t('cliente_requerido'), t('selecciona_cliente')); return; }
     const itemsValidos = items.filter(i => i.descripcion.trim());

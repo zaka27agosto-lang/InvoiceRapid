@@ -1,10 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { getDeviceId } from '../../utils/deviceId';
 
 export default function Register() {
   const router = useRouter();
@@ -21,14 +23,18 @@ export default function Register() {
   async function verificarEmailDisponible(userEmail: string): Promise<boolean> {
     try {
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(
         `${supabaseUrl}/functions/v1/check-account-status`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: userEmail }),
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         // Si no podemos verificar, permitir registro
@@ -87,8 +93,30 @@ export default function Register() {
     setLoading(false);
 
     if (result.success) {
+      // Guardar device_id en el perfil para protección anti-abuso
+      try {
+        const deviceId = await getDeviceId();
+        const supabaseModule = await import('../../services/supabase');
+        if (supabaseModule.supabase && result.userId) {
+          const { data: { session } } = await supabaseModule.supabase.auth.getSession();
+          if (session?.user?.id) {
+            await supabaseModule.supabase
+              .from('profiles')
+              .update({ device_id: deviceId })
+              .eq('id', session.user.id);
+          }
+        }
+      } catch {
+        // Silencioso: no bloquear el registro si falla el device_id
+      }
+
+      // Guardar userId para que la pantalla de referidos pueda leer el código sin sesión confirmada
+      if (result.userId) {
+        await AsyncStorage.setItem('pending_user_id', result.userId);
+      }
+
       Alert.alert(t('registro_exitoso'), t('verifica_email'));
-      router.back();
+      router.replace('/onboarding/referral-code' as any);
     } else {
       Alert.alert(t('error'), result.error || t('error_registro'));
     }

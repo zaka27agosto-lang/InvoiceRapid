@@ -31,6 +31,7 @@ export function initDB() {
     return;
   }
 
+  db.execSync('PRAGMA foreign_keys = ON;');
   db.execSync(`
     CREATE TABLE IF NOT EXISTS clientes (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

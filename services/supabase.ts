@@ -1,17 +1,19 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createClient } from '@supabase/supabase-js';
+import { secureStorage } from './secureStorage';
 
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || '';
 
 // Solo crear el cliente de Supabase si hay credenciales
-// ⚠️ Es CRÍTICO pasar AsyncStorage como storage adapter en React Native.
-// Sin esto, el token JWT solo existe en memoria y se pierde al cerrar la app,
-// forzando al usuario a iniciar sesión cada vez que abre la app.
+// 🔐 Usa expo-secure-store (Keychain/Keystore) para proteger los tokens JWT
+// en lugar de AsyncStorage. AsyncStorage es texto plano — en dispositivos
+// rooteados, otras apps pueden leer el token y suplantar al usuario.
+// SecureStore usa cifrado hardware (Keychain en iOS, Keystore en Android).
+// Fallback a AsyncStorage si SecureStore no está disponible.
 export const supabase = supabaseUrl && supabaseAnonKey 
   ? createClient(supabaseUrl, supabaseAnonKey, {
       auth: {
-        storage: AsyncStorage,
+        storage: secureStorage,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,

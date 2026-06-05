@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { supabase } from './supabase';
+import type { Factura, FacturaItem, Cliente, Albaran, AlbaranItem, Producto } from '../app/db/types';
 
 export interface SyncResult {
   success: boolean;
@@ -17,8 +18,26 @@ export class SyncService {
   static getInstance(): SyncService {
     if (!SyncService.instance) {
       SyncService.instance = new SyncService();
+      // Restaurar cola de sincronización pendiente desde AsyncStorage
+      // (fire-and-forget: se ejecuta en background, no bloquea la creación de la instancia)
+      SyncService.instance.restoreQueue().catch(() => {});
     }
     return SyncService.instance;
+  }
+
+  /** Restaura la cola de sincronización desde AsyncStorage al iniciar la app */
+  private async restoreQueue(): Promise<void> {
+    try {
+      const stored = await AsyncStorage.getItem('sync_queue');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          this.syncQueue = parsed;
+        }
+      }
+    } catch {
+      // Silencioso: si falla, empezar con cola vacía
+    }
   }
 
   async isOnline(): Promise<boolean> {
@@ -464,7 +483,9 @@ export class SyncService {
     localRecords: any[]
   ): Promise<void> {
     if (!supabase) return;
-    // Si no hay registros locales, todos los de la nube son huérfanos — continuar para borrarlos
+    // Si no hay registros locales, podría deberse a un error de lectura.
+    // NO borrar nada en ese caso para evitar pérdida de datos.
+    if (!localRecords || localRecords.length === 0) return;
     
     try {
       // Obtener todos los IDs de la nube para este usuario
@@ -538,7 +559,7 @@ export class SyncService {
     // Import and use getFacturas() from db/facturas
     try {
       const { getFacturas } = await import('../app/db/facturas');
-      return getFacturas() as any[];
+      return getFacturas() as Factura[];
     } catch {
       return [];
     }
@@ -584,7 +605,7 @@ export class SyncService {
   private async getLocalClients(): Promise<any[]> {
     try {
       const { getClientes } = await import('../app/db/clientes');
-      return getClientes() as any[];
+      return getClientes() as Cliente[];
     } catch {
       return [];
     }
@@ -623,7 +644,7 @@ export class SyncService {
   private async getLocalProducts(): Promise<any[]> {
     try {
       const { getProductos } = await import('../app/db/productos');
-      return getProductos() as any[];
+      return getProductos() as Producto[];
     } catch {
       return [];
     }
@@ -656,27 +677,35 @@ export class SyncService {
   private async getLocalInvoiceItems(facturaId: number): Promise<any[]> {
     try {
       const { getFacturaItems } = await import('../app/db/facturas');
-      return getFacturaItems(facturaId) as any[];
+      return getFacturaItems(facturaId) as FacturaItem[];
     } catch {
       return [];
     }
   }
 
-  /** Guarda items descargados de la nube en SQLite local */
+  /** Guarda items descargados de la nube en SQLite local (en transacción) */
   private async saveLocalInvoiceItems(items: any[]): Promise<void> {
     try {
       const db = (await import('../app/db/database')).default;
       if (!db || !items.length) return;
 
-      for (const item of items) {
-        // Borrar item existente y re-insertar (simple, evita diff)
-        db.runSync('DELETE FROM factura_items WHERE id = ?', [item.id]);
-        db.runSync(
-          `INSERT INTO factura_items (id, factura_id, descripcion, cantidad, unidad, precio_unitario, descuento, subtotal)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [item.id, item.factura_id, item.descripcion, item.cantidad,
-           item.unidad, item.precio_unitario, item.descuento, item.subtotal]
-        );
+      // Envolver en transacción para evitar pérdida de datos si la app crashea
+      db.execSync('BEGIN TRANSACTION;');
+      try {
+        for (const item of items) {
+          // Borrar item existente y re-insertar (simple, evita diff)
+          db.runSync('DELETE FROM factura_items WHERE id = ?', [item.id]);
+          db.runSync(
+            `INSERT INTO factura_items (id, factura_id, descripcion, cantidad, unidad, precio_unitario, descuento, subtotal)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [item.id, item.factura_id, item.descripcion, item.cantidad,
+             item.unidad, item.precio_unitario, item.descuento, item.subtotal]
+          );
+        }
+        db.execSync('COMMIT;');
+      } catch (innerError) {
+        db.execSync('ROLLBACK;');
+        throw innerError;
       }
     } catch (e) {
     }
@@ -686,7 +715,7 @@ export class SyncService {
   private async getLocalAlbaranes(): Promise<any[]> {
     try {
       const { getAlbaranes } = await import('../app/db/albaranes');
-      return getAlbaranes() as any[];
+      return getAlbaranes() as Albaran[];
     } catch {
       return [];
     }
@@ -732,7 +761,7 @@ export class SyncService {
   private async getLocalAlbaranItems(albaranId: number): Promise<any[]> {
     try {
       const { getAlbaranItems } = await import('../app/db/albaranes');
-      return getAlbaranItems(albaranId) as any[];
+      return getAlbaranItems(albaranId) as AlbaranItem[];
     } catch {
       return [];
     }
@@ -743,14 +772,22 @@ export class SyncService {
       const db = (await import('../app/db/database')).default;
       if (!db || !items.length) return;
 
-      for (const item of items) {
-        db.runSync('DELETE FROM albaran_items WHERE id = ?', [item.id]);
-        db.runSync(
-          `INSERT INTO albaran_items (id, albaran_id, descripcion, cantidad, unidad, precio_unitario, descuento, subtotal)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-          [item.id, item.albaran_id, item.descripcion, item.cantidad,
-           item.unidad, item.precio_unitario, item.descuento, item.subtotal]
-        );
+      // Envolver en transacción para evitar pérdida de datos si la app crashea
+      db.execSync('BEGIN TRANSACTION;');
+      try {
+        for (const item of items) {
+          db.runSync('DELETE FROM albaran_items WHERE id = ?', [item.id]);
+          db.runSync(
+            `INSERT INTO albaran_items (id, albaran_id, descripcion, cantidad, unidad, precio_unitario, descuento, subtotal)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+            [item.id, item.albaran_id, item.descripcion, item.cantidad,
+             item.unidad, item.precio_unitario, item.descuento, item.subtotal]
+          );
+        }
+        db.execSync('COMMIT;');
+      } catch (innerError) {
+        db.execSync('ROLLBACK;');
+        throw innerError;
       }
     } catch (e) {
     }

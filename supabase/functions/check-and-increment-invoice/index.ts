@@ -6,8 +6,16 @@ const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || ''
 )
 
+interface EdgeResponse {
+  canCreate: boolean
+  isPro: boolean
+  currentCount: number
+  limit: number
+}
+
 serve(async (req) => {
   try {
+    // 1. Autenticar al usuario mediante el JWT
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
@@ -27,49 +35,54 @@ serve(async (req) => {
     }
 
     const userId = user.id
-    const userEmail = user.email
+    const { month, mode } = await req.json()
 
-    // Verificar si ya existe una solicitud pendiente
-    const { data: existing } = await supabaseAdmin
-      .from('account_deletions')
-      .select('id, status')
-      .eq('user_id', userId)
-      .eq('status', 'pending')
-      .maybeSingle()
-
-    if (existing) {
+    if (!month) {
       return new Response(
-        JSON.stringify({ error: 'Ya existe una solicitud de eliminación pendiente' }),
-        { status: 409, headers: { 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'month es requerido (formato YYYY-MM)' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-    // Insertar en account_deletions (soft delete)
-    // NO eliminamos los datos ni el usuario de Auth todavía
-    const { error: insertError } = await supabaseAdmin
-      .from('account_deletions')
-      .insert({
-        user_id: userId,
-        email: userEmail,
-        status: 'pending',
-        deleted_at: new Date().toISOString(),
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+    // 2. Verificar si el usuario es Pro (RevenueCat stripe_customer_id en subscriptions)
+    const { data: subscription } = await supabaseAdmin
+      .from('subscriptions')
+      .select('status')
+      .eq('user_id', userId)
+      .maybeSingle()
+
+    const isPro = subscription?.status === 'active'
+
+    if (isPro) {
+      const result: EdgeResponse = {
+        canCreate: true,
+        isPro: true,
+        currentCount: 0,
+        limit: 5,
+      }
+      return new Response(
+        JSON.stringify(result),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // 3. Para usuarios free: llamar al RPC atómico (SELECT ... FOR UPDATE)
+    const { data: rpcResult, error: rpcError } = await supabaseAdmin
+      .rpc('check_and_increment_invoice', {
+        p_user_id: userId,
+        p_month: month,
+        p_mode: mode || 'increment',
       })
 
-    if (insertError) {
+    if (rpcError || !rpcResult) {
       return new Response(
-        JSON.stringify({ error: 'Error al procesar la solicitud: ' + insertError.message }),
+        JSON.stringify({ error: 'Error al verificar el límite de facturas' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
-
     return new Response(
-      JSON.stringify({
-        success: true,
-        message: 'Cuenta marcada para eliminación. Tienes 30 días para restaurarla.',
-        expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      }),
+      JSON.stringify(rpcResult),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (error) {

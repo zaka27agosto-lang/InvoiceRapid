@@ -66,6 +66,8 @@ function RootNavigator() {
       <Stack.Screen name="legal/terms" />
       <Stack.Screen name="legal/cookies" />
       <Stack.Screen name="(tabs)/checkout" />
+      <Stack.Screen name="onboarding/referral-code" />
+      <Stack.Screen name="settings/referral" />
     </Stack>
   );
 }

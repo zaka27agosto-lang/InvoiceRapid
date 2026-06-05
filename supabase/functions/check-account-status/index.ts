@@ -6,8 +6,42 @@ const supabaseAdmin = createClient(
   Deno.env.get('SERVICE_ROLE_KEY') || ''
 )
 
+// Rate limiting: Map con TTL manual para prevenir enumeración de emails
+const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
+
+function checkRateLimit(key: string, maxRequests: number, windowMs: number): boolean {
+  const now = Date.now()
+  const entry = rateLimitMap.get(key)
+  if (!entry || now > entry.resetAt) {
+    rateLimitMap.set(key, { count: 1, resetAt: now + windowMs })
+    return true
+  }
+  if (entry.count >= maxRequests) return false
+  entry.count++
+  return true
+}
+
 serve(async (req) => {
   try {
+    // Rate limiting por IP: 10 peticiones por minuto (previene enumeración masiva)
+    const clientIp = req.headers.get('x-forwarded-for') || req.headers.get('cf-connecting-ip') || 'unknown'
+    if (!checkRateLimit(clientIp, 10, 60_000)) {
+      return new Response(
+        JSON.stringify({ error: 'Demasiadas peticiones. Inténtalo de nuevo en un minuto.' }),
+        { status: 429, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Verificar autorización: solo la app (con anon key) puede llamar esta función
+    const authHeader = req.headers.get('Authorization') || '';
+    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== anonKey) {
+      return new Response(
+        JSON.stringify({ error: 'No autorizado' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+
     const { email } = await req.json()
 
     if (!email) {

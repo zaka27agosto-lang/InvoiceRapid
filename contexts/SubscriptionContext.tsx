@@ -4,7 +4,11 @@ import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { notifyPremiumChange } from '../utils/premiumEvents';
 import { setPlantillaPDF } from '../utils/settings';
 
-const REVENUECAT_API_KEY = 'goog_LDnwkOlgqirTVPkaDRbvvGQWEHz';
+const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY || '';
+
+if (!REVENUECAT_API_KEY && __DEV__) {
+  console.warn('[RevenueCat] EXPO_PUBLIC_REVENUECAT_API_KEY no configurada. Las compras in-app no funcionarán.');
+}
 const ENTITLEMENT_ID = 'RapidInvoice Pro';
 
 interface SubscriptionContextType {
@@ -46,14 +50,14 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   async function initPurchases() {
     try {
-      Purchases.setLogLevel(LOG_LEVEL.DEBUG);
+      Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
       Purchases.configure({ apiKey: REVENUECAT_API_KEY });
       await checkPremiumStatus();
       const off = await Purchases.getOfferings();
       if (off.all && off.all['default']) setOfferings(off.all['default']);
     } catch {
-      const cached = await AsyncStorage.getItem('is_premium');
-      setIsPremium(cached === 'true');
+      // No confiar en AsyncStorage — si RevenueCat falla, asumir no premium
+      setIsPremium(false);
     } finally {
       setIsLoading(false);
     }
@@ -66,8 +70,8 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       setIsPremium(premium);
       await AsyncStorage.setItem('is_premium', premium ? 'true' : 'false');
     } catch {
-      const cached = await AsyncStorage.getItem('is_premium');
-      setIsPremium(cached === 'true');
+      // No confiar en AsyncStorage — si RevenueCat falla, asumir no premium
+      setIsPremium(false);
     }
   }
 
@@ -130,7 +134,18 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
 
   async function aumentarLimiteFacturas() {
     // Resetear el contador mensual para pruebas
-    await AsyncStorage.setItem('monthly_invoice_counter', JSON.stringify({ month: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`, count: 0 }));
+    const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
+    await AsyncStorage.setItem('monthly_invoice_counter', JSON.stringify({ month, count: 0 }));
+    
+    // También resetear en Supabase vía RPC (silencioso si falla)
+    try {
+      const { supabase } = await import('../services/supabase');
+      if (supabase) {
+        await supabase.rpc('reset_invoice_counter', { p_month: month });
+      }
+    } catch {
+      // Silencioso - el reset local ya es suficiente para pruebas
+    }
   }
 
   async function onPremiumExpired() {

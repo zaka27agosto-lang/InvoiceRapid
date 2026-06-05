@@ -22,7 +22,7 @@ function TabsContent() {
 
   useEffect(() => {
     // Actualizar tipos de cambio al abrir la app
-    getExchangeRates().catch(err => console.log('[Currency] Error al actualizar tipos de cambio:', err));
+    if (__DEV__) getExchangeRates().catch(err => console.log('[Currency] Error al actualizar tipos de cambio:', err));
   }, []);
 
   return (

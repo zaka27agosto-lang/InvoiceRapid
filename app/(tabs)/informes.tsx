@@ -46,7 +46,7 @@ export default function Informes() {
   };
 
   function cargarDatos() {
-    const facturasData = getFacturas() as any[];
+    const facturasData = getFacturas();
     setFacturas(facturasData);
 
     getMoneda().then(m => {
@@ -182,7 +182,7 @@ export default function Informes() {
   async function exportarCSV() {
     setExportando(true);
     try {
-      const facturasAll = getFacturas() as any[];
+      const facturasAll = getFacturas();
       
       const headers = [t('factura'), t('numero_factura'), t('cliente'), t('fecha_creacion'), t('subtotal'), 'IVA%', t('iva'), 'IRPF%', t('irpf'), t('total'), t('estado'), t('metodo_pago')];
       const facturasRows = facturasAll.map((f: any) => [

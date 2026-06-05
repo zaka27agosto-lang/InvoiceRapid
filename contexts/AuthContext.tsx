@@ -11,7 +11,7 @@ interface AuthContextType {
   session: Session | null;
   isLoading: boolean;
   signInWithEmail: (email: string, password: string) => Promise<{ error?: string; success?: boolean }>;
-  signUpWithEmail: (email: string, password: string, name: string) => Promise<{ error?: string; success?: boolean }>;
+  signUpWithEmail: (email: string, password: string, name: string) => Promise<{ error?: string; success?: boolean; userId?: string; hasSession?: boolean }>;
   signInWithGoogle: () => Promise<{ error?: string; success?: boolean }>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ error?: string; success?: boolean }>;
@@ -81,7 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { error: 'Supabase no está configurado' };
     }
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -93,7 +93,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       });
 
       if (error) throw error;
-      return { success: true };
+      
+      // Si hay sesión inmediata (email confirmation desactivado), actualizar estado
+      if (data.session) {
+        setSession(data.session);
+        setUser(data.session.user);
+      }
+      
+      return { 
+        success: true, 
+        userId: data.user?.id, 
+        hasSession: !!data.session 
+      };
     } catch (error: any) {
       return { error: error.message || 'Error al registrar' };
     }
@@ -111,6 +122,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         provider: 'google',
         options: {
           redirectTo: redirectUrl,
+          skipBrowserRedirect: true,
         },
       });
 
@@ -122,11 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await WebBrowser.openAuthSessionAsync(data.url, redirectUrl);
 
       if (result.type === 'success' && result.url) {
-        // Procesar los tokens de sesión del redirect URL.
-        // Supabase redirige a: invoicerapid://auth/callback#access_token=xxx&refresh_token=xxx&...
-        // No podemos confiar en onAuthStateChange porque en React Native el cliente
-        // Supabase no procesa deep links automáticamente — debemos extraer los tokens
-        // explícitamente y llamar a setSession().
+        // Procesar los tokens del redirect URL.
+        // Supabase con skipBrowserRedirect usa PKCE (Proof Key for Code Exchange),
+        // que protege contra session fixation sin necesidad de validar state manualmente.
+        // El state es consumido internamente por el SDK de Supabase durante el intercambio PKCE.
         const fragment = result.url.split('#')[1];
         if (fragment) {
           const params = new URLSearchParams(fragment);

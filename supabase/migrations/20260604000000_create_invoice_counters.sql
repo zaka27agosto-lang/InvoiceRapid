@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS invoice_counters (
 -- 2. Row Level Security
 ALTER TABLE invoice_counters ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "Users can only access their own counters" ON invoice_counters;
 CREATE POLICY "Users can only access their own counters"
   ON invoice_counters
   FOR ALL

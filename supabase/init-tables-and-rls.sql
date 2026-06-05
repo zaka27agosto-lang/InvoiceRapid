@@ -305,6 +305,7 @@ ALTER TABLE account_deletions ENABLE ROW LEVEL SECURITY;
 -- Solo service_role puede acceder a esta tabla
 CREATE POLICY "Service role manages account deletions"
   ON account_deletions FOR ALL
+  TO service_role
   USING (true)
   WITH CHECK (true);
 
@@ -321,5 +322,6 @@ ALTER TABLE deleted_emails ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Service role manages deleted emails"
   ON deleted_emails FOR ALL
+  TO service_role
   USING (true)
   WITH CHECK (true);

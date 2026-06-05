@@ -49,8 +49,15 @@ export async function getExchangeRates(): Promise<ExchangeRates> {
  */
 async function fetchExchangeRatesFromAPI(): Promise<ExchangeRates> {
   try {
+    // Timeout de 5 segundos para evitar bloqueos si la API no responde
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
     // Usar ExchangeRate-API (más fiable)
-    const response = await fetch('https://api.exchangerate-api.com/v4/latest/EUR');
+    const response = await fetch('https://api.exchangerate-api.com/v4/latest/EUR', {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     
     if (!response.ok) {
       throw new Error('Error al obtener tipos de cambio de la API');

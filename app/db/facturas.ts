@@ -1,20 +1,21 @@
 import db from './database';
+import type { Factura, FacturaItem } from './types';
 
-export function getFacturas() {
+export function getFacturas(): Factura[] {
   if (!db) return [];
   return db.getAllSync(`
     SELECT * FROM facturas ORDER BY fecha DESC
-  `);
+  `) as Factura[];
 }
 
-export function getFactura(id: number) {
+export function getFactura(id: number): Factura | null {
   if (!db) return null;
-  return db.getFirstSync(`SELECT * FROM facturas WHERE id = ?`, [id]);
+  return db.getFirstSync(`SELECT * FROM facturas WHERE id = ?`, [id]) as Factura | null;
 }
 
-export function getFacturaItems(factura_id: number) {
+export function getFacturaItems(factura_id: number): FacturaItem[] {
   if (!db) return [];
-  return db.getAllSync(`SELECT * FROM factura_items WHERE factura_id = ?`, [factura_id]);
+  return db.getAllSync(`SELECT * FROM factura_items WHERE factura_id = ?`, [factura_id]) as FacturaItem[];
 }
 
 export function insertFactura(data: {
@@ -143,7 +144,7 @@ export function getNextNumeroFactura(config?: { prefijo: string; sufijo: string;
      ORDER BY CAST(REPLACE(REPLACE(numero, ?, ''), ?, '') AS INTEGER) DESC 
      LIMIT 1`,
     [prefijo, sufijo]
-  ) as any;
+  ) as { numero: string } | null;
   
   if (!lastFactura || !lastFactura.numero) {
     return `${prefijo}${String(1).padStart(digitos, '0')}${sufijo}`;

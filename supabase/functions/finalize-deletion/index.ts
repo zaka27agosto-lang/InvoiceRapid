@@ -3,11 +3,19 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') || '',
-  Deno.env.get('SERVICE_ROLE_KEY') || ''
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || ''
 )
 
 serve(async (req) => {
   try {
+    // 🔐 Verificar CRON_SECRET — sin esto, cualquiera puede borrar cuentas
+    const cronSecret = req.headers.get('x-cron-secret');
+    if (!cronSecret || cronSecret !== Deno.env.get('CRON_SECRET')) {
+      return new Response(
+        JSON.stringify({ error: 'No autorizado' }),
+        { status: 401, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Buscar todas las eliminaciones pendientes que han expirado
     const { data: expiredDeletions, error: lookupError } = await supabaseAdmin
@@ -38,9 +46,13 @@ serve(async (req) => {
       const userEmail = deletion.email
       try {
         // 1. Eliminar datos del usuario en orden (FK constraints)
+        //    Tablas con columna user_id (estándar):
         const tables = [
+          'invoice_counters',
           'factura_items',
           'facturas',
+          'albaran_items',
+          'albaranes',
           'clientes',
           'productos',
           'subscriptions',
@@ -54,15 +66,37 @@ serve(async (req) => {
             .eq('user_id', userId)
 
           if (deleteError) {
-          } else {
+            console.error(`[finalize-deletion] Error borrando ${table} de ${userId}:`, deleteError.message)
           }
         }
 
-        // 2. Eliminar usuario de Auth
+        // 1b. referral_events: usa referrer_id y referred_id (no tiene user_id)
+        //     Sin ON DELETE CASCADE — hay que borrar manualmente antes del auth delete
+        const { error: refEventsErr } = await supabaseAdmin
+          .from('referral_events')
+          .delete()
+          .or(`referrer_id.eq.${userId},referred_id.eq.${userId}`)
+
+        if (refEventsErr) {
+          console.error(`[finalize-deletion] Error borrando referral_events de ${userId}:`, refEventsErr.message)
+        }
+
+        // 1c. referral_codes: tiene user_id, pero también ON DELETE CASCADE
+        const { error: refCodesErr } = await supabaseAdmin
+          .from('referral_codes')
+          .delete()
+          .eq('user_id', userId)
+
+        if (refCodesErr) {
+          console.error(`[finalize-deletion] Error borrando referral_codes de ${userId}:`, refCodesErr.message)
+        }
+
+        // Nota: profiles se borra automáticamente por ON DELETE CASCADE al borrar el auth user
+
+        // 2. Eliminar usuario de Auth (cascade limpia profiles y referral_codes)
         const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(userId)
         if (authDeleteError) {
-          // Continuar de todas formas — el registro en account_deletions es la fuente de verdad
-        } else {
+          console.error(`[finalize-deletion] Error borrando usuario Auth ${userId}:`, authDeleteError.message)
         }
 
         // 3. Insertar en deleted_emails (bloqueo permanente)
@@ -74,8 +108,7 @@ serve(async (req) => {
           })
 
         if (insertEmailError) {
-          // Podría ser un duplicado — no es crítico
-        } else {
+          console.error(`[finalize-deletion] Error insertando email bloqueado ${userEmail}:`, insertEmailError.message)
         }
 
         // 4. Marcar account_deletion como finalizada
@@ -88,6 +121,7 @@ serve(async (req) => {
           .eq('id', deletion.id)
 
         if (updateError) {
+          console.error(`[finalize-deletion] Error actualizando account_deletions ${deletion.id}:`, updateError.message)
         }
 
         results.push({ userId, email: userEmail, status: 'finalized' })

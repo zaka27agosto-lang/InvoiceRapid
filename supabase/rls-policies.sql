@@ -89,6 +89,98 @@ CREATE POLICY "Usuarios eliminan sus propios productos"
 
 -- 5. TABLA: customers
 -- ============================================================
--- Solo accedida por edge functions con service_role (omite RLS).
--- No necesita políticas RLS a menos que en el futuro se consulte
--- desde la app con anon key.
+-- Corregido en migración 20260604000004_fix_customers_rls.sql:
+--   - SELECT: cada usuario ve solo su propio stripe_customer_id
+--   - INSERT: solo service_role (edge functions)
+--   - UPDATE: solo service_role
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: solo tu propio customer
+CREATE POLICY "customers_select_own"
+  ON customers FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- INSERT: solo service_role (bypass RLS)
+CREATE POLICY "customers_insert_service"
+  ON customers FOR INSERT
+  WITH CHECK (false);
+
+-- UPDATE: solo service_role (bypass RLS)
+CREATE POLICY "customers_update_service"
+  ON customers FOR UPDATE
+  USING (false);
+
+
+-- 6. TABLA: account_deletions
+-- ============================================================
+-- Solo service_role (edge functions + cron jobs) tiene acceso.
+ALTER TABLE account_deletions ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role manages account deletions"
+  ON account_deletions FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+
+-- 7. TABLA: deleted_emails
+-- ============================================================
+-- Solo service_role (edge functions) tiene acceso.
+ALTER TABLE deleted_emails ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Service role manages deleted emails"
+  ON deleted_emails FOR ALL
+  TO service_role
+  USING (true)
+  WITH CHECK (true);
+
+
+-- ============================================================
+-- 8. SISTEMA DE REFERIDOS
+-- ============================================================
+
+-- 8a. TABLA: profiles
+-- ============================================================
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuarios leen su propio perfil"
+  ON profiles FOR SELECT
+  USING (auth.uid() = id);
+
+-- UPDATE: los usuarios pueden actualizar su perfil, pero las columnas
+-- sensibles (referral_used, device_id) están protegidas por el trigger
+-- BEFORE UPDATE trg_protect_profile_fields (migración 00012)
+CREATE POLICY "Usuarios actualizan su propio perfil"
+  ON profiles FOR UPDATE
+  USING (auth.uid() = id)
+  WITH CHECK (auth.uid() = id);
+
+-- 8b. TABLA: referral_codes
+-- ============================================================
+ALTER TABLE referral_codes ENABLE ROW LEVEL SECURITY;
+
+-- SELECT: solo ver tu propio código (corregido en 00012)
+CREATE POLICY "Usuarios leen su propio código"
+  ON referral_codes FOR SELECT
+  USING (auth.uid() = user_id);
+
+-- RPC verify_referral_code(code TEXT) → JSONB (SECURITY DEFINER)
+-- Permite validar códigos sin exponer la tabla completa
+
+-- 8c. TABLA: referral_events
+-- ============================================================
+ALTER TABLE referral_events ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Usuarios leen eventos como referidor o referido"
+  ON referral_events FOR SELECT
+  USING (auth.uid() = referrer_id OR auth.uid() = referred_id);
+
+-- INSERT: solo eventos con status='pending' y activated_at=NULL
+-- (corregido en 00012 para prevenir inserción de eventos pre-activados)
+CREATE POLICY "Usuarios crean eventos como referido"
+  ON referral_events FOR INSERT
+  WITH CHECK (
+    auth.uid() = referred_id
+    AND status = 'pending'
+    AND activated_at IS NULL
+  );

@@ -1,11 +1,12 @@
 import db from './database';
+import type { Cliente } from './types';
 
-export function getClientes() {
+export function getClientes(): Cliente[] {
   if (!db) return [];
-  return db.getAllSync('SELECT * FROM clientes ORDER BY nombre ASC');
+  return db.getAllSync('SELECT * FROM clientes ORDER BY nombre ASC') as Cliente[];
 }
 
-export function insertCliente(cliente: any) {
+export function insertCliente(cliente: Omit<Cliente, 'id'>) {
   if (!db) return -1;
   return db.runSync(
     'INSERT INTO clientes (nombre, email, telefono, movil, pais, calle, piso, ciudad, cp, provincia, nif, persona_contacto, direccion) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
@@ -13,7 +14,7 @@ export function insertCliente(cliente: any) {
   );
 }
 
-export function updateCliente(id: number, cliente: any) {
+export function updateCliente(id: number, cliente: Partial<Cliente>) {
   if (!db) return;
   return db.runSync(
     'UPDATE clientes SET nombre = ?, email = ?, telefono = ?, movil = ?, pais = ?, calle = ?, piso = ?, ciudad = ?, cp = ?, provincia = ?, nif = ?, persona_contacto = ?, direccion = ? WHERE id = ?',

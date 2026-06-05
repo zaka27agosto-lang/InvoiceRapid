@@ -182,20 +182,68 @@ export default function Ajustes() {
 
   async function handleExportData() {
     try {
-      const facturas = getFacturas() as any[];
-      const clientes = getClientes() as any[];
-      const productos = getProductos() as any[];
+      // 1. Datos locales
+      let facturas = getFacturas();
+      let clientes = getClientes();
+      let productos = getProductos();
+      let datosSupabase = false;
 
-      // Generar HTML de líneas de cada factura
+      // 2. Intentar obtener datos desde Supabase para exportación completa
+      if (supabase) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session) {
+            const { data: facturasRemotas } = await supabase
+              .from('facturas')
+              .select('*')
+              .eq('user_id', session.user.id);
+            
+            const { data: clientesRemotos } = await supabase
+              .from('clientes')
+              .select('*')
+              .eq('user_id', session.user.id);
+
+            const { data: productosRemotos } = await supabase
+              .from('productos')
+              .select('*')
+              .eq('user_id', session.user.id);
+
+            if (facturasRemotas || clientesRemotos || productosRemotos) {
+              datosSupabase = true;
+              // Combinar: los datos remotos tienen prioridad (source of truth)
+              // pero mantenemos datos locales que no estén en remoto (pendientes de sync)
+              const idsRemotos = new Set((facturasRemotas || []).map((f: any) => f.id));
+              const localesNoSync = facturas.filter((f: any) => !idsRemotos.has(f.id));
+              facturas = [...(facturasRemotas || []), ...localesNoSync];
+
+              const clientesIdsRemotos = new Set((clientesRemotos || []).map((c: any) => c.id));
+              const clientesLocalesNoSync = clientes.filter((c: any) => !clientesIdsRemotos.has(c.id));
+              clientes = [...(clientesRemotos || []), ...clientesLocalesNoSync];
+
+              const productosIdsRemotos = new Set((productosRemotos || []).map((p: any) => p.id));
+              const productosLocalesNoSync = productos.filter((p: any) => !productosIdsRemotos.has(p.id));
+              productos = [...(productosRemotos || []), ...productosLocalesNoSync];
+            }
+          }
+        } catch {
+          // Si falla la conexión, usar solo datos locales
+        }
+      }
+
+      // 3. Generar HTML con items de cada factura
       const facturasConLineas = facturas.map(f => {
-        const items = getFacturaItems(f.id) as any[];
+        // Intentar items locales, luego remotos
+        let items = getFacturaItems(f.id) as any[];
+        if (items.length === 0 && f.items) {
+          items = f.items;
+        }
         const itemsHtml = items.length > 0
           ? `<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse;margin:8px 0;"><tr><th>Descripción</th><th>Cant.</th><th>Ud.</th><th>P.Unit.</th><th>Desc.</th><th>Subtotal</th></tr>${items.map(it => `<tr><td>${it.descripcion}</td><td>${it.cantidad}</td><td>${it.unidad}</td><td>${Number(it.precio_unitario).toFixed(2)}${monedaActual.simbolo}</td><td>${Number(it.descuento).toFixed(2)}${monedaActual.simbolo}</td><td>${Number(it.subtotal).toFixed(2)}${monedaActual.simbolo}</td></tr>`).join('')}</table>`
           : '<p style="color:#888;">Sin líneas</p>';
         return `
           <li style="margin-bottom:16px;">
             <strong>${f.numero}</strong> - ${f.cliente_nombre || 'Sin cliente'} - Total: ${Number(f.total).toFixed(2)}${monedaActual.simbolo} - Estado: ${f.estado}
-            <br><small>Fecha: ${new Date(f.fecha).toLocaleDateString('es-ES')} | Método: ${f.metodo_pago || '-'}</small>
+            <br><small>Fecha: ${new Date(f.fecha || f.created_at || '').toLocaleDateString('es-ES')} | Método: ${f.metodo_pago || '-'}</small>
             ${itemsHtml}
           </li>`;
       }).join('');
@@ -204,17 +252,26 @@ export default function Ajustes() {
         <html><body style="font-family: sans-serif; padding: 20px;">
         <h1 style="color: ${currentTheme.colors.primary};">Exportación de datos (RGPD)</h1>
         <p><strong>Fecha:</strong> ${new Date().toLocaleDateString('es-ES')}</p>
+        <p><strong>Incluye datos del servidor:</strong> ${datosSupabase ? 'Sí' : 'No (solo locales)'}</p>
+        <hr style="margin:20px 0;border:none;border-top:1px solid #eee;" />
         <h2>Configuración</h2>
         <p>Moneda: ${monedaActual.simbolo} (${monedaActual.codigo})</p>
         <p>Plantilla: ${plantillaActual}</p>
         <h2>Datos de empresa</h2>
         <p>Nombre: ${datos.nombre || '-'}<br>NIF: ${datos.nif || '-'}<br>Dirección: ${datos.direccion || '-'}<br>Tel: ${datos.telefono || '-'}<br>Email: ${datos.email || '-'}</p>
+        <hr style="margin:20px 0;border:none;border-top:1px solid #eee;" />
         <h2>Facturas (${facturas.length})</h2>
         <ul>${facturas.length > 0 ? facturasConLineas : '<li>Sin facturas</li>'}</ul>
+        <hr style="margin:20px 0;border:none;border-top:1px solid #eee;" />
         <h2>Clientes (${clientes.length})</h2>
-        <ul>${clientes.map(c => `<li>${c.nombre}${c.email ? ' - ' + c.email : ''}${c.telefono ? ' - Tel: ' + c.telefono : ''}${c.direccion ? ' - ' + c.direccion : ''}</li>`).join('') || '<li>Sin clientes</li>'}</ul>
+        <ul>${clientes.map((c: any) => `<li>${c.nombre}${c.email ? ' - ' + c.email : ''}${c.telefono || c.telefono ? ' - Tel: ' + (c.telefono || '') : ''}${c.direccion ? ' - ' + c.direccion : ''}</li>`).join('') || '<li>Sin clientes</li>'}</ul>
+        <hr style="margin:20px 0;border:none;border-top:1px solid #eee;" />
         <h2>Productos (${productos.length})</h2>
-        <ul>${productos.map(p => `<li>${p.descripcion} - ${p.precio}${monedaActual.simbolo} / ${p.unidad}</li>`).join('') || '<li>Sin productos</li>'}</ul>
+        <ul>${productos.map((p: any) => `<li>${p.descripcion} - ${p.precio}${monedaActual.simbolo} / ${p.unidad}</li>`).join('') || '<li>Sin productos</li>'}</ul>
+        <hr style="margin:20px 0;border:none;border-top:1px solid #eee;" />
+        <p style="font-size:11px;color:#888;">
+          Datos exportados desde InvoiceRapid Pro. ${datosSupabase ? 'Incluye datos sincronizados con el servidor.' : 'Solo datos locales. Conéctate a internet para incluir datos del servidor.'}
+        </p>
         </body></html>
       `;
       const { uri } = await Print.printToFileAsync({ html });
@@ -263,6 +320,8 @@ export default function Ajustes() {
                       }
 
                       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+                      const controller = new AbortController();
+                      const timeoutId = setTimeout(() => controller.abort(), 10000);
                       const response = await fetch(
                         `${supabaseUrl}/functions/v1/delete-account`,
                         {
@@ -271,8 +330,10 @@ export default function Ajustes() {
                             'Authorization': `Bearer ${accessToken}`,
                             'Content-Type': 'application/json',
                           },
+                          signal: controller.signal,
                         }
                       );
+                      clearTimeout(timeoutId);
 
                       if (!response.ok) {
                         const body = await response.json().catch(() => ({}));
@@ -303,17 +364,28 @@ export default function Ajustes() {
   }
 
   async function handleChangeConsent() {
-    try {
-      await adsService.showPrivacyOptions();
+    // 1. Intentar con el formulario UMP de Google (disponible en EEE)
+    const umpOk = await adsService.showPrivacyOptions();
+    if (umpOk) {
       Alert.alert('✅', t('consentimiento_actualizado'));
-    } catch (error: any) {
-      // Si el error es que el formulario no está disponible (fuera del EEE o ya gestionado)
-      if (error?.message?.includes('not available') || error?.message?.includes('form')) {
-        Alert.alert(t('info'), t('consentimiento_no_disponible'));
-      } else {
-        Alert.alert(t('error'), t('error_consentimiento'));
-      }
+      return;
     }
+
+    // 2. Si UMP no está disponible (fuera de EEE), ofrecer elección manual
+    Alert.alert(
+      t('consentimiento_anuncios'),
+      t('consentimiento_pregunta') + '\n\n' + t('consentimiento_pregunta_sub'),
+      [
+        { text: t('consentimiento_no'), style: 'cancel', onPress: async () => {
+          await adsService.setConsentManually(false);
+          Alert.alert('✅', t('consentimiento_actualizado'));
+        }},
+        { text: t('consentimiento_si'), onPress: async () => {
+          await adsService.setConsentManually(true);
+          Alert.alert('✅', t('consentimiento_actualizado'));
+        }},
+      ]
+    );
   }
 
   const idiomaActual = i18n.language;
@@ -462,6 +534,11 @@ export default function Ajustes() {
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('mi_perfil')}</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/settings/referral' as any)}>
+            <Ionicons name="gift-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('invitar_amigos')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
           <View style={styles.opcion}>
             <Ionicons name="information-circle-outline" size={20} color={currentTheme.colors.primary} />
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('version')}</Text>
@@ -517,6 +594,7 @@ export default function Ajustes() {
         </View>
 
         {/* Modo desarrollo */}
+        {__DEV__ && (
         <View style={[styles.seccion, { borderWidth: 1.5, borderColor: '#FF9F43', borderStyle: 'dashed', backgroundColor: currentTheme.colors.card }]}>
           <Text style={[styles.seccionTitulo, { color: '#FF9F43' }]}>🛠 {t('modo_desarrollo')}</Text>
           <TouchableOpacity style={styles.opcionBoton} onPress={activarPremiumTest}>
@@ -525,7 +603,6 @@ export default function Ajustes() {
           </TouchableOpacity>
           <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
             await desactivarPremiumTest();
-            await setPrimaryColor('blue');
           }}>
             <Ionicons name="flash-off-outline" size={20} color="#FF4757" />
             <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>{t('desactivar_premium_test')}</Text>
@@ -537,7 +614,7 @@ export default function Ajustes() {
             <Ionicons name="refresh-outline" size={20} color="#FF9F43" />
             <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('resetear_contador')}</Text>
           </TouchableOpacity>
-<TouchableOpacity style={styles.opcionBoton} onPress={async () => {
+          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
             await adsService.resetConsent();
             Alert.alert('🔄 Consentimiento reseteado', 'Se ha borrado el consentimiento de anuncios. La próxima vez que se inicie la app, aparecerá el popup de Google.');
           }}>
@@ -545,6 +622,7 @@ export default function Ajustes() {
             <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Resetear consentimiento</Text>
           </TouchableOpacity>
         </View>
+        )}
 
         <View style={{ height: 100 }} />
         </ScrollView>
@@ -1026,7 +1104,7 @@ const styles = StyleSheet.create({
   paywallNoDisponibleTexto: { fontSize: 14, color: '#aaa', textAlign: 'center', lineHeight: 22 },
   restaurarBtn: { alignItems: 'center', paddingVertical: 16 },
   restaurarTexto: { fontSize: 14, color: '#007AFF', fontWeight: '600' },
-  legalTexto: { textAlign: 'center', fontSize: 12, color: '#ccc', paddingBottom: 10 },
+  legalTexto: { textAlign: 'center', fontSize: 13, color: '#666', paddingBottom: 10, paddingHorizontal: 20, lineHeight: 18 },
   switchBtn: { width: 50, height: 28, borderRadius: 14, backgroundColor: '#e0e0e0', justifyContent: 'center', padding: 3 },
   switchBtnActivo: { backgroundColor: '#007AFF' },
   switchCircle: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },

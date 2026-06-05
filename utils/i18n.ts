@@ -467,6 +467,34 @@ const es = {
     anadirPrecio: 'Añadir precio',
     totalArticulos: 'Total artículos',
     anadirArticuloValidoAlbaran: 'Añade al menos un artículo con descripción',
+
+    // Referidos
+    invitar_amigos: 'Invitar amigos',
+    tu_codigo: 'Tu código',
+    tus_invitados: 'Tus invitados',
+    invitar_amigos_titulo: 'Invitar amigos',
+    invitar_amigos_sub: 'Invita a 3 amigos y consigue 1 mes Pro gratis',
+    invitar_amigos_banner: 'Invita a 3 amigos y consigue 1 mes Pro gratis',
+    codigo_referido: 'Código de referido',
+    codigo_copiado: 'Código copiado',
+    copiar: 'Copiar',
+    compartir_codigo: 'Compartir código',
+    compartir_mensaje: 'Usa mi código {{code}} en InvoiceRapid. Descárgala aquí: {{link}}',
+    introducir_codigo: 'Introducir código',
+    introducir_codigo_placeholder: 'Ej: A3X9KP',
+    aplicar_codigo: 'Aplicar código',
+    continuar_sin_codigo: 'Continuar sin código',
+    codigo_valido: 'Código válido',
+    codigo_invalido: 'Código no válido',
+    codigo_propio: 'No puedes usar tu propio código',
+    estado_pendiente: 'Pendiente',
+    estado_activado: 'Activado',
+    invitaciones_usadas: '{{used}}/3 invitaciones usadas',
+    sin_invitados: 'Aún no has invitado a nadie',
+    sin_invitados_sub: 'Comparte tu código. Cuando 3 amigos activen su código, recibirás 1 mes Pro gratis',
+    // Brute force
+    demasiados_intentos: 'Demasiados intentos, espera {{seconds}}',
+    limite_intentos_superado: 'Has superado el límite de intentos. Ya no puedes introducir un código.',
   }
 };
 
@@ -936,6 +964,34 @@ const en = {
     anadirPrecio: 'Add price',
     totalArticulos: 'Total items',
     anadirArticuloValidoAlbaran: 'Add at least one item with a description',
+
+    // Referrals
+    invitar_amigos: 'Invite friends',
+    tu_codigo: 'Your code',
+    tus_invitados: 'Your invites',
+    invitar_amigos_titulo: 'Invite friends',
+    invitar_amigos_sub: 'Invite 3 friends and get 1 month Pro free',
+    invitar_amigos_banner: 'Invite 3 friends and get 1 month Pro free',
+    codigo_referido: 'Referral code',
+    codigo_copiado: 'Code copied',
+    copiar: 'Copy',
+    compartir_codigo: 'Share code',
+    compartir_mensaje: 'Use my code {{code}} on InvoiceRapid. Download it here: {{link}}',
+    introducir_codigo: 'Enter code',
+    introducir_codigo_placeholder: 'e.g. A3X9KP',
+    aplicar_codigo: 'Apply code',
+    continuar_sin_codigo: 'Continue without code',
+    codigo_valido: 'Valid code',
+    codigo_invalido: 'Invalid code',
+    codigo_propio: 'You cannot use your own code',
+    estado_pendiente: 'Pending',
+    estado_activado: 'Activated',
+    invitaciones_usadas: '{{used}}/3 invites used',
+    sin_invitados: 'No invites yet',
+    sin_invitados_sub: 'Share your code. When 3 friends activate their code, you get 1 month Pro free',
+    // Brute force
+    demasiados_intentos: 'Too many attempts, wait {{seconds}}',
+    limite_intentos_superado: 'You have exceeded the attempt limit. You can no longer enter a code.',
   }
 };
 
@@ -1405,6 +1461,34 @@ const fr = {
     anadirPrecio: 'Ajouter un prix',
     totalArticulos: 'Total articles',
     anadirArticuloValidoAlbaran: 'Ajoutez au moins un article avec une description',
+
+    // Parrainage
+    invitar_amigos: 'Inviter des amis',
+    tu_codigo: 'Votre code',
+    tus_invitados: 'Vos invitations',
+    invitar_amigos_titulo: 'Inviter des amis',
+    invitar_amigos_sub: 'Invitez 3 amis et obtenez 1 mois Pro gratuit',
+    invitar_amigos_banner: 'Invitez 3 amis et obtenez 1 mois Pro gratuit',
+    codigo_referido: 'Code de parrainage',
+    codigo_copiado: 'Code copié',
+    copiar: 'Copier',
+    compartir_codigo: 'Partager le code',
+    compartir_mensaje: 'Utilisez mon code {{code}} sur InvoiceRapid. Téléchargez-la ici : {{link}}',
+    introducir_codigo: 'Saisir le code',
+    introducir_codigo_placeholder: 'Ex: A3X9KP',
+    aplicar_codigo: 'Appliquer le code',
+    continuar_sin_codigo: 'Continuer sans code',
+    codigo_valido: 'Code valide',
+    codigo_invalido: 'Code invalide',
+    codigo_propio: 'Vous ne pouvez pas utiliser votre propre code',
+    estado_pendiente: 'En attente',
+    estado_activado: 'Activé',
+    invitaciones_usadas: '{{used}}/3 invitations utilisées',
+    sin_invitados: "Pas encore d'invités",
+    sin_invitados_sub: 'Partagez votre code. Quand 3 amis activent leur code, vous obtenez 1 mois Pro gratuit',
+    // Brute force
+    demasiados_intentos: 'Trop de tentatives, attendez {{seconds}}',
+    limite_intentos_superado: 'Vous avez dépassé la limite de tentatives. Vous ne pouvez plus saisir de code.',
   }
 };
 
@@ -1873,6 +1957,34 @@ const de = {
     anadirPrecio: 'Preis hinzufügen',
     totalArticulos: 'Artikel gesamt',
     anadirArticuloValidoAlbaran: 'Fügen Sie mindestens einen Artikel mit Beschreibung hinzu',
+
+    // Empfehlungen
+    invitar_amigos: 'Freunde einladen',
+    tu_codigo: 'Dein Code',
+    tus_invitados: 'Deine Einladungen',
+    invitar_amigos_titulo: 'Freunde einladen',
+    invitar_amigos_sub: 'Lade 3 Freunde ein und erhalte 1 Monat Pro gratis',
+    invitar_amigos_banner: 'Lade 3 Freunde ein und erhalte 1 Monat Pro gratis',
+    codigo_referido: 'Empfehlungscode',
+    codigo_copiado: 'Code kopiert',
+    copiar: 'Kopieren',
+    compartir_codigo: 'Code teilen',
+    compartir_mensaje: 'Verwende meinen Code {{code}} bei InvoiceRapid. Hier herunterladen: {{link}}',
+    introducir_codigo: 'Code eingeben',
+    introducir_codigo_placeholder: 'z.B. A3X9KP',
+    aplicar_codigo: 'Code anwenden',
+    continuar_sin_codigo: 'Ohne Code fortfahren',
+    codigo_valido: 'Gültiger Code',
+    codigo_invalido: 'Ungültiger Code',
+    codigo_propio: 'Du kannst deinen eigenen Code nicht verwenden',
+    estado_pendiente: 'Ausstehend',
+    estado_activado: 'Aktiviert',
+    invitaciones_usadas: '{{used}}/3 Einladungen genutzt',
+    sin_invitados: 'Noch niemand eingeladen',
+    sin_invitados_sub: 'Teile deinen Code. Wenn 3 Freunde ihren Code aktivieren, erhältst du 1 Monat Pro gratis',
+    // Brute force
+    demasiados_intentos: 'Zu viele Versuche, warte {{seconds}}',
+    limite_intentos_superado: 'Du hast das Limit an Versuchen überschritten. Du kannst keinen Code mehr eingeben.',
   }
 };
 
@@ -2341,6 +2453,34 @@ const it = {
     anadirPrecio: 'Aggiungi prezzo',
     totalArticulos: 'Totale articoli',
     anadirArticuloValidoAlbaran: 'Aggiungi almeno un articolo con descrizione',
+
+    // Referidos
+    invitar_amigos: 'Invita amici',
+    tu_codigo: 'Il tuo codice',
+    tus_invitados: 'I tuoi invitati',
+    invitar_amigos_titulo: 'Invita amici',
+    invitar_amigos_sub: 'Invita 3 amici e ottieni 1 mese Pro gratis',
+    invitar_amigos_banner: 'Invita 3 amici e ottieni 1 mese Pro gratis',
+    codigo_referido: 'Codice referral',
+    codigo_copiado: 'Codice copiato',
+    copiar: 'Copia',
+    compartir_codigo: 'Condividi codice',
+    compartir_mensaje: 'Usa il mio codice {{code}} su InvoiceRapid. Scaricala qui: {{link}}',
+    introducir_codigo: 'Inserisci codice',
+    introducir_codigo_placeholder: 'Es: A3X9KP',
+    aplicar_codigo: 'Applica codice',
+    continuar_sin_codigo: 'Continua senza codice',
+    codigo_valido: 'Codice valido',
+    codigo_invalido: 'Codice non valido',
+    codigo_propio: 'Non puoi usare il tuo codice',
+    estado_pendiente: 'In attesa',
+    estado_activado: 'Attivato',
+    invitaciones_usadas: '{{used}}/3 inviti usati',
+    sin_invitados: 'Nessun invitato',
+    sin_invitados_sub: 'Condividi il tuo codice. Quando 3 amici attivano il loro codice, ottieni 1 mese Pro gratis',
+    // Brute force
+    demasiados_intentos: 'Troppi tentativi, attendi {{seconds}}',
+    limite_intentos_superado: 'Hai superato il limite di tentativi. Non puoi più inserire un codice.',
   }
 };
 

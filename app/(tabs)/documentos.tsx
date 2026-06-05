@@ -118,7 +118,7 @@ export default function Documentos() {
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo); setCodigoMoneda(m.codigo);
       if (facturaIdParam && !mostrarDetalle && !mostrarDetalleAlbaran && modo === 'facturas') {
-        const factura = (getFacturas() as any[]).find((f: any) => f.id === parseInt(facturaIdParam));
+        const factura = (getFacturas()).find((f) => f.id === parseInt(facturaIdParam));
         if (factura) { abrirDetalleFactura(factura, m.codigo); router.setParams({ facturaId: undefined }); }
       }
     });
@@ -133,8 +133,8 @@ export default function Documentos() {
   }, [lastSync, modo]);
 
   function cargarDatos() {
-    if (modo === 'facturas') setFacturas(getFacturas() as any[]);
-    else setAlbaranes(getAlbaranes() as any[]);
+    if (modo === 'facturas') setFacturas(getFacturas());
+    else setAlbaranes(getAlbaranes());
   }
 
   function cambiarModo(nuevoModo: 'facturas' | 'albaranes') {
@@ -149,7 +149,7 @@ export default function Documentos() {
 
   // ──────── FACTURAS ────────
   async function abrirDetalleFactura(factura: any, codigoMonedaParam?: string) {
-    const items = getFacturaItems(factura.id) as any[];
+    const items = getFacturaItems(factura.id);
     setFacturaDetalle(factura); setItemsDetalle(items);
     const codigo = codigoMonedaParam || codigoMoneda;
     const fc = {
@@ -194,7 +194,7 @@ export default function Documentos() {
   function handleDuplicarFactura() {
     if (!facturaDetalle) return;
     const nuevoNumero = getNextNumeroFactura();
-    const itemsOriginales = getFacturaItems(facturaDetalle.id) as any[];
+    const itemsOriginales = getFacturaItems(facturaDetalle.id);
     const newId = insertFactura({
       numero: nuevoNumero, cliente_id: facturaDetalle.cliente_id, cliente_nombre: facturaDetalle.cliente_nombre,
       subtotal: facturaDetalle.subtotal, descuento: facturaDetalle.descuento, iva_porcentaje: facturaDetalle.iva_porcentaje,
@@ -243,7 +243,7 @@ export default function Documentos() {
 
   // ──────── ALBARANES ────────
   async function abrirDetalleAlbaran(albaran: any, codigoMonedaParam?: string) {
-    const items = getAlbaranItems(albaran.id) as any[];
+    const items = getAlbaranItems(albaran.id);
     setAlbaranDetalle(albaran); setItemsAlbaranDetalle(items);
     const codigo = codigoMonedaParam || codigoMoneda;
     const ac = {
@@ -288,7 +288,7 @@ export default function Documentos() {
   function handleDuplicarAlbaran() {
     if (!albaranDetalle) return;
     const nuevoNumero = getNextNumeroAlbaran();
-    const itemsOriginales = getAlbaranItems(albaranDetalle.id) as any[];
+    const itemsOriginales = getAlbaranItems(albaranDetalle.id);
     const newId = insertAlbaran({
       numero: nuevoNumero, cliente_id: albaranDetalle.cliente_id, cliente_nombre: albaranDetalle.cliente_nombre,
       subtotal: albaranDetalle.subtotal, descuento: albaranDetalle.descuento, iva_porcentaje: albaranDetalle.iva_porcentaje,
@@ -319,7 +319,7 @@ export default function Documentos() {
   function handleConvertirAFactura() {
     if (!albaranDetalle) return;
     const nuevoNumero = getNextNumeroFactura();
-    const itemsOriginales = getAlbaranItems(albaranDetalle.id) as any[];
+    const itemsOriginales = getAlbaranItems(albaranDetalle.id);
     const newId = insertFactura({
       numero: nuevoNumero, cliente_id: albaranDetalle.cliente_id, cliente_nombre: albaranDetalle.cliente_nombre,
       subtotal: albaranDetalle.subtotal, descuento: albaranDetalle.descuento, iva_porcentaje: albaranDetalle.iva_porcentaje,
@@ -333,7 +333,7 @@ export default function Documentos() {
     }));
     setMostrarDetalleAlbaran(false);
     setModo('facturas');
-    setFacturas(getFacturas() as any[]);
+    setFacturas(getFacturas());
     Alert.alert('✅', t('albaran_convertido_factura'));
   }
 

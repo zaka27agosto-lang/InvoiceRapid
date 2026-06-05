@@ -19,13 +19,16 @@ import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { adsService } from "../../services/adsService";
 import { convertirAEurosParaGuardar } from "../../utils/currency";
-import { generarYCompartirPDF, generarPDFPreview } from "../../utils/pdf";
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { generarPDFPreview } from "../../utils/pdf";
 import Pdf from 'react-native-pdf';
 import { getMoneda, getNumeracionConfig, getPlantillaPDF } from "../../utils/settings";
 import { checkInvoiceLimitAsync, incrementInvoiceCounter, getRemainingRewardedAds, incrementRewardedAdCount } from "../../utils/subscription";
 import { getClientes } from "../db/clientes";
 import { deleteFacturaItems, getFactura, getFacturaItems, getNextNumeroFactura, insertFactura, insertFacturaItem, updateFactura } from "../db/facturas";
 import { getProductos } from "../db/productos";
+import type { Factura, FacturaItem } from "../db/types";
 
 type Item = {
   id: string;
@@ -83,7 +86,7 @@ export default function NuevaFactura() {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
     });
-    checkInvoiceLimitAsync().then(setLimiteInfo);
+    checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
     getNumeracionConfig().then(setNumeracionConfigState);
     // Cargar IVA guardado
     AsyncStorage.getItem('ultimo_iva').then(iva => {
@@ -119,7 +122,7 @@ export default function NuevaFactura() {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
 
       // Recalcular límite siempre al enfocar
-      checkInvoiceLimitAsync().then(setLimiteInfo);
+      checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
 
       // Recargar moneda
       getMoneda().then(m => {
@@ -185,13 +188,13 @@ export default function NuevaFactura() {
   const total = subtotalBruto + ivaImporte - irpfImporte;
 
   function abrirSelectorClientes() {
-    setClientes(getClientes() as any[]);
+    setClientes(getClientes());
     setBusquedaCliente("");
     setMostrarClientes(true);
   }
 
   function abrirSelectorProductos(itemId: string) {
-    setProductos(getProductos() as any[]);
+    setProductos(getProductos());
     setBusquedaProducto("");
     setItemSeleccionadoParaProducto(itemId);
     setMostrarProductos(true);
@@ -222,14 +225,14 @@ export default function NuevaFactura() {
   }
 
   function cargarFactura(id: number) {
-    const factura = getFactura(id) as any;
+    const factura = getFactura(id) as Factura | null;
     if (!factura) {
       Alert.alert(t('error'), t('factura_no_encontrada'));
       router.back();
       return;
     }
 
-    const facturaItems = getFacturaItems(id) as any[];
+    const facturaItems = getFacturaItems(id) as FacturaItem[];
 
     setNumeroFactura(factura.numero);
     setClienteSeleccionado({
@@ -363,19 +366,51 @@ export default function NuevaFactura() {
 
     setGenerandoPDF(true);
     try {
-      // 1. Guardar la factura automáticamente (como si se hubiera pulsado guardar)
       const numero = numeroFactura || getNextNumeroFactura();
       const subtotalEnEuros = await convertirAEurosParaGuardar(subtotalBruto, codigoMoneda);
       const ivaEnEuros = await convertirAEurosParaGuardar(ivaImporte, codigoMoneda);
       const irpfEnEuros = await convertirAEurosParaGuardar(irpfImporte, codigoMoneda);
       const totalEnEuros = await convertirAEurosParaGuardar(total, codigoMoneda);
 
-      let savedFacturaId = esModoEdicion ? parseInt(facturaId!) : 0;
       const isRewardedSave = pendingRewardedSave;
       if (pendingRewardedSave) setPendingRewardedSave(false);
 
+      // 1. Generar PDF con datos de previsualización (sin guardar todavía)
+      const facturaPreview = {
+        id: 0,
+        numero,
+        cliente_id: clienteSeleccionado.id,
+        cliente_nombre: clienteSeleccionado.nombre,
+        subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
+        iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
+        total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
+        fecha: new Date().toISOString(), estado: 'pendiente',
+      };
+
+      const itemsConCalculos = itemsValidos.map(item => ({
+        descripcion: item.descripcion,
+        cantidad: item.cantidad,
+        unidad: item.unidad,
+        precio_unitario: item.precio,
+        descuento: item.descuento,
+        subtotal: calcularSubtotalItem(item),
+      }));
+
+      const plantilla = await getPlantillaPDF();
+      const uri = await generarPDFPreview(facturaPreview, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
+      if (!uri) throw new Error('No se pudo generar el PDF');
+
+      // 2. Compartir el PDF (si el usuario cancela, shareAsync lanza error)
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Factura ${numero} - InvoiceRapid Pro`,
+          UTI: 'com.adobe.pdf',
+        });
+      }
+
+      // 3. Si llegamos aquí, el usuario compartió → guardar la factura
       if (esModoEdicion) {
-        // Editar factura existente
         updateFactura(parseInt(facturaId!), {
           numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
@@ -393,16 +428,16 @@ export default function NuevaFactura() {
             precio_unitario: precioEnEuros, descuento: descuentoEnEuros, subtotal: subtotalItemEnEuros,
           });
         }
-        savedFacturaId = parseInt(facturaId!);
       } else {
-        // Crear nueva factura
         const newId = insertFactura({
           numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
           iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
           total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
         });
+        const yaTeniaPrimera = await AsyncStorage.getItem('ha_creado_primera_factura');
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
+        activarReferidoSiProcede();
         for (const item of itemsValidos) {
           const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
           const descuentoEnEuros = await convertirAEurosParaGuardar(parseFloat(item.descuento) || 0, codigoMoneda);
@@ -412,48 +447,22 @@ export default function NuevaFactura() {
             cantidad: parseFloat(item.cantidad) || 1, unidad: item.unidad,
             precio_unitario: precioEnEuros, descuento: descuentoEnEuros, subtotal: subtotalItemEnEuros,
           });
-        }          if (!isRewardedSave) await incrementInvoiceCounter();
-          savedFacturaId = newId as number;
         }
+        if (!isRewardedSave && !isPremium) await incrementInvoiceCounter();
+        if (yaTeniaPrimera !== 'true') {
+          router.replace('/settings/referral' as any);
+          return;
+        }
+      }
 
-        // 2. Generar y compartir el PDF con los datos guardados
-      const facturaGuardada = {
-        id: savedFacturaId,
-        numero,
-        cliente_id: clienteSeleccionado.id,
-        cliente_nombre: clienteSeleccionado.nombre,
-        subtotal: subtotalEnEuros,
-        descuento: 0,
-        iva_porcentaje: ivaPorcentaje,
-        iva_importe: ivaEnEuros,
-        irpf_porcentaje: irpfPorcentaje,
-        irpf_importe: irpfEnEuros,
-        total: totalEnEuros,
-        notas,
-        metodo_pago: metodoPago,
-        fecha_vencimiento: fechaVencimiento,
-        fecha: new Date().toISOString(),
-        estado: 'pendiente',
-      };
-
-      const itemsConCalculos = itemsValidos.map(item => ({
-        descripcion: item.descripcion,
-        cantidad: item.cantidad,
-        unidad: item.unidad,
-        precio_unitario: item.precio,
-        descuento: item.descuento,
-        subtotal: calcularSubtotalItem(item),
-      }));
-
-      const plantilla = await getPlantillaPDF();
-      await generarYCompartirPDF(facturaGuardada, itemsConCalculos, isPremium, plantilla, simboloMoneda);
-
-      // 3. Mostrar anuncio intersticial
+      // 4. Anuncio y volver atrás
       await adsService.incrementAction(isPremium);
-
-      // 4. Volver atrás
       router.back();
     } catch (e: any) {
+      // Si el usuario cancela el share, no hacer nada (no guardar, no alertar)
+      if (e?.message?.includes('CANCELED') || e?.message?.includes('canceled') || e?.message?.includes('cancelled')) {
+        return;
+      }
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
       setGenerandoPDF(false);
@@ -596,6 +605,7 @@ export default function NuevaFactura() {
           await adsService.incrementAction(isPremium);
 
           router.back();
+          return;
         } else {
           // Modo edición gratis: crear nueva factura en lugar de actualizar
           const nuevoNumero = getNextNumeroFactura(numeracionConfig);
@@ -615,8 +625,12 @@ export default function NuevaFactura() {
             fecha_vencimiento: fechaVencimiento,
           });
 
+          // Checkear ANTES de setear el flag para saber si es la primera factura
+          const yaTeniaPrimera = await AsyncStorage.getItem('ha_creado_primera_factura');
+          
           // Guardar flag de primera factura creada
           await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
+          activarReferidoSiProcede();
 
           for (const item of itemsValidos) {
             const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
@@ -634,13 +648,19 @@ export default function NuevaFactura() {
             });
           }
 
-          // Incrementar contador mensual (solo si NO es un rewarded save)
-          if (!isRewardedSave) await incrementInvoiceCounter();
+          // Incrementar contador mensual (solo si NO es un rewarded save y NO es premium)
+          if (!isRewardedSave && !isPremium) await incrementInvoiceCounter();
 
           // Mostrar anuncio intersticial cada 3 acciones
           await adsService.incrementAction(isPremium);
 
-          router.back();
+          // Si es la primera factura, redirigir a la pantalla de invitar amigos
+          if (yaTeniaPrimera !== 'true') {
+            router.replace('/settings/referral' as any);
+          } else {
+            router.back();
+          }
+          return;
         }
       } else {
         // Modo creación: insertar nueva factura
@@ -660,8 +680,12 @@ export default function NuevaFactura() {
           fecha_vencimiento: fechaVencimiento,
         });
 
+        // Checkear ANTES de setear el flag
+        const yaTeniaPrimera = await AsyncStorage.getItem('ha_creado_primera_factura');
+        
         // Guardar flag de primera factura creada
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
+        activarReferidoSiProcede();
 
         for (const item of itemsValidos) {
           const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
@@ -679,13 +703,18 @@ export default function NuevaFactura() {
           });
         }
 
-        // Incrementar contador mensual (solo si NO es un rewarded save)
-        if (!isRewardedSave) await incrementInvoiceCounter();
+        // Incrementar contador mensual (solo si NO es rewarded save y NO es premium)
+        if (!isRewardedSave && !isPremium) await incrementInvoiceCounter();
 
         // Mostrar anuncio intersticial cada 3 acciones
         await adsService.incrementAction(isPremium);
 
-        router.back();
+        // Si es la primera factura, redirigir a referidos
+        if (yaTeniaPrimera !== 'true') {
+          router.replace('/settings/referral' as any);
+        } else {
+          router.back();
+        }
       }
     } catch (e: any) {
       Alert.alert(t('error'), `${t('error_guardar')}: ${e?.message || ''}`);
@@ -695,6 +724,77 @@ export default function NuevaFactura() {
   const clientesFiltrados = clientes.filter(c =>
     c.nombre.toLowerCase().includes(busquedaCliente.toLowerCase())
   );
+
+  async function activarReferidoSiProcede() {
+    try {
+      const codigo = await AsyncStorage.getItem('pending_referral_code');
+      if (!codigo) return;
+
+      // Verificar si el deadline de 12h ha expirado
+      const deadline = await AsyncStorage.getItem('referral_code_deadline');
+      if (deadline && Date.now() > new Date(deadline).getTime()) {
+        // Deadline expirado, limpiar y no activar
+        await AsyncStorage.removeItem('pending_referral_code');
+        await AsyncStorage.removeItem('referral_code_deadline');
+        return;
+      }
+
+      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const supabaseModule = await import('../../services/supabase');
+      if (!supabaseModule.supabase) return;
+
+      const { data: { session } } = await supabaseModule.supabase.auth.getSession();
+      const userId = session?.user?.id;
+      const userEmail = session?.user?.email;
+      const accessToken = session?.access_token;
+      if (!userId) return;
+
+      // Buscar el dueño del código
+      const { data: codeData } = await supabaseModule.supabase
+        .from('referral_codes')
+        .select('user_id')
+        .eq('code', codigo)
+        .maybeSingle();
+
+      if (!codeData || codeData.user_id === userId) {
+        await AsyncStorage.removeItem('pending_referral_code');
+        return;
+      }
+
+      // Insertar evento pending con el email del usuario referido
+      await supabaseModule.supabase
+        .from('referral_events')
+        .insert({
+          referrer_id: codeData.user_id,
+          referred_id: userId,
+          referred_email: userEmail || null,
+          code_used: codigo,
+          status: 'pending',
+        });
+
+      // Llamar a la Edge Function para activar
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
+      const response = await fetch(`${supabaseUrl}/functions/v1/activate-referral`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ referred_user_id: userId }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) return; // Si falla, mantener código para reintentar
+
+      // Solo eliminar si la Edge Function respondió OK
+      await AsyncStorage.removeItem('pending_referral_code');
+    } catch {
+      // Silencioso: no bloquear el flujo del usuario.
+      // Si falla, pending_referral_code se mantiene para reintentar en la siguiente factura.
+    }
+  }
 
   function hayCambiosSinGuardar() {
     if (notas.trim().length > 0) return true;
@@ -756,11 +856,22 @@ export default function NuevaFactura() {
                   </View>
                 </View>
               ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF3E0', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: '#FFB74D' }}>
-                  <Ionicons name="alert-circle-outline" size={14} color="#FF4757" />
-                  <Text style={{ fontSize: 12, color: '#FF4757', fontWeight: '600' }}>
-                    {t('limite_alcanzado')} {'\u00b7'} {t('se_renueva_en', { dias: getDiasRestantesMes() })}
-                  </Text>
+                <View style={{ gap: 6 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF3E0', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: '#FFB74D' }}>
+                    <Ionicons name="alert-circle-outline" size={14} color="#FF4757" />
+                    <Text style={{ fontSize: 12, color: '#FF4757', fontWeight: '600' }}>
+                      {t('limite_alcanzado')} {'\u00b7'} {t('se_renueva_en', { dias: getDiasRestantesMes() })}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: currentTheme.colors.primary + '12', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: currentTheme.colors.primary + '30' }}
+                    onPress={() => router.push('/settings/referral' as any)}
+                  >
+                    <Ionicons name="gift-outline" size={16} color={currentTheme.colors.primary} />
+                    <Text style={{ fontSize: 12, color: currentTheme.colors.primary, fontWeight: '600' }}>
+                      {t('invitar_amigos_banner')}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               )}
             </View>

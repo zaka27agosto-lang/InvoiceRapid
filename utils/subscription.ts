@@ -2,9 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabase';
 
 const LIMITE_FACTURAS_MENSUAL = 5;
+
+/** URL de la Edge Function para check + incremento atómico de facturas */
+const EDGE_FUNCTION_URL = `${
+  process.env.EXPO_PUBLIC_SUPABASE_URL || ''
+}/functions/v1/check-and-increment-invoice`;
 const MONTHLY_COUNTER_KEY = 'monthly_invoice_counter';
 const REWARDED_ADS_KEY = 'rewarded_ads_monthly';
-const MAX_REWARDED_ADS_PER_MONTH = 1;
+const APP_CONFIG_CACHE_KEY = 'app_config_cache';
+const MAX_REWARDED_ADS_PER_MONTH_HARDCODED = 1;
 
 interface MonthlyCounter {
   month: string; // "YYYY-MM" format
@@ -72,6 +78,97 @@ async function resetIfMonthChanged(counter: RewardedAdCounter): Promise<Rewarded
   return counter;
 }
 
+// ────── Edge Function helper ──────
+
+interface EdgeFunctionResult {
+  canCreate: boolean;
+  isPro: boolean;
+  currentCount: number;
+  limit: number;
+}
+
+/**
+ * Llama a la Edge Function check-and-increment-invoice.
+ * Retorna null si no hay conexión o hay error.
+ */
+async function callEdgeFunction(month: string, mode: 'check' | 'increment'): Promise<EdgeFunctionResult | null> {
+  if (!supabase) return null;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    const token = session?.access_token;
+    if (!token) return null;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
+
+    const response = await fetch(EDGE_FUNCTION_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ month, mode }),
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+
+    if (!response.ok) return null;
+    return await response.json();
+  } catch {
+    return null;
+  }
+}
+
+// ────── Remote config helpers ──────
+
+const APP_CONFIG_KEY_MAX_REWARDED = 'max_rewarded_ads_per_month';
+
+/**
+ * Obtiene max_rewarded_ads_per_month desde Supabase (app_config).
+ * Hace caché en AsyncStorage. Fallback al valor hardcodeado si no hay conexión.
+ */
+async function getMaxRewardedAdsPerMonth(): Promise<number> {
+  // 1. Intentar desde Supabase
+  if (supabase) {
+    try {
+      const { data } = await supabase
+        .from('app_config')
+        .select('value')
+        .eq('key', APP_CONFIG_KEY_MAX_REWARDED)
+        .maybeSingle();
+
+      if (data?.value) {
+        const parsed = parseInt(data.value, 10);
+        if (!isNaN(parsed) && parsed > 0) {
+          // Guardar en caché local
+          await AsyncStorage.setItem(APP_CONFIG_CACHE_KEY, JSON.stringify({
+            [APP_CONFIG_KEY_MAX_REWARDED]: parsed,
+          }));
+          return parsed;
+        }
+      }
+    } catch {
+      // Silencioso — usar caché o fallback
+    }
+  }
+
+  // 2. Intentar desde AsyncStorage (caché)
+  try {
+    const cached = await AsyncStorage.getItem(APP_CONFIG_CACHE_KEY);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (typeof parsed[APP_CONFIG_KEY_MAX_REWARDED] === 'number') {
+        return parsed[APP_CONFIG_KEY_MAX_REWARDED];
+      }
+    }
+  } catch {
+    // Silencioso
+  }
+
+  // 3. Fallback al valor hardcodeado
+  return MAX_REWARDED_ADS_PER_MONTH_HARDCODED;
+}
+
 // ────── Supabase helpers ──────
 
 /**
@@ -88,22 +185,6 @@ async function getCounterFromSupabase(_userId: string, month: string): Promise<{
     return { invoice_count: data[0].invoice_count ?? 0, rewarded_count: data[0].rewarded_count ?? 0 };
   } catch {
     return null;
-  }
-}
-
-/**
- * Intenta incrementar el contador de facturas en Supabase.
- * Retorna true si se completó con éxito, false si falló.
- */
-async function incrementInvoiceInSupabase(_userId: string, month: string): Promise<boolean> {
-  if (!supabase) return false;
-  try {
-    const { error } = await supabase.rpc('increment_invoice_counter', {
-      p_month: month,
-    });
-    return !error;
-  } catch {
-    return false;
   }
 }
 
@@ -127,31 +208,29 @@ async function incrementRewardedInSupabase(_userId: string, month: string): Prom
 
 /**
  * Verifica los límites de facturas del mes actual.
- * Fuente principal: Supabase. Fallback: AsyncStorage.
+ * Fuente principal: Edge Function (segura, inbypasseable).
+ * Caché local: AsyncStorage para mostrar la UI aunque no haya conexión.
+ * @param isPremium - Si el usuario es premium, se salta la verificación y devuelve límite ilimitado.
  * @returns canCreate: si puede crear más facturas, currentCount: usadas este mes, limit: límite mensual
  */
-export async function checkInvoiceLimitAsync(): Promise<{ canCreate: boolean; currentCount: number; limit: number }> {
-  const month = getCurrentMonth();
-
-  // 1. Intentar obtener desde Supabase
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const supabaseCounter = await getCounterFromSupabase(userId, month);
-    if (supabaseCounter !== null) {
-      // Actualizar AsyncStorage como caché
-      await setMonthlyCounter({ month, count: supabaseCounter.invoice_count });
-      return {
-        canCreate: supabaseCounter.invoice_count < LIMITE_FACTURAS_MENSUAL,
-        currentCount: supabaseCounter.invoice_count,
-        limit: LIMITE_FACTURAS_MENSUAL,
-      };
-    }
+export async function checkInvoiceLimitAsync(isPremium?: boolean): Promise<{ canCreate: boolean; currentCount: number; limit: number }> {
+  // Premium siempre tiene acceso ilimitado
+  if (isPremium) {
+    return { canCreate: true, currentCount: 0, limit: 999 };
   }
 
-  // 2. Fallback: AsyncStorage
-  let counter = await getMonthlyCounter();
+  const month = getCurrentMonth();
 
-  // Si el mes ha cambiado, resetear contador automáticamente
+  // 1. Fuente principal: Edge Function (service_role, inbypasseable)
+  const edgeResult = await callEdgeFunction(month, 'check');
+  if (edgeResult !== null) {
+    // Actualizar AsyncStorage como caché local
+    await setMonthlyCounter({ month, count: edgeResult.currentCount });
+    return edgeResult;
+  }
+
+  // 2. Si no hay conexión: usar AsyncStorage como caché de UI (solo informativo)
+  let counter = await getMonthlyCounter();
   if (counter.month !== month) {
     counter = { month, count: 0 };
     await setMonthlyCounter(counter);
@@ -166,36 +245,26 @@ export async function checkInvoiceLimitAsync(): Promise<{ canCreate: boolean; cu
 
 /**
  * Incrementa el contador mensual de facturas creadas.
- * Fuente principal: Supabase. Fallback: AsyncStorage.
+ * Llama a la Edge Function que verifica el límite e incrementa atómicamente.
+ * NO tiene fallback offline — sin conexión no se puede crear factura.
+ * @throws Error si no hay conexión o la Edge Function rechaza la operación.
  */
 export async function incrementInvoiceCounter(): Promise<void> {
   const month = getCurrentMonth();
 
-  // 1. Intentar incrementar en Supabase
-  const userId = await getCurrentUserId();
-  if (userId) {
-    const ok = await incrementInvoiceInSupabase(userId, month);
-    if (ok) {
-      // Actualizar AsyncStorage como caché
-      let counter = await getMonthlyCounter();
-      if (counter.month !== month) {
-        counter = { month, count: 1 };
-      } else {
-        counter.count += 1;
-      }
-      await setMonthlyCounter(counter);
-      return;
-    }
+  // 1. Fuente única: Edge Function (service_role, inbypasseable)
+  const edgeResult = await callEdgeFunction(month, 'increment');
+
+  if (edgeResult === null) {
+    throw new Error('No hay conexión para verificar el límite de facturas');
   }
 
-  // 2. Fallback: AsyncStorage
-  let counter = await getMonthlyCounter();
-  if (counter.month !== month) {
-    counter = { month, count: 1 };
-  } else {
-    counter.count += 1;
+  if (!edgeResult.canCreate) {
+    throw new Error(`Límite mensual alcanzado (${edgeResult.currentCount}/${edgeResult.limit})`);
   }
-  await setMonthlyCounter(counter);
+
+  // 2. Actualizar AsyncStorage como caché local
+  await setMonthlyCounter({ month, count: edgeResult.currentCount });
 }
 
 /* ────────── REWARDED ADS — tracking mensual ────────── */
@@ -207,7 +276,10 @@ export async function incrementInvoiceCounter(): Promise<void> {
 export async function getRemainingRewardedAds(): Promise<number> {
   const month = getCurrentMonth();
 
-  // 1. Intentar obtener desde Supabase
+  // 1. Obtener el límite remoto (con caché y fallback)
+  const maxAds = await getMaxRewardedAdsPerMonth();
+
+  // 2. Intentar obtener contador desde Supabase
   const userId = await getCurrentUserId();
   if (userId) {
     const supabaseCounter = await getCounterFromSupabase(userId, month);
@@ -215,14 +287,14 @@ export async function getRemainingRewardedAds(): Promise<number> {
       // Actualizar AsyncStorage como caché
       const counter = await resetIfMonthChanged({ month, count: supabaseCounter.rewarded_count });
       await setRewardedAdCounter(counter);
-      return Math.max(0, MAX_REWARDED_ADS_PER_MONTH - counter.count);
+      return Math.max(0, maxAds - counter.count);
     }
   }
 
-  // 2. Fallback: AsyncStorage
+  // 3. Fallback: AsyncStorage
   let counter = await getRewardedAdCounter();
   counter = await resetIfMonthChanged(counter);
-  return Math.max(0, MAX_REWARDED_ADS_PER_MONTH - counter.count);
+  return Math.max(0, maxAds - counter.count);
 }
 
 /**

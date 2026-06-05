@@ -1,20 +1,21 @@
 import db from './database';
+import type { Albaran, AlbaranItem } from './types';
 
-export function getAlbaranes() {
+export function getAlbaranes(): Albaran[] {
   if (!db) return [];
   return db.getAllSync(`
     SELECT * FROM albaranes ORDER BY fecha DESC
-  `);
+  `) as Albaran[];
 }
 
-export function getAlbaran(id: number) {
+export function getAlbaran(id: number): Albaran | null {
   if (!db) return null;
-  return db.getFirstSync(`SELECT * FROM albaranes WHERE id = ?`, [id]);
+  return db.getFirstSync(`SELECT * FROM albaranes WHERE id = ?`, [id]) as Albaran | null;
 }
 
-export function getAlbaranItems(albaran_id: number) {
+export function getAlbaranItems(albaran_id: number): AlbaranItem[] {
   if (!db) return [];
-  return db.getAllSync(`SELECT * FROM albaran_items WHERE albaran_id = ?`, [albaran_id]);
+  return db.getAllSync(`SELECT * FROM albaran_items WHERE albaran_id = ?`, [albaran_id]) as AlbaranItem[];
 }
 
 export function insertAlbaran(data: {
@@ -123,7 +124,7 @@ export function getNextNumeroAlbaran(config?: { prefijo: string; sufijo: string;
      ORDER BY CAST(REPLACE(REPLACE(numero, ?, ''), ?, '') AS INTEGER) DESC 
      LIMIT 1`,
     [prefijo, sufijo]
-  ) as any;
+  ) as { numero: string } | null;
   
   if (!lastAlbaran || !lastAlbaran.numero) {
     return `${prefijo}${String(1).padStart(digitos, '0')}${sufijo}`;

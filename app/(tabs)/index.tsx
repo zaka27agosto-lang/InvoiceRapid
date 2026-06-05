@@ -29,6 +29,8 @@ export default function Inicio() {
   const [, setCodigoMoneda] = useState('EUR');
   const [statsConvertidos, setStatsConvertidos] = useState({ porCobrar: 0, impagadas: 0, noEnviadas: 0, pagadas: 0 });
   const [albaranesStatsConvertidos, setAlbaranesStatsConvertidos] = useState({ pendiente: 0, entregado: 0 });
+  const [mostrarBannerCodigo, setMostrarBannerCodigo] = useState(false);
+  const [bannerTiempoRestante, setBannerTiempoRestante] = useState('');
   const router = useRouter();
   const { t } = useTranslation();
   const { isPremium } = useSubscription();
@@ -74,11 +76,11 @@ export default function Inicio() {
   }
 
   function cargarDatos() {
-    const facturasData = getFacturas() as any[];
-    const albaranesData = getAlbaranes() as any[];
+    const facturasData = getFacturas();
+    const albaranesData = getAlbaranes();
     setFacturas(facturasData);
     setAlbaranes(albaranesData);
-    checkInvoiceLimitAsync().then(setLimiteInfo);
+    checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
     getFormatoFecha().then(setFormatoFecha);
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo);
@@ -134,6 +136,37 @@ export default function Inicio() {
         setAlbaranesStatsConvertidos({ pendiente, entregado });
       });
     });
+
+    // Verificar si mostrar banner de código de referido
+    verificarBannerCodigo();
+  }
+
+  async function verificarBannerCodigo() {
+    try {
+      const deadline = await AsyncStorage.getItem('referral_code_deadline');
+      const pendingCode = await AsyncStorage.getItem('pending_referral_code');
+      
+      // Solo mostrar si: hay deadline, no ha expirado, y no hay código pendiente
+      if (!deadline || pendingCode) {
+        setMostrarBannerCodigo(false);
+        return;
+      }
+
+      const deadlineMs = new Date(deadline).getTime();
+      if (Date.now() > deadlineMs) {
+        setMostrarBannerCodigo(false);
+        return;
+      }
+
+      // Calcular tiempo restante
+      const msRest = deadlineMs - Date.now();
+      const horas = Math.floor(msRest / (1000 * 60 * 60));
+      const min = Math.floor((msRest % (1000 * 60 * 60)) / (1000 * 60));
+      setBannerTiempoRestante(`${horas}h ${min}min`);
+      setMostrarBannerCodigo(true);
+    } catch {
+      setMostrarBannerCodigo(false);
+    }
   }
 
   useFocusEffect(useCallback(() => {
@@ -229,6 +262,28 @@ export default function Inicio() {
             </View>
           </View>
         ) : null}
+
+        {/* Banner código de referido */}
+        {mostrarBannerCodigo && !isPremium && (
+          <TouchableOpacity
+            style={[styles.referralBanner, { backgroundColor: currentTheme.colors.primary + '10', borderColor: currentTheme.colors.primary + '30', marginHorizontal: 20, marginBottom: 16 }]}
+            onPress={() => router.push('/onboarding/referral-code' as any)}
+            activeOpacity={0.7}
+          >
+            <View style={[styles.referralBannerIcon, { backgroundColor: currentTheme.colors.primary + '18' }]}>
+              <Ionicons name="gift-outline" size={20} color={currentTheme.colors.primary} />
+            </View>
+            <View style={styles.referralBannerTextContainer}>
+              <Text style={[styles.referralBannerTitle, { color: currentTheme.colors.primary }]}>
+                ¿Tienes un código de invitado?
+              </Text>
+              <Text style={[styles.referralBannerSub, { color: currentTheme.colors.primary + '99' }]}>
+                Te quedan {bannerTiempoRestante} para introducirlo
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={18} color={currentTheme.colors.primary + '80'} />
+          </TouchableOpacity>
+        )}
 
         {!isPremium && (
           <View style={styles.contadorWrapper}>
@@ -464,4 +519,22 @@ const styles = StyleSheet.create({
   estadoMiniPill: { paddingHorizontal: 12, paddingVertical: 5, borderRadius: 12, marginTop: 8 },
   estadoMiniTexto: { fontSize: 12, fontWeight: "600" },
   estadoMiniRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 4 },
+  referralBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderRadius: 14,
+    padding: 14,
+    borderWidth: 1,
+  },
+  referralBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  referralBannerTextContainer: { flex: 1 },
+  referralBannerTitle: { fontSize: 14, fontWeight: '700' },
+  referralBannerSub: { fontSize: 12, fontWeight: '500', marginTop: 2 },
 });

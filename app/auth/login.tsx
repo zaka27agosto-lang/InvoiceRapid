@@ -21,14 +21,18 @@ export default function Login() {
   async function verificarEstadoAntesDeLogin(userEmail: string): Promise<'ok' | 'pending_deletion' | 'permanently_deleted' | 'error'> {
     try {
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(
         `${supabaseUrl}/functions/v1/check-account-status`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ email: userEmail }),
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         return 'error'; // Si falla, permitir acceso
@@ -118,6 +122,8 @@ export default function Login() {
       if (!accessToken) { setLoading(false); return; }
 
       const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000);
       const response = await fetch(
         `${supabaseUrl}/functions/v1/restore-account`,
         {
@@ -126,8 +132,10 @@ export default function Login() {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
+          signal: controller.signal,
         }
       );
+      clearTimeout(timeoutId);
 
       if (response.ok) {
         Alert.alert(t('cuenta_restaurada'), t('cuenta_restaurada_desc'));
