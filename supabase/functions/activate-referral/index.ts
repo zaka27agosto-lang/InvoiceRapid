@@ -3,7 +3,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.4'
 
 const supabaseAdmin = createClient(
   Deno.env.get('SUPABASE_URL') || '',
-  Deno.env.get('SERVICE_ROLE_KEY') || ''
+  Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || Deno.env.get('SERVICE_ROLE_KEY') || ''
 )
 
 const REVENUECAT_SECRET_KEY = Deno.env.get('REVENUECAT_SECRET_KEY') || ''
