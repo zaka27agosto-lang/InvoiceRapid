@@ -26,7 +26,7 @@ const config: ExpoConfig = {
   newArchEnabled: true,
 
   ios: {
-    supportsTablet: true,
+    supportsTablet: false, // Solo móviles, no tablets
     bundleIdentifier: process.env.BUNDLE_IDENTIFIER || '',
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -42,7 +42,7 @@ const config: ExpoConfig = {
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
     versionCode: 18,
-    package: process.env.BUNDLE_IDENTIFIER || '',
+    package: process.env.BUNDLE_IDENTIFIER || 'com.zkrstudio.invoicerapidpro',
     googleServicesFile: './google-services.json',
   },
 
@@ -52,6 +52,7 @@ const config: ExpoConfig = {
   },
 
   plugins: [
+    './plugins/withSupportsScreens',
     'expo-router',
     [
       'expo-splash-screen',
@@ -70,7 +71,7 @@ const config: ExpoConfig = {
     [
       'react-native-google-mobile-ads',
       {
-        androidAppId: process.env.GOOGLE_ADS_ANDROID_APP_ID || '',
+        androidAppId: 'ca-app-pub-3758182602063783~1918923220',
         iosAppId: process.env.GOOGLE_ADS_IOS_APP_ID || '',
       },
     ],

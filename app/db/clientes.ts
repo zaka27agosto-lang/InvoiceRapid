@@ -24,5 +24,10 @@ export function updateCliente(id: number, cliente: Partial<Cliente>) {
 
 export function deleteCliente(id: number) {
   if (!db) return;
+  // Anular referencias en facturas y albaranes antes de eliminar
+  // (foreign key constraint con PRAGMA foreign_keys = ON bloquearía el DELETE)
+  // Reseteamos sync_status para que el cambio se suba a la nube sin esperar al ciclo de 60s
+  db.runSync("UPDATE facturas SET cliente_id = NULL, sync_status = 'pending' WHERE cliente_id = ?", [id]);
+  db.runSync("UPDATE albaranes SET cliente_id = NULL, sync_status = 'pending' WHERE cliente_id = ?", [id]);
   return db.runSync('DELETE FROM clientes WHERE id = ?', [id]);
 }
