@@ -44,5 +44,9 @@ app-example
 /android
 nul
 
+# Generated code dumps (contain secrets)
+codigo_completo.txt
+codigo_supabase.txt
+
 # JDK tools (too large for GitHub)
 tools/
