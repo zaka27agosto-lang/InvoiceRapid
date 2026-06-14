@@ -91,7 +91,10 @@ export default function Privacy() {
             {'\u2022'} Google AdMob: publicación de anuncios.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            {'\u2022'} Expo / Firebase Crashlytics: datos de rendimiento y fallos.
+            {'\u2022'} Expo: framework que puede recopilar datos de rendimiento y fallos.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Firebase Crashlytics: recopilación de registros de fallos y datos de diagnóstico.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>3. Uso de los datos</Text>
@@ -108,7 +111,7 @@ export default function Privacy() {
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>4. Compartición de datos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid PRO no vende datos personales a terceros. Los datos solo se comparten con los servicios externos mencionados (Supabase, RevenueCat, Google Play Billing, Google AdMob, Expo) para los fines descritos. También podrán divulgarse si lo exige la ley o una autoridad competente.
+            InvoiceRapid PRO no vende datos personales a terceros. Los datos solo se comparten con los servicios externos mencionados (Supabase, RevenueCat, Google Play Billing, Google AdMob, Expo, Firebase Crashlytics) para los fines descritos. También podrán divulgarse si lo exige la ley o una autoridad competente.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>5. Retención de datos</Text>
