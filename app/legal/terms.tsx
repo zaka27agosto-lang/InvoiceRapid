@@ -59,7 +59,7 @@ export default function Terms() {
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Propiedad Intelectual</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid y todo su contenido, diseño, funcionalidades y código son propiedad exclusiva de InvoiceRapid. Está prohibido:
+            InvoiceRapid PRO y todo su contenido, diseño, funcionalidades y código son propiedad exclusiva de ZKR Studio. Está prohibido:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             • Copiar, modificar o distribuir la aplicación.

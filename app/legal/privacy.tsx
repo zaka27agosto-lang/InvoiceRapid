@@ -21,140 +21,146 @@ export default function Privacy() {
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={[styles.content, { backgroundColor: currentTheme.colors.card }]}>
-          <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>🟩 POLÍTICA DE PRIVACIDAD — InvoiceRapid PRO</Text>
-          
+          <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>Política de Privacidad — InvoiceRapid PRO</Text>
+
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
             Última actualización: 01/06/2026
           </Text>
 
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. Introducción</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid PRO ({'"'}la Aplicaci{'\u00F3'}n{'"'}), desarrollada por ZKR Studio, se compromete a proteger la privacidad de los usuarios. Esta Pol{'\u00ED'}tica de Privacidad explica qu{'\u00E9'} datos se recopilan, c{'\u00F3'}mo se utilizan y qu{'\u00E9'} derechos tiene el usuario, cumpliendo con el Reglamento General de Protecci{'\u00F3'}n de Datos (RGPD) de la Uni{'\u00F3'}n Europea.
+            InvoiceRapid PRO ("la Aplicación") respeta la privacidad de los usuarios y se compromete a proteger sus datos personales. Esta Política de Privacidad explica qué datos se recopilan, cómo se utilizan, con quién se comparten y qué derechos tiene el usuario.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            La aplicación puede utilizarse sin crear una cuenta. La creación de cuenta es opcional y sirve para guardar datos en la nube, como facturas, clientes y productos.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. Datos que recopilamos</Text>
-          
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>1.1. Datos proporcionados por el usuario</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>2. Datos que recopilamos</Text>
+
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.1. Datos proporcionados voluntariamente</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Correo electrónico y contraseña para crear una cuenta.
+            Estos datos solo se recopilan si el usuario decide crear una cuenta o realizar compras:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Datos introducidos manualmente en la aplicación: clientes, productos, facturas y configuraciones.
+            {'\u2022'} Dirección de correo electrónico.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Contraseña.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Datos introducidos manualmente: clientes, productos, facturas y configuraciones.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Historial de compras (suscripciones o pagos).
           </Text>
 
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>1.2. Datos técnicos</Text>
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.2. Datos recopilados automáticamente</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Tipo de dispositivo
+            La aplicación y los servicios externos pueden recopilar automáticamente:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Sistema operativo
+            {'\u2022'} Registros de fallos (crash logs).
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Información básica de uso para mejorar la aplicación
+            {'\u2022'} Datos de diagnóstico y rendimiento.
           </Text>
-
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>1.3. Publicidad</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            La versión gratuita de la aplicación muestra anuncios a través de Google AdMob. Se utiliza el SDK UMP (User Messaging Platform) de Google para solicitar el consentimiento de anuncios personalizados a usuarios en el EEE, cumpliendo con el RGPD. Los usuarios premium no ven anuncios. Consulte la Política de Privacidad de Google: https://policies.google.com/privacy
+            {'\u2022'} IDs de dispositivo e identificadores (incluyendo AAID).
           </Text>
-
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>1.4. Suscripciones y pagos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Las suscripciones premium se gestionan a través de Google Play Billing y RevenueCat. RevenueCat procesa la información de suscripción para verificar el estado premium del usuario. No almacenamos datos de tarjetas de crédito ni métodos de pago. Consulte la Política de Privacidad de RevenueCat: https://www.revenuecat.com/privacy
+            {'\u2022'} Información básica del dispositivo y sistema operativo.
           </Text>
-
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>1.5. Servicios externos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            La aplicación utiliza Supabase como servicio de autenticación y base de datos. Consulte la Política de Privacidad de Supabase: https://supabase.com/privacy
+            Consentimiento de anuncios (UMP): La aplicación utiliza el SDK UMP de Google para solicitar el consentimiento de anuncios a usuarios en el EEE, cumpliendo con el RGPD. Al iniciar la aplicación por primera vez, se mostrará un diálogo de consentimiento.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Publicidad personalizada: Google AdMob puede utilizar el ID de publicidad (AAID) para mostrar anuncios personalizados. El usuario puede desactivarlo desde Ajustes → Google → Anuncios → Desactivar personalización de anuncios.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>2. Uso de los datos</Text>
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.3. Servicios externos utilizados</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Los datos se utilizan para:
+            {'\u2022'} Supabase: autenticación y base de datos.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Crear y gestionar la cuenta del usuario
+            {'\u2022'} RevenueCat: gestión de suscripciones.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Guardar y sincronizar facturas
+            {'\u2022'} Google Play Billing: procesamiento de compras.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Mejorar la estabilidad y funcionamiento de la aplicación
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>3. Compartición de datos</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid PRO no vende datos personales.
+            {'\u2022'} Google AdMob: publicación de anuncios.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Los datos solo se comparten con:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Supabase, para autenticación y almacenamiento
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Autoridades legales si fuera requerido
+            {'\u2022'} Expo / Firebase Crashlytics: datos de rendimiento y fallos.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>4. Retención de datos</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>3. Uso de los datos</Text>
+
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>3.1. Datos de cuenta y compras</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Conservamos los datos personales mientras la cuenta permanezca activa. Al solicitar la eliminación, los datos se conservan durante un período de gracia de 30 días y luego se eliminan permanentemente. Ciertos registros de transacciones pueden conservarse por obligaciones legales (hasta 6 años según legislación fiscal española) de forma anonimizada.
+            El correo electrónico, contraseña, ID de usuario e historial de compras se utilizan para proporcionar y mantener las funciones de la aplicación, crear y autenticar la cuenta, sincronizar datos y prevenir fraudes.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>5. Seguridad</Text>
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>3.2. Datos automáticos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Implementamos medidas para proteger los datos:
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Conexiones cifradas (HTTPS)
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Acceso restringido mediante autenticación
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Almacenamiento seguro en Supabase
+            Se utilizan para analizar rendimiento y estabilidad, detectar y corregir errores, mejorar la experiencia de uso y prevenir fraudes.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>6. Derechos del usuario (RGPD)</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>4. Compartición de datos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            De acuerdo con el RGPD, el usuario tiene derecho a:
+            InvoiceRapid PRO no vende datos personales a terceros. Los datos solo se comparten con los servicios externos mencionados (Supabase, RevenueCat, Google Play Billing, Google AdMob, Expo) para los fines descritos. También podrán divulgarse si lo exige la ley o una autoridad competente.
           </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>5. Retención de datos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Acceder a sus datos personales
+            Los datos se conservan mientras la cuenta esté activa. Al solicitar la eliminación, la cuenta entra en un período de gracia de 30 días. Transcurrido ese plazo sin restauración, los datos se eliminan permanentemente. El historial de compras se conserva por obligaciones fiscales (hasta 6 años según legislación española).
           </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>6. Seguridad</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Rectificar información incorrecta
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            {'\u2022'} Exportar sus datos en formato PDF desde la secci{'\u00F3'}n {'"'}Privacidad y Datos{'"'} en Ajustes
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Solicitar la eliminación de su cuenta y todos sus datos desde Ajustes {'>'} Privacidad y Datos {'>'} Borrar cuenta.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Retirar el consentimiento para anuncios personalizados desde Ajustes {'>'} Consentimiento de anuncios
+            Se aplican medidas técnicas razonables: transmisión cifrada (HTTPS), almacenamiento en servicios seguros, y acceso restringido mediante autenticación.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>7. Eliminación de datos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Al solicitar la eliminación de la cuenta, se inicia un período de gracia de 30 días durante el cual el usuario puede restaurar su cuenta simplemente iniciando sesión. Transcurrido este período, todos los datos personales se eliminan de forma permanente de Supabase. Consulte la página de eliminación de cuenta para más detalles.
+            El usuario puede solicitar la eliminación desde Ajustes → Privacidad y Datos → Borrar cuenta. Se inicia un período de gracia de 30 días durante el cual puede restaurar su cuenta iniciando sesión. Transcurrido ese plazo, los datos se eliminan de forma permanente e irreversible, y el email queda bloqueado para nuevos registros.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Más información en:{' '}
+            https://zaka27agosto-lang.github.io/InvoiceRapid/account-deletion.html
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>8. Menores de edad</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>8. Derechos del usuario</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid PRO no está dirigido a menores de 13 años. No recopilamos conscientemente datos personales de menores. Si un padre o tutor descubre que su hijo nos ha proporcionado datos personales sin consentimiento, puede contactarnos para eliminarlos.
+            El usuario tiene derecho a acceder, rectificar, eliminar y exportar sus datos, así como a retirar el consentimiento en cualquier momento. También puede usar la aplicación sin crear cuenta.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>9. Cambios en esta política</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>9. Cumplimiento normativo</Text>
+
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>9.1. RGPD / GDPR (Europa)</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Podemos actualizar esta política ocasionalmente.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            La fecha de la última actualización se mostrará arriba.
+            Para usuarios del EEE, el tratamiento se basa en: ejecución del contrato, consentimiento, interés legítimo y obligación legal. Los usuarios del EEE pueden presentar reclamaciones ante su autoridad de protección de datos local.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>10. Contacto</Text>
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>9.2. CCPA (California, EE.UU.)</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Para ejercer sus derechos de privacidad, utilice las opciones disponibles en Ajustes {'>'} Privacidad y Datos dentro de la aplicación.
+            Los residentes de California tienen derecho a saber qué datos se recopilan, solicitar su eliminación y no ser discriminados por ejercer sus derechos. InvoiceRapid PRO no vende datos personales según la definición de la CCPA.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>10. Privacidad de menores</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            InvoiceRapid PRO no está dirigido a menores de 13 años. No recopilamos conscientemente datos de menores. Si un padre o tutor descubre que su hijo nos ha proporcionado datos, puede contactarnos para eliminarlos.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>11. Cambios en esta política</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Esta política puede actualizarse ocasionalmente. La versión más reciente estará siempre disponible en:{' '}
+            https://zaka27agosto-lang.github.io/InvoiceRapid/privacy-policy.html
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>12. Contacto</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Para ejercer sus derechos de privacidad, utilice las opciones disponibles en Ajustes → Privacidad y Datos dentro de la aplicación.
           </Text>
           <Text style={{ fontSize: 11, color: currentTheme.colors.textSecondary, opacity: 0.4, marginTop: 20 }}>
             zkrstudio.contact@gmail.com
