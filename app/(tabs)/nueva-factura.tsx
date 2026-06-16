@@ -462,9 +462,9 @@ export default function NuevaFactura() {
           });
         }
         if (!isRewardedSave && !isPremium) await incrementInvoiceCounter();
-        if (yaTeniaPrimera !== 'true') {
+        if (yaTeniaPrimera !== 'true' && !isPremium) {
           savingRef.current = true;
-          router.replace('/settings/referral' as any);
+          router.push('/settings/referral' as any);
           return;
         }
       }
@@ -675,8 +675,8 @@ export default function NuevaFactura() {
 
           // Si es la primera factura, redirigir a la pantalla de invitar amigos
           savingRef.current = true;
-          if (yaTeniaPrimera !== 'true') {
-            router.replace('/settings/referral' as any);
+          if (yaTeniaPrimera !== 'true' && !isPremium) {
+            router.push('/settings/referral' as any);
           } else {
             router.back();
           }
@@ -732,8 +732,8 @@ export default function NuevaFactura() {
 
         // Si es la primera factura, redirigir a referidos
         savingRef.current = true;
-        if (yaTeniaPrimera !== 'true') {
-          router.replace('/settings/referral' as any);
+        if (yaTeniaPrimera !== 'true' && !isPremium) {
+          router.push('/settings/referral' as any);
         } else {
           router.back();
         }

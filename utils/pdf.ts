@@ -366,7 +366,7 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
         .notas { background: transparent; padding: 0; margin-bottom: 15px; }
         .notas h3 { font-size: 8px; text-transform: uppercase; letter-spacing: 2px; color: #4a5568; font-weight: 400; }
         .notas p { color: #1a202c; font-size: 10px; }
-        .footer { color: #4a5568; font-size: 8px; }
+        .footer { color: #1a1a1a; font-size: 11px; }
       `;
       logoHTML = `<div class="logo">INVOICE${isPremium ? 'RAPID PRO' : 'RAPID'}</div>`;
       break;
@@ -405,7 +405,7 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
         .notas { background: ${lightBg}; border-radius: 12px; padding: 10px; margin-bottom: 20px; }
         .notas h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: ${color}; font-weight: 700; margin-bottom: 4px; }
         .notas p { font-size: 10px; color: #4a5568; line-height: 1.3; }
-        .footer { text-align: center; font-size: 10px; color: #4a5568; border-top: 2px solid ${color}44; padding-top: 12px; margin-top: 8px; font-weight: 600; }
+        .footer { text-align: center; font-size: 12px; color: #1a1a1a; border-top: 2px solid ${color}44; padding-top: 14px; margin-top: 10px; font-weight: 600; }
         .badge-premium { display: inline-block; background: ${color}; color: white; font-size: 9px; padding: 2px 6px; border-radius: 20px; font-weight: 700; letter-spacing: 0.5px; }
       `;
       logoHTML = `<div class="logo">InvoiceRapid${isPremium ? ' Pro' : ''}</div>`;
@@ -482,7 +482,7 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
         </div>
         ${factura.notas ? `<div class="notas"><h3>Notas</h3><p>${factura.notas}</p></div>` : ''}
         <div class="footer">
-          <p><strong style="color: ${color};">Método de pago:</strong> ${(factura.metodo_pago || 'Efectivo').charAt(0).toUpperCase() + (factura.metodo_pago || 'Efectivo').slice(1)} &nbsp;·&nbsp; <strong style="color: ${color};">Generado con InvoiceRapid Pro</strong> &nbsp;·&nbsp; ${new Date().toLocaleDateString('es-ES')}</p>
+          <p><strong>Método de pago:</strong> ${(factura.metodo_pago || 'Efectivo').charAt(0).toUpperCase() + (factura.metodo_pago || 'Efectivo').slice(1)} &nbsp;·&nbsp; <strong>Generado con InvoiceRapid Pro</strong> &nbsp;·&nbsp; ${new Date().toLocaleDateString('es-ES')}</p>
         </div>
       </div>
     </body>

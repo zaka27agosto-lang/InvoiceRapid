@@ -117,7 +117,7 @@ export default function Documentos() {
     getFormatoFecha().then(setFormatoFecha);
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo); setCodigoMoneda(m.codigo);
-      if (facturaIdParam && !mostrarDetalle && !mostrarDetalleAlbaran && modo === 'facturas') {
+      if (facturaIdParam && !mostrarDetalle && !mostrarDetalleAlbaran && (tipo === 'facturas' || modo === 'facturas')) {
         const factura = (getFacturas()).find((f) => f.id === parseInt(facturaIdParam));
         if (factura) { abrirDetalleFactura(factura, m.codigo); router.setParams({ facturaId: undefined }); }
       }

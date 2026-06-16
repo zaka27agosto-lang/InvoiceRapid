@@ -17,8 +17,6 @@ interface SubscriptionContextType {
   offerings: any;
   comprar: (packageToBuy: any) => Promise<{ success: boolean; error?: string; cancelled?: boolean }>;
   restaurar: () => Promise<{ success: boolean; isPremium?: boolean; error?: string }>;
-  activarPremiumTest: () => Promise<void>;
-  desactivarPremiumTest: () => Promise<void>;
   checkPremiumStatus: () => Promise<void>;
   aumentarLimiteFacturas: () => Promise<void>;
   onPremiumExpired: () => void;
@@ -120,18 +118,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function activarPremiumTest() {
-    setIsPremium(true);
-    await AsyncStorage.setItem('is_premium', 'true');
-    notifyPremiumChange(true);
-  }
-
-  async function desactivarPremiumTest() {
-    setIsPremium(false);
-    await AsyncStorage.setItem('is_premium', 'false');
-    notifyPremiumChange(false);
-  }
-
   async function aumentarLimiteFacturas() {
     // Resetear el contador mensual para pruebas
     const month = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}`;
@@ -165,8 +151,6 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         offerings,
         comprar,
         restaurar,
-        activarPremiumTest,
-        desactivarPremiumTest,
         checkPremiumStatus,
         aumentarLimiteFacturas,
         onPremiumExpired,
