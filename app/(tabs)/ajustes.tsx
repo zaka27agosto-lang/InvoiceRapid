@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  Linking,
   Modal,
   ScrollView,
   StyleSheet,
@@ -44,7 +45,7 @@ import { PrimaryColor, primaryColors } from "../../utils/themes";
 
 export default function Ajustes() {
   const { t, i18n } = useTranslation();
-  const { isPremium, offerings, comprar, restaurar, activarPremiumTest, desactivarPremiumTest, aumentarLimiteFacturas } = useSubscription();
+  const { isPremium, offerings, comprar, restaurar } = useSubscription();
   const { currentTheme, primaryColor, mode, setPrimaryColor, setMode } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -118,6 +119,28 @@ export default function Ajustes() {
   }
 
   async function handleRestaurar() {
+    // Primera vez: mostrar explicación de qué hace restaurar compras
+    const haVistoInfo = await AsyncStorage.getItem('ha_visto_restore_info');
+    if (haVistoInfo !== 'true') {
+      await AsyncStorage.setItem('ha_visto_restore_info', 'true');
+      Alert.alert(
+        t('restaurar_compras'),
+        t('restaurar_compras_info'),
+        [
+          { text: t('cancelar'), style: 'cancel' },
+          { text: t('confirmar'), onPress: async () => {
+            const result = await restaurar();
+            if (result.isPremium) {
+              Alert.alert('✅', t('compra_restaurada'));
+            } else {
+              Alert.alert(t('info'), t('no_compras_previas'));
+            }
+          }}
+        ]
+      );
+      return;
+    }
+    // Usuario ya sabe: restaurar directamente
     const result = await restaurar();
     if (result.isPremium) {
       Alert.alert('✅', t('compra_restaurada'));
@@ -275,10 +298,18 @@ export default function Ajustes() {
         </body></html>
       `;
       const { uri } = await Print.printToFileAsync({ html });
+      let compartido = false;
       if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(uri, { UTI: 'com.adobe.pdf', mimeType: 'application/pdf', dialogTitle: 'Exportar datos' });
+        try {
+          await Sharing.shareAsync(uri, { UTI: 'com.adobe.pdf', mimeType: 'application/pdf', dialogTitle: 'Exportar datos' });
+          compartido = true;
+        } catch (_) {
+          // Usuario canceló el share — no mostrar éxito
+        }
       }
-      Alert.alert('✅', t('datos_exportados'));
+      if (compartido) {
+        Alert.alert('✅', t('datos_exportados'));
+      }
     } catch {
       Alert.alert(t('error'), t('error_exportar_datos'));
     }
@@ -524,6 +555,11 @@ export default function Ajustes() {
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('restaurar_compras')}</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => { Linking.openURL('https://play.google.com/store/account/subscriptions'); }}>
+            <Ionicons name="settings-outline" size={20} color={currentTheme.colors.primary} />
+            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('gestionar_suscripcion')}</Text>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         {/* Cuenta */}
@@ -592,37 +628,6 @@ export default function Ajustes() {
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
         </View>
-
-        {/* Modo desarrollo */}
-        {__DEV__ && (
-        <View style={[styles.seccion, { borderWidth: 1.5, borderColor: '#FF9F43', borderStyle: 'dashed', backgroundColor: currentTheme.colors.card }]}>
-          <Text style={[styles.seccionTitulo, { color: '#FF9F43' }]}>🛠 {t('modo_desarrollo')}</Text>
-          <TouchableOpacity style={styles.opcionBoton} onPress={activarPremiumTest}>
-            <Ionicons name="flash-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('activar_premium_test')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
-            await desactivarPremiumTest();
-          }}>
-            <Ionicons name="flash-off-outline" size={20} color="#FF4757" />
-            <Text style={[styles.opcionTexto, { color: '#FF4757' }]}>{t('desactivar_premium_test')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
-            await aumentarLimiteFacturas();
-            Alert.alert('✅', t('contador_reseteado'));
-          }}>
-            <Ionicons name="refresh-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>{t('resetear_contador')}</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={async () => {
-            await adsService.resetConsent();
-            Alert.alert('🔄 Consentimiento reseteado', 'Se ha borrado el consentimiento de anuncios. La próxima vez que se inicie la app, aparecerá el popup de Google.');
-          }}>
-            <Ionicons name="refresh-circle-outline" size={20} color="#FF9F43" />
-            <Text style={[styles.opcionTexto, { color: '#FF9F43' }]}>Resetear consentimiento</Text>
-          </TouchableOpacity>
-        </View>
-        )}
 
         <View style={{ height: 100 }} />
         </ScrollView>

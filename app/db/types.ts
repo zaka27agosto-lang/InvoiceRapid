@@ -32,6 +32,7 @@ export interface Factura {
   estado: string;
   fecha: string;
   fecha_vencimiento?: string;
+  fecha_entrega?: string;
   notas?: string;
   metodo_pago?: string;
   sync_status?: string;

@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS facturas (
   estado TEXT DEFAULT 'no_enviada',
   fecha TEXT DEFAULT (to_char(now(), 'YYYY-MM-DD HH24:MI:SS')),
   fecha_vencimiento TEXT,
+  fecha_entrega TEXT,
   notas TEXT,
   metodo_pago TEXT DEFAULT 'efectivo',
   sync_status TEXT DEFAULT 'synced',

@@ -80,6 +80,7 @@ export class SyncService {
               estado: invoice.estado,
               fecha: invoice.fecha,
               fecha_vencimiento: invoice.fecha_vencimiento,
+              fecha_entrega: invoice.fecha_entrega,
               notas: invoice.notas,
               metodo_pago: invoice.metodo_pago,
               sync_status: 'synced',
@@ -576,24 +577,24 @@ export class SyncService {
           db.runSync(
             `UPDATE facturas SET numero=?, cliente_id=?, cliente_nombre=?, subtotal=?, descuento=?,
              iva_porcentaje=?, iva_importe=?, irpf_porcentaje=?, irpf_importe=?, total=?,
-             estado=?, fecha=?, fecha_vencimiento=?, notas=?, metodo_pago=?, sync_status=?
+             estado=?, fecha=?, fecha_vencimiento=?, fecha_entrega=?, notas=?, metodo_pago=?, sync_status=?
              WHERE id=?`,
             [invoice.numero, invoice.cliente_id, invoice.cliente_nombre, invoice.subtotal,
              invoice.descuento, invoice.iva_porcentaje, invoice.iva_importe,
              invoice.irpf_porcentaje, invoice.irpf_importe, invoice.total,
-             invoice.estado, invoice.fecha, invoice.fecha_vencimiento,
+             invoice.estado, invoice.fecha, invoice.fecha_vencimiento, invoice.fecha_entrega,
              invoice.notas, invoice.metodo_pago, invoice.sync_status || 'pending', invoice.id]
           );
         } else {
           db.runSync(
             `INSERT INTO facturas (id, numero, cliente_id, cliente_nombre, subtotal, descuento,
              iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total,
-             estado, fecha, fecha_vencimiento, notas, metodo_pago, sync_status)
-             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+             estado, fecha, fecha_vencimiento, fecha_entrega, notas, metodo_pago, sync_status)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
             [invoice.id, invoice.numero, invoice.cliente_id, invoice.cliente_nombre, invoice.subtotal,
              invoice.descuento, invoice.iva_porcentaje, invoice.iva_importe,
              invoice.irpf_porcentaje, invoice.irpf_importe, invoice.total,
-             invoice.estado, invoice.fecha, invoice.fecha_vencimiento,
+             invoice.estado, invoice.fecha, invoice.fecha_vencimiento, invoice.fecha_entrega,
              invoice.notas, invoice.metodo_pago, invoice.sync_status || 'pending']
           );
         }

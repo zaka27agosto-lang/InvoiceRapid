@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -70,6 +71,7 @@ export default function NuevoAlbaran() {
   const [itemSeleccionadoParaProducto, setItemSeleccionadoParaProducto] = useState<string | null>(null);
   const [notas, setNotas] = useState("");
   const [fechaEntrega, setFechaEntrega] = useState("");
+  const [mostrarDatePickerEntrega, setMostrarDatePickerEntrega] = useState(false);
   const [direccionEntrega, setDireccionEntrega] = useState("");
   const [firmaData, setFirmaData] = useState<string | null>(null);
   const [scrollEnabled, setScrollEnabled] = useState(true);
@@ -79,6 +81,8 @@ export default function NuevoAlbaran() {
   const [numeroAlbaran, setNumeroAlbaran] = useState("");
   const [numeracionConfig, setNumeracionConfigState] = useState<{ prefijo: string; sufijo: string; digitos: number }>({ prefijo: 'A-', sufijo: '', digitos: 4 });
   const scrollRef = useRef<ScrollView>(null);
+  const savingRef = useRef(false);
+  const closingRef = useRef(false);
 
   useEffect(() => {
     getMoneda().then(m => {
@@ -91,6 +95,7 @@ export default function NuevoAlbaran() {
       setNumeracionConfigState({ prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos });
     });
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (savingRef.current || closingRef.current) return;
       if (mostrarClientes || mostrarProductos || mostrarUnidades || mostrarPaywall) return;
       if (!hayCambiosSinGuardar()) return;
       e.preventDefault();
@@ -123,7 +128,7 @@ export default function NuevoAlbaran() {
           reiniciarFormulario();
         }
       });
-    }, [albaranId])
+    }, [albaranId, isPremium])
   );
 
   function nuevoItem(): Item {
@@ -341,8 +346,10 @@ export default function NuevoAlbaran() {
       const plantilla = await getPlantillaPDF();
       await generarYCompartirPDFAlbaran(albaranGuardado, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary, firmaData);
       await adsService.incrementAction(isPremium);
+      savingRef.current = true;
       router.back();
     } catch (e: any) {
+      savingRef.current = false;
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
       setGenerandoPDF(false);
@@ -428,6 +435,7 @@ export default function NuevoAlbaran() {
           });
         }
         await adsService.incrementAction(isPremium);
+        savingRef.current = true;
         router.back();
       } else {
         const newId = insertAlbaran({
@@ -449,9 +457,11 @@ export default function NuevoAlbaran() {
         }
         if (!isRewardedSave) await incrementInvoiceCounter();
         await adsService.incrementAction(isPremium);
+        savingRef.current = true;
         router.back();
       }
     } catch (e: any) {
+      savingRef.current = false;
       Alert.alert(t('error'), `${t('error_guardar')}: ${e?.message || ''}`);
     }
   }
@@ -472,13 +482,13 @@ export default function NuevoAlbaran() {
     if (!hayCambiosSinGuardar()) {
       Alert.alert(t('salir_factura_titulo'), t('seguro_salir_factura'), [
         { text: t('cancelar'), style: 'cancel' },
-        { text: t('salir'), onPress: () => router.back() }
+        { text: t('salir'), onPress: () => { closingRef.current = true; router.back(); } }
       ]);
       return;
     }
     Alert.alert('', t('confirmar_salir_factura_cambios'), [
       { text: t('cancelar'), style: 'cancel' },
-      { text: t('salir'), onPress: () => router.back() }
+      { text: t('salir'), onPress: () => { closingRef.current = true; router.back(); } }
     ]);
   }
 
@@ -575,10 +585,32 @@ export default function NuevoAlbaran() {
           {/* Fecha de entrega */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
             <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_entrega')}</Text>
-            <TextInput
-              style={styles.input} placeholder="DD/MM/AAAA" placeholderTextColor="#bbb"
-              value={fechaEntrega} onChangeText={setFechaEntrega}
-            />
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEntrega(true)}>
+              <Text style={{ color: fechaEntrega ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaEntrega || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {fechaEntrega ? (
+              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaEntrega('')}>
+                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+            {mostrarDatePickerEntrega && (
+              <DateTimePicker
+                value={fechaEntrega ? (() => { const parts = fechaEntrega.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerEntrega(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaEntrega(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
           </View>
 
           {/* Dirección de entrega */}

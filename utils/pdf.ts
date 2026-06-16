@@ -227,6 +227,12 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
       })
     : '—';
 
+  const fechaEntrega = factura.fecha_entrega
+    ? new Date(factura.fecha_entrega).toLocaleDateString('es-ES', {
+        day: '2-digit', month: 'long', year: 'numeric'
+      })
+    : null;
+
   const marcaAgua = !isPremium ? `
     <div style="
       position: fixed; top: 50%; left: 50%;
@@ -399,7 +405,7 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
         .notas { background: ${lightBg}; border-radius: 12px; padding: 10px; margin-bottom: 20px; }
         .notas h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: ${color}; font-weight: 700; margin-bottom: 4px; }
         .notas p { font-size: 10px; color: #4a5568; line-height: 1.3; }
-        .footer { text-align: center; font-size: 8px; color: #a0aec0; border-top: 1px solid #f0f0f0; padding-top: 10px; }
+        .footer { text-align: center; font-size: 10px; color: #4a5568; border-top: 2px solid ${color}44; padding-top: 12px; margin-top: 8px; font-weight: 600; }
         .badge-premium { display: inline-block; background: ${color}; color: white; font-size: 9px; padding: 2px 6px; border-radius: 20px; font-weight: 700; letter-spacing: 0.5px; }
       `;
       logoHTML = `<div class="logo">InvoiceRapid${isPremium ? ' Pro' : ''}</div>`;
@@ -446,6 +452,10 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
             <span>Fecha de vencimiento</span>
             <strong>${fechaVencimiento}</strong>
           </div>
+          ${fechaEntrega ? `<div class="fecha-box">
+            <span>Fecha de entrega</span>
+            <strong>${fechaEntrega}</strong>
+          </div>` : ''}
         </div>
         <table>
           <thead>
@@ -472,7 +482,7 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
         </div>
         ${factura.notas ? `<div class="notas"><h3>Notas</h3><p>${factura.notas}</p></div>` : ''}
         <div class="footer">
-          <p>Método de pago: ${factura.metodo_pago || 'Efectivo'} · Generado con InvoiceRapid Pro · ${new Date().toLocaleDateString('es-ES')}</p>
+          <p><strong style="color: ${color};">Método de pago:</strong> ${(factura.metodo_pago || 'Efectivo').charAt(0).toUpperCase() + (factura.metodo_pago || 'Efectivo').slice(1)} &nbsp;·&nbsp; <strong style="color: ${color};">Generado con InvoiceRapid Pro</strong> &nbsp;·&nbsp; ${new Date().toLocaleDateString('es-ES')}</p>
         </div>
       </div>
     </body>

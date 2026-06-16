@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -74,12 +75,17 @@ export default function NuevaFactura() {
   const [notas, setNotas] = useState("");
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [fechaVencimiento, setFechaVencimiento] = useState("");
+  const [fechaEntrega, setFechaEntrega] = useState("");
+  const [mostrarDatePickerEntrega, setMostrarDatePickerEntrega] = useState(false);
+  const [mostrarDatePickerVencimiento, setMostrarDatePickerVencimiento] = useState(false);
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
   const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 5 });
   const [numeroFactura, setNumeroFactura] = useState("");
   const [numeracionConfig, setNumeracionConfigState] = useState<{ prefijo: string; sufijo: string; digitos: number }>({ prefijo: 'F-', sufijo: '', digitos: 4 });
   const scrollRef = useRef<ScrollView>(null);
+  const savingRef = useRef(false);
+  const closingRef = useRef(false);
 
   useEffect(() => {
     getMoneda().then(m => {
@@ -94,6 +100,7 @@ export default function NuevaFactura() {
     });
 
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (savingRef.current || closingRef.current) return;
       if (mostrarClientes || mostrarProductos || mostrarUnidades || mostrarPaywall) {
         return;
       }
@@ -139,7 +146,7 @@ export default function NuevaFactura() {
         reiniciarFormulario();
       }
     });
-    }, [facturaId])
+    }, [facturaId, isPremium])
   );
 
   function nuevoItem(): Item {
@@ -221,6 +228,7 @@ export default function NuevaFactura() {
     setNotas("");
     setMetodoPago("efectivo");
     setFechaVencimiento("");
+    setFechaEntrega("");
     setNumeroFactura(getNextNumeroFactura(numeracionConfig));
   }
 
@@ -244,6 +252,7 @@ export default function NuevaFactura() {
     setNotas(factura.notas || "");
     setMetodoPago(factura.metodo_pago || "efectivo");
     setFechaVencimiento(factura.fecha_vencimiento || "");
+    setFechaEntrega(factura.fecha_entrega || "");
 
     const itemsCargados: Item[] = facturaItems.map((item: any) => ({
       id: Math.random().toString(),
@@ -312,6 +321,7 @@ export default function NuevaFactura() {
         notas,
         metodo_pago: metodoPago,
         fecha_vencimiento: fechaVencimiento,
+        fecha_entrega: fechaEntrega,
         fecha: new Date().toISOString(),
         estado: 'pendiente',
       };
@@ -384,6 +394,7 @@ export default function NuevaFactura() {
         subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
         iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
         total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
+        fecha_entrega: fechaEntrega,
         fecha: new Date().toISOString(), estado: 'pendiente',
       };
 
@@ -416,6 +427,7 @@ export default function NuevaFactura() {
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
           iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
           total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
+          fecha_entrega: fechaEntrega,
         });
         deleteFacturaItems(parseInt(facturaId!));
         for (const item of itemsValidos) {
@@ -434,6 +446,7 @@ export default function NuevaFactura() {
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
           iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
           total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
+          fecha_entrega: fechaEntrega,
         });
         const yaTeniaPrimera = await AsyncStorage.getItem('ha_creado_primera_factura');
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
@@ -450,6 +463,7 @@ export default function NuevaFactura() {
         }
         if (!isRewardedSave && !isPremium) await incrementInvoiceCounter();
         if (yaTeniaPrimera !== 'true') {
+          savingRef.current = true;
           router.replace('/settings/referral' as any);
           return;
         }
@@ -457,8 +471,10 @@ export default function NuevaFactura() {
 
       // 4. Anuncio y volver atrás
       await adsService.incrementAction(isPremium);
+      savingRef.current = true;
       router.back();
     } catch (e: any) {
+      savingRef.current = false;
       // Si el usuario cancela el share, no hacer nada (no guardar, no alertar)
       if (e?.message?.includes('CANCELED') || e?.message?.includes('canceled') || e?.message?.includes('cancelled')) {
         return;
@@ -581,6 +597,7 @@ export default function NuevaFactura() {
             notas,
             metodo_pago: metodoPago,
             fecha_vencimiento: fechaVencimiento,
+            fecha_entrega: fechaEntrega,
           });
 
           // Eliminar items existentes y insertar nuevos
@@ -604,6 +621,7 @@ export default function NuevaFactura() {
           // Mostrar anuncio intersticial cada 3 acciones
           await adsService.incrementAction(isPremium);
 
+          savingRef.current = true;
           router.back();
           return;
         } else {
@@ -623,6 +641,7 @@ export default function NuevaFactura() {
             notas,
             metodo_pago: metodoPago,
             fecha_vencimiento: fechaVencimiento,
+            fecha_entrega: fechaEntrega,
           });
 
           // Checkear ANTES de setear el flag para saber si es la primera factura
@@ -655,6 +674,7 @@ export default function NuevaFactura() {
           await adsService.incrementAction(isPremium);
 
           // Si es la primera factura, redirigir a la pantalla de invitar amigos
+          savingRef.current = true;
           if (yaTeniaPrimera !== 'true') {
             router.replace('/settings/referral' as any);
           } else {
@@ -678,6 +698,7 @@ export default function NuevaFactura() {
           notas,
           metodo_pago: metodoPago,
           fecha_vencimiento: fechaVencimiento,
+          fecha_entrega: fechaEntrega,
         });
 
         // Checkear ANTES de setear el flag
@@ -710,6 +731,7 @@ export default function NuevaFactura() {
         await adsService.incrementAction(isPremium);
 
         // Si es la primera factura, redirigir a referidos
+        savingRef.current = true;
         if (yaTeniaPrimera !== 'true') {
           router.replace('/settings/referral' as any);
         } else {
@@ -717,6 +739,7 @@ export default function NuevaFactura() {
         }
       }
     } catch (e: any) {
+      savingRef.current = false;
       Alert.alert(t('error'), `${t('error_guardar')}: ${e?.message || ''}`);
     }
   }
@@ -798,6 +821,7 @@ export default function NuevaFactura() {
 
   function hayCambiosSinGuardar() {
     if (notas.trim().length > 0) return true;
+    if (fechaEntrega.trim().length > 0) return true;
     if (clienteSeleccionado) return true;
     if (items.some(i => i.descripcion.trim().length > 0 || (parseFloat(i.precio) || 0) > 0)) return true;
     return false;
@@ -807,13 +831,13 @@ export default function NuevaFactura() {
     if (!hayCambiosSinGuardar()) {
       Alert.alert(t('salir_factura_titulo'), t('seguro_salir_factura'), [
         { text: t('cancelar'), style: 'cancel' },
-        { text: t('salir'), onPress: () => router.back() }
+        { text: t('salir'), onPress: () => { closingRef.current = true; router.back(); } }
       ]);
       return;
     }
     Alert.alert('', t('confirmar_salir_factura_cambios'), [
       { text: t('cancelar'), style: 'cancel' },
-      { text: t('salir'), onPress: () => router.back() }
+      { text: t('salir'), onPress: () => { closingRef.current = true; router.back(); } }
     ]);
   }
 
@@ -930,6 +954,68 @@ export default function NuevaFactura() {
                   <Text style={[styles.clienteBtnTexto, { color: currentTheme.colors.primary }]}>{t('anadir_cliente')}</Text>
                 </TouchableOpacity>
               </View>
+            )}
+          </View>
+
+          {/* Fecha de vencimiento */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_vencimiento')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerVencimiento(true)}>
+              <Text style={{ color: fechaVencimiento ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaVencimiento || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {fechaVencimiento ? (
+              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaVencimiento('')}>
+                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+            {mostrarDatePickerVencimiento && (
+              <DateTimePicker
+                value={fechaVencimiento ? (() => { const parts = fechaVencimiento.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerVencimiento(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaVencimiento(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
+          </View>
+
+          {/* Fecha de entrega */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_entrega')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEntrega(true)}>
+              <Text style={{ color: fechaEntrega ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaEntrega || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {fechaEntrega ? (
+              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaEntrega('')}>
+                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+            {mostrarDatePickerEntrega && (
+              <DateTimePicker
+                value={fechaEntrega ? (() => { const parts = fechaEntrega.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerEntrega(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaEntrega(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
             )}
           </View>
 

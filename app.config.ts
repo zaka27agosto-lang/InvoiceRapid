@@ -41,7 +41,7 @@ const config: ExpoConfig = {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
-    versionCode: 18,
+    versionCode: 23,
     package: process.env.BUNDLE_IDENTIFIER || 'com.zkrstudio.invoicerapidpro',
     googleServicesFile: './google-services.json',
   },
@@ -95,7 +95,7 @@ const config: ExpoConfig = {
   extra: {
     router: {},
     eas: {
-      projectId: process.env.EAS_PROJECT_ID || '',
+      projectId: process.env.EAS_PROJECT_ID || '45ccc530-324d-40e6-8434-15dae44a992c',
     },
   },
 

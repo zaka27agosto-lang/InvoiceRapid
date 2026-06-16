@@ -32,16 +32,17 @@ export function insertFactura(data: {
   notas: string;
   metodo_pago: string;
   fecha_vencimiento: string;
+  fecha_entrega?: string;
 }) {
   const result = db.runSync(
     `INSERT INTO facturas 
-      (numero, cliente_id, cliente_nombre, subtotal, descuento, iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total, notas, metodo_pago, fecha_vencimiento)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (numero, cliente_id, cliente_nombre, subtotal, descuento, iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total, notas, metodo_pago, fecha_vencimiento, fecha_entrega)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.numero, data.cliente_id, data.cliente_nombre,
       data.subtotal, data.descuento, data.iva_porcentaje, data.iva_importe,
       data.irpf_porcentaje, data.irpf_importe, data.total,
-      data.notas, data.metodo_pago, data.fecha_vencimiento
+      data.notas, data.metodo_pago, data.fecha_vencimiento, data.fecha_entrega || null
     ]
   );
   return result.lastInsertRowId;
@@ -93,18 +94,19 @@ export function updateFactura(id: number, data: {
   notas: string;
   metodo_pago: string;
   fecha_vencimiento: string;
+  fecha_entrega?: string;
 }) {
   return db.runSync(
     `UPDATE facturas 
      SET numero = ?, cliente_id = ?, cliente_nombre = ?, subtotal = ?, descuento = ?, 
          iva_porcentaje = ?, iva_importe = ?, irpf_porcentaje = ?, irpf_importe = ?, 
-         total = ?, notas = ?, metodo_pago = ?, fecha_vencimiento = ?
+         total = ?, notas = ?, metodo_pago = ?, fecha_vencimiento = ?, fecha_entrega = ?
      WHERE id = ?`,
     [
       data.numero, data.cliente_id, data.cliente_nombre,
       data.subtotal, data.descuento, data.iva_porcentaje, data.iva_importe,
       data.irpf_porcentaje, data.irpf_importe, data.total,
-      data.notas, data.metodo_pago, data.fecha_vencimiento, id
+      data.notas, data.metodo_pago, data.fecha_vencimiento, data.fecha_entrega || null, id
     ]
   );
 }

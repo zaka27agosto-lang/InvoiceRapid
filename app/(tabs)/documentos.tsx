@@ -42,7 +42,7 @@ export default function Documentos() {
     'pendiente': t('pendiente'), 'entregado': t('entregado'), 'todas': t('todas'),
   };
 
-  const { filtro: filtroParam, facturaId: facturaIdParam } = useLocalSearchParams<{ filtro?: string; facturaId?: string }>();
+  const { filtro: filtroParam, facturaId: facturaIdParam, tipo } = useLocalSearchParams<{ filtro?: string; facturaId?: string; tipo?: string }>();
   const [modo, setModo] = useState<'facturas' | 'albaranes'>('facturas');
   const [facturas, setFacturas] = useState<any[]>([]);
   const [albaranes, setAlbaranes] = useState<any[]>([]);
@@ -123,8 +123,14 @@ export default function Documentos() {
       }
     });
     if (!filtroParam) setFiltrosSeleccionados(['todas']);
-    else if (filtroParam) setFiltrosSeleccionados([filtroParam]);
-  }, [filtroParam, facturaIdParam, mostrarDetalle, mostrarDetalleAlbaran, modo]));
+    else if (filtroParam && estadosActuales.includes(filtroParam)) setFiltrosSeleccionados([filtroParam]);
+    else setFiltrosSeleccionados(['todas']);
+    // Forzar modo segun el parametro tipo (viene desde inicio)
+    if (tipo === 'facturas' && modo !== 'facturas') setModo('facturas');
+    else if (tipo === 'albaranes' && modo !== 'albaranes') setModo('albaranes');
+    // Limpiar tipo del URL despues de leerlo
+    if (tipo) router.setParams({ tipo: undefined });
+  }, [filtroParam, facturaIdParam, tipo, mostrarDetalle, mostrarDetalleAlbaran, modo]));
 
   const lastSyncRef = useRef(lastSync);
   useEffect(() => {
@@ -201,6 +207,7 @@ export default function Documentos() {
       iva_importe: facturaDetalle.iva_importe, irpf_porcentaje: facturaDetalle.irpf_porcentaje,
       irpf_importe: facturaDetalle.irpf_importe, total: facturaDetalle.total, notas: facturaDetalle.notas,
       metodo_pago: facturaDetalle.metodo_pago, fecha_vencimiento: facturaDetalle.fecha_vencimiento,
+      fecha_entrega: facturaDetalle.fecha_entrega,
     });
     itemsOriginales.forEach((item: any) => insertFacturaItem({
       factura_id: newId as number, descripcion: item.descripcion, cantidad: item.cantidad,
@@ -326,6 +333,7 @@ export default function Documentos() {
       iva_importe: albaranDetalle.iva_importe, irpf_porcentaje: albaranDetalle.irpf_porcentaje,
       irpf_importe: albaranDetalle.irpf_importe, total: albaranDetalle.total, notas: albaranDetalle.notas,
       metodo_pago: 'efectivo', fecha_vencimiento: '',
+      fecha_entrega: albaranDetalle.fecha_entrega,
     });
     itemsOriginales.forEach((item: any) => insertFacturaItem({
       factura_id: newId as number, descripcion: item.descripcion, cantidad: item.cantidad,
@@ -426,7 +434,8 @@ export default function Documentos() {
   })();
 
   function estadoLabel(estado: string) {
-    return modo === 'facturas' ? estadoLabelFactura(estado) : estadoLabelAlbaran(estado);
+    if (modo === 'facturas') return estadoLabelFactura(estado);
+    return estadoLabelAlbaran(estado);
   }
   function estadoColor(estado: string) {
     return modo === 'facturas' ? estadoColorFactura(estado) : estadoColorAlbaran(estado);
@@ -655,6 +664,12 @@ export default function Documentos() {
                   </View>
                 ) : null}
               </View>
+              {facturaDetalle.fecha_entrega ? (
+                <View style={[styles.detalleFechaBox, { backgroundColor: currentTheme.colors.card, marginHorizontal: 16, marginTop: 12 }]}>
+                  <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('fecha_entrega')}</Text>
+                  <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{formatearFechaSync(facturaDetalle.fecha_entrega)}</Text>
+                </View>
+              ) : null}
               <View style={[styles.detalleSeccion, { backgroundColor: currentTheme.colors.card }]}>
                 <Text style={[styles.detalleSeccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('articulos')}</Text>
                 {itemsDetalleConvertidos.map((item: any, index: number) => (

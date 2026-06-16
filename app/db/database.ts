@@ -65,6 +65,7 @@ export function initDB() {
       estado TEXT DEFAULT 'no_enviada',
       fecha TEXT DEFAULT (datetime('now')),
       fecha_vencimiento TEXT,
+      fecha_entrega TEXT,
       notas TEXT,
       metodo_pago TEXT DEFAULT 'efectivo',
       sync_status TEXT DEFAULT 'pending',
@@ -151,6 +152,13 @@ export function initDB() {
   // Migration: add sync_status column to facturas if it doesn't exist yet
   try {
     db.execSync('ALTER TABLE facturas ADD COLUMN sync_status TEXT DEFAULT \'pending\';');
+  } catch (_) {
+    // Column already exists, ignore
+  }
+
+  // Migration: add fecha_entrega column to facturas if it doesn't exist yet
+  try {
+    db.execSync('ALTER TABLE facturas ADD COLUMN fecha_entrega TEXT;');
   } catch (_) {
     // Column already exists, ignore
   }

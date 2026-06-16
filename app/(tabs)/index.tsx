@@ -82,11 +82,6 @@ export default function Inicio() {
     setAlbaranes(albaranesData);
     checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
     getFormatoFecha().then(setFormatoFecha);
-    getMoneda().then(m => {
-      setSimboloMoneda(m.simbolo);
-      setCodigoMoneda(m.codigo);
-    });
-    
     // Cargar estado de primera vez
     AsyncStorage.getItem('ha_creado_primera_factura').then((value: string | null) => {
       setEsPrimeraVez(value !== 'true');
@@ -95,7 +90,7 @@ export default function Inicio() {
     // Cargar rewarded ads restantes hoy
     getRemainingRewardedAds().then(setRemainingRewardedAds);
 
-    // Obtener moneda primero y luego hacer conversiones
+    // Obtener moneda UNA SOLA VEZ y hacer todas las conversiones con ella
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
@@ -118,20 +113,32 @@ export default function Inicio() {
       );
       albaranesConTotalesConvertidos.then(setAlbaranesConvertidos);
 
+      // Calcular stats directamente de los datos frescos (no del state antiguo)
+      const freshStats = {
+        porCobrar: facturasData.filter((f: any) => f.estado === 'pendiente').reduce((acc: number, f: any) => acc + (f.total || 0), 0),
+        impagadas: facturasData.filter((f: any) => f.estado === 'impagada').reduce((acc: number, f: any) => acc + (f.total || 0), 0),
+        noEnviadas: facturasData.filter((f: any) => f.estado === 'no_enviada').reduce((acc: number, f: any) => acc + (f.total || 0), 0),
+        pagadas: facturasData.filter((f: any) => f.estado === 'pagada').reduce((acc: number, f: any) => acc + (f.total || 0), 0),
+      };
+      const freshAlbaranesStats = {
+        pendiente: albaranesData.filter((a: any) => a.estado === 'pendiente').reduce((acc: number, a: any) => acc + (a.total || 0), 0),
+        entregado: albaranesData.filter((a: any) => a.estado === 'entregado').reduce((acc: number, a: any) => acc + (a.total || 0), 0),
+      };
+
       // Convertir cada estadística de facturas
       Promise.all([
-        convertirDeEurosParaMostrar(stats.porCobrar, m.codigo),
-        convertirDeEurosParaMostrar(stats.impagadas, m.codigo),
-        convertirDeEurosParaMostrar(stats.noEnviadas, m.codigo),
-        convertirDeEurosParaMostrar(stats.pagadas, m.codigo),
+        convertirDeEurosParaMostrar(freshStats.porCobrar, m.codigo),
+        convertirDeEurosParaMostrar(freshStats.impagadas, m.codigo),
+        convertirDeEurosParaMostrar(freshStats.noEnviadas, m.codigo),
+        convertirDeEurosParaMostrar(freshStats.pagadas, m.codigo),
       ]).then(([porCobrar, impagadas, noEnviadas, pagadas]) => {
         setStatsConvertidos({ porCobrar, impagadas, noEnviadas, pagadas });
       });
 
       // Convertir cada estadística de albaranes
       Promise.all([
-        convertirDeEurosParaMostrar(albaranesStats.pendiente, m.codigo),
-        convertirDeEurosParaMostrar(albaranesStats.entregado, m.codigo),
+        convertirDeEurosParaMostrar(freshAlbaranesStats.pendiente, m.codigo),
+        convertirDeEurosParaMostrar(freshAlbaranesStats.entregado, m.codigo),
       ]).then(([pendiente, entregado]) => {
         setAlbaranesStatsConvertidos({ pendiente, entregado });
       });
@@ -171,7 +178,7 @@ export default function Inicio() {
 
   useFocusEffect(useCallback(() => {
     cargarDatos();
-  }, []));
+  }, [isPremium]));
 
   // Re-cargar datos cuando la sincronización completa (lastSync cambia)
   const lastSyncRef = useRef(lastSync);
@@ -188,18 +195,6 @@ export default function Inicio() {
   const porcentajeUsado = Math.min(limiteInfo.currentCount / limiteInfo.limit, 1);
 
   const esFacturas = modo === 'facturas';
-
-  const stats = {
-    porCobrar: facturas.filter(f => f.estado === 'pendiente').reduce((acc, f) => acc + (f.total || 0), 0),
-    impagadas: facturas.filter(f => f.estado === 'impagada').reduce((acc, f) => acc + (f.total || 0), 0),
-    noEnviadas: facturas.filter(f => f.estado === 'no_enviada').reduce((acc, f) => acc + (f.total || 0), 0),
-    pagadas: facturas.filter(f => f.estado === 'pagada').reduce((acc, f) => acc + (f.total || 0), 0),
-  };
-
-  const albaranesStats = {
-    pendiente: albaranes.filter(a => a.estado === 'pendiente').reduce((acc, a) => acc + (a.total || 0), 0),
-    entregado: albaranes.filter(a => a.estado === 'entregado').reduce((acc, a) => acc + (a.total || 0), 0),
-  };
 
   const tarjetasFacturas = [
     { label: t('por_cobrar'), valor: statsConvertidos.porCobrar.toFixed(2) + " " + simboloMoneda, count: facturas.filter(f => f.estado === 'pendiente').length, icono: "time-outline", color: currentTheme.colors.primary, filtro: "pendiente" },
@@ -411,7 +406,7 @@ export default function Inicio() {
                   : (estado === 'entregado' ? t('entregado') : t('pendiente'));
                 return (
                 <TouchableOpacity style={[styles.facturaMiniCard, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]} 
-                  onPress={() => router.push(`/(tabs)/documentos?facturaId=${item.id}` as any)}>
+                  onPress={() => router.push(`/(tabs)/documentos?facturaId=${item.id}&tipo=${esFacturas ? 'facturas' : 'albaranes'}` as any)}>
                   <View style={[styles.estadoBarra, { backgroundColor: estadoColor }]} />
                   <View style={styles.facturaMiniInfo}>
                     <Text style={[styles.facturaMiniNumero, { color: currentTheme.colors.text }]}>{item.numero}</Text>
