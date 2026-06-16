@@ -33,16 +33,18 @@ export function insertFactura(data: {
   metodo_pago: string;
   fecha_vencimiento: string;
   fecha_entrega?: string;
+  fecha?: string;
 }) {
   const result = db.runSync(
     `INSERT INTO facturas 
-      (numero, cliente_id, cliente_nombre, subtotal, descuento, iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total, notas, metodo_pago, fecha_vencimiento, fecha_entrega)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (numero, cliente_id, cliente_nombre, subtotal, descuento, iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total, notas, metodo_pago, fecha_vencimiento, fecha_entrega, fecha)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.numero, data.cliente_id, data.cliente_nombre,
       data.subtotal, data.descuento, data.iva_porcentaje, data.iva_importe,
       data.irpf_porcentaje, data.irpf_importe, data.total,
-      data.notas, data.metodo_pago, data.fecha_vencimiento, data.fecha_entrega || null
+      data.notas, data.metodo_pago, data.fecha_vencimiento, data.fecha_entrega || null,
+      data.fecha || new Date().toISOString()
     ]
   );
   return result.lastInsertRowId;
@@ -95,18 +97,20 @@ export function updateFactura(id: number, data: {
   metodo_pago: string;
   fecha_vencimiento: string;
   fecha_entrega?: string;
+  fecha?: string;
 }) {
   return db.runSync(
     `UPDATE facturas 
      SET numero = ?, cliente_id = ?, cliente_nombre = ?, subtotal = ?, descuento = ?, 
          iva_porcentaje = ?, iva_importe = ?, irpf_porcentaje = ?, irpf_importe = ?, 
-         total = ?, notas = ?, metodo_pago = ?, fecha_vencimiento = ?, fecha_entrega = ?
+         total = ?, notas = ?, metodo_pago = ?, fecha_vencimiento = ?, fecha_entrega = ?, fecha = ?
      WHERE id = ?`,
     [
       data.numero, data.cliente_id, data.cliente_nombre,
       data.subtotal, data.descuento, data.iva_porcentaje, data.iva_importe,
       data.irpf_porcentaje, data.irpf_importe, data.total,
-      data.notas, data.metodo_pago, data.fecha_vencimiento, data.fecha_entrega || null, id
+      data.notas, data.metodo_pago, data.fecha_vencimiento, data.fecha_entrega || null,
+      data.fecha || new Date().toISOString(), id
     ]
   );
 }

@@ -84,7 +84,19 @@ export default function Documentos() {
 
   const estadosActuales = modo === 'facturas' ? ESTADOS_FACTURAS : ESTADOS_ALBARANES;
   const formatearFechaSync = (fecha: string | Date) => {
-    const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
+    let date: Date;
+    if (typeof fecha === 'string') {
+      // Intentar parsear DD/MM/YYYY primero (formato usado en fecha_entrega/vencimiento)
+      const parts = fecha.split('/');
+      if (parts.length === 3 && parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
+        date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      } else {
+        date = new Date(fecha);
+      }
+    } else {
+      date = fecha;
+    }
+    if (isNaN(date.getTime())) return String(fecha);
     if (formatoFecha === 'DD/MM/YYYY') {
       const dia = String(date.getDate()).padStart(2, '0');
       const mes = String(date.getMonth() + 1).padStart(2, '0');
@@ -117,9 +129,14 @@ export default function Documentos() {
     getFormatoFecha().then(setFormatoFecha);
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo); setCodigoMoneda(m.codigo);
-      if (facturaIdParam && !mostrarDetalle && !mostrarDetalleAlbaran && (tipo === 'facturas' || modo === 'facturas')) {
-        const factura = (getFacturas()).find((f) => f.id === parseInt(facturaIdParam));
-        if (factura) { abrirDetalleFactura(factura, m.codigo); router.setParams({ facturaId: undefined }); }
+      if (facturaIdParam && !mostrarDetalle && !mostrarDetalleAlbaran) {
+        if (tipo === 'facturas' || modo === 'facturas') {
+          const factura = (getFacturas()).find((f) => f.id === parseInt(facturaIdParam));
+          if (factura) { abrirDetalleFactura(factura, m.codigo); router.setParams({ facturaId: undefined }); }
+        } else if (tipo === 'albaranes' || modo === 'albaranes') {
+          const albaran = (getAlbaranes()).find((a) => a.id === parseInt(facturaIdParam));
+          if (albaran) { abrirDetalleAlbaran(albaran, m.codigo); router.setParams({ facturaId: undefined }); }
+        }
       }
     });
     if (!filtroParam) setFiltrosSeleccionados(['todas']);
@@ -207,7 +224,6 @@ export default function Documentos() {
       iva_importe: facturaDetalle.iva_importe, irpf_porcentaje: facturaDetalle.irpf_porcentaje,
       irpf_importe: facturaDetalle.irpf_importe, total: facturaDetalle.total, notas: facturaDetalle.notas,
       metodo_pago: facturaDetalle.metodo_pago, fecha_vencimiento: facturaDetalle.fecha_vencimiento,
-      fecha_entrega: facturaDetalle.fecha_entrega,
     });
     itemsOriginales.forEach((item: any) => insertFacturaItem({
       factura_id: newId as number, descripcion: item.descripcion, cantidad: item.cantidad,
@@ -657,19 +673,11 @@ export default function Documentos() {
                   <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
                   <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{facturaDetalle.fecha ? formatearFechaSync(facturaDetalle.fecha) : ''}</Text>
                 </View>
-                {facturaDetalle.fecha_vencimiento ? (
-                  <View style={[styles.detalleFechaBox, { backgroundColor: currentTheme.colors.card }]}>
-                    <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('vencimiento')}</Text>
-                    <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{formatearFechaSync(facturaDetalle.fecha_vencimiento)}</Text>
-                  </View>
-                ) : null}
-              </View>
-              {facturaDetalle.fecha_entrega ? (
-                <View style={[styles.detalleFechaBox, { backgroundColor: currentTheme.colors.card, marginHorizontal: 16, marginTop: 12 }]}>
-                  <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('fecha_entrega')}</Text>
-                  <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{formatearFechaSync(facturaDetalle.fecha_entrega)}</Text>
+                <View style={[styles.detalleFechaBox, { backgroundColor: currentTheme.colors.card }]}>
+                  <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('vencimiento')}</Text>
+                  <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{facturaDetalle.fecha_vencimiento ? formatearFechaSync(facturaDetalle.fecha_vencimiento) : '—'}</Text>
                 </View>
-              ) : null}
+              </View>
               <View style={[styles.detalleSeccion, { backgroundColor: currentTheme.colors.card }]}>
                 <Text style={[styles.detalleSeccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('articulos')}</Text>
                 {itemsDetalleConvertidos.map((item: any, index: number) => (

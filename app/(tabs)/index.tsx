@@ -55,7 +55,18 @@ export default function Inicio() {
   };
 
   const formatearFechaSync = (fecha: string | Date) => {
-    const date = typeof fecha === 'string' ? new Date(fecha) : fecha;
+    let date: Date;
+    if (typeof fecha === 'string') {
+      const parts = fecha.split('/');
+      if (parts.length === 3 && parts[0].length <= 2 && parts[1].length <= 2 && parts[2].length === 4) {
+        date = new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0]));
+      } else {
+        date = new Date(fecha);
+      }
+    } else {
+      date = fecha;
+    }
+    if (isNaN(date.getTime())) return String(fecha);
     if (formatoFecha === 'DD/MM/YYYY') {
       const dia = String(date.getDate()).padStart(2, '0');
       const mes = String(date.getMonth() + 1).padStart(2, '0');

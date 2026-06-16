@@ -34,14 +34,16 @@ export async function generarPDFPreviewAlbaran(albaran: any, items: any[], isPre
 
 async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean, _plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF', firmaData?: string | null): Promise<string> {
   const empresa = await getDatosEmpresa();
-  const fechaEmision = new Date(albaran.fecha).toLocaleDateString('es-ES', {
+  const fechaEmision = albaran.fecha ? (() => { const d = new Date(albaran.fecha); if (!isNaN(d.getTime())) return d; const p = albaran.fecha.split('/'); if (p.length === 3) return new Date(+p[2], +p[1]-1, +p[0]); return new Date(); })() : new Date();
+  const fechaEmisionStr = fechaEmision.toLocaleDateString('es-ES', {
     day: '2-digit', month: 'long', year: 'numeric'
   });
 
   const fechaEntrega = albaran.fecha_entrega
-    ? new Date(albaran.fecha_entrega).toLocaleDateString('es-ES', {
-        day: '2-digit', month: 'long', year: 'numeric'
-      })
+    ? (() => { const d = new Date(albaran.fecha_entrega); if (!isNaN(d.getTime())) return d; const p = albaran.fecha_entrega.split('/'); if (p.length === 3) return new Date(+p[2], +p[1]-1, +p[0]); return null; })()
+    : null;
+  const fechaEntregaStr = fechaEntrega
+    ? fechaEntrega.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
     : '—';
 
   const marcaAgua = !isPremium ? `
@@ -106,7 +108,7 @@ async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean
       .notas { background: ${lightBg}; border-radius: 12px; padding: 10px; margin-bottom: 20px; }
       .notas h3 { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; color: ${color}; font-weight: 700; margin-bottom: 4px; }
       .notas p { font-size: 10px; color: #4a5568; line-height: 1.3; }
-      .footer { text-align: center; font-size: 8px; color: #a0aec0; border-top: 1px solid #f0f0f0; padding-top: 10px; }
+      .footer { text-align: center; font-size: 12px; color: #1a1a1a; border-top: 2px solid ${color}44; padding-top: 14px; margin-top: 10px; font-weight: 600; }
       @page { margin: 0; size: auto; }
     </style>
     <body>
@@ -135,11 +137,11 @@ async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean
         <div class="fechas">
           <div class="fecha-box">
             <span>Fecha de emisión</span>
-            <strong>${fechaEmision}</strong>
+            <strong>${fechaEmisionStr}</strong>
           </div>
           <div class="fecha-box">
             <span>Fecha de entrega</span>
-            <strong>${fechaEntrega}</strong>
+            <strong>${fechaEntregaStr}</strong>
           </div>
         </div>
         <table>
@@ -217,21 +219,17 @@ export async function generarPDFPreview(factura: any, items: any[], isPremium: b
  */
 async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean, plantilla: PlantillaPDF = 'default', simboloMoneda: string = '€', color: string = '#007AFF'): Promise<string> {
   const empresa = await getDatosEmpresa();
-  const fechaCreacion = new Date(factura.fecha).toLocaleDateString('es-ES', {
+  const fechaCreacion = (() => { const d = new Date(factura.fecha); if (!isNaN(d.getTime())) return d; const p = factura.fecha.split('/'); if (p.length === 3) return new Date(+p[2], +p[1]-1, +p[0]); return new Date(); })();
+  const fechaCreacionStr = fechaCreacion.toLocaleDateString('es-ES', {
     day: '2-digit', month: 'long', year: 'numeric'
   });
 
   const fechaVencimiento = factura.fecha_vencimiento
-    ? new Date(factura.fecha_vencimiento).toLocaleDateString('es-ES', {
-        day: '2-digit', month: 'long', year: 'numeric'
-      })
-    : '—';
-
-  const fechaEntrega = factura.fecha_entrega
-    ? new Date(factura.fecha_entrega).toLocaleDateString('es-ES', {
-        day: '2-digit', month: 'long', year: 'numeric'
-      })
+    ? (() => { const d = new Date(factura.fecha_vencimiento); if (!isNaN(d.getTime())) return d; const p = factura.fecha_vencimiento.split('/'); if (p.length === 3) return new Date(+p[2], +p[1]-1, +p[0]); return null; })()
     : null;
+  const fechaVencimientoStr = fechaVencimiento
+    ? fechaVencimiento.toLocaleDateString('es-ES', { day: '2-digit', month: 'long', year: 'numeric' })
+    : '—';
 
   const marcaAgua = !isPremium ? `
     <div style="
@@ -446,16 +444,12 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
         <div class="fechas">
           <div class="fecha-box">
             <span>Fecha de emisión</span>
-            <strong>${fechaCreacion}</strong>
+            <strong>${fechaCreacionStr}</strong>
           </div>
           <div class="fecha-box">
             <span>Fecha de vencimiento</span>
-            <strong>${fechaVencimiento}</strong>
+            <strong>${fechaVencimientoStr}</strong>
           </div>
-          ${fechaEntrega ? `<div class="fecha-box">
-            <span>Fecha de entrega</span>
-            <strong>${fechaEntrega}</strong>
-          </div>` : ''}
         </div>
         <table>
           <thead>

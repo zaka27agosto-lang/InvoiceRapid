@@ -33,17 +33,19 @@ export function insertAlbaran(data: {
   fecha_entrega: string;
   firma_data?: string | null;
   direccion_entrega?: string;
+  fecha?: string;
 }) {
   const result = db.runSync(
     `INSERT INTO albaranes 
-      (numero, cliente_id, cliente_nombre, subtotal, descuento, iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total, notas, fecha_entrega, firma_data, direccion_entrega)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      (numero, cliente_id, cliente_nombre, subtotal, descuento, iva_porcentaje, iva_importe, irpf_porcentaje, irpf_importe, total, notas, fecha_entrega, firma_data, direccion_entrega, fecha)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       data.numero, data.cliente_id, data.cliente_nombre,
       data.subtotal, data.descuento, data.iva_porcentaje, data.iva_importe,
       data.irpf_porcentaje, data.irpf_importe, data.total,
       data.notas, data.fecha_entrega, data.firma_data ?? null,
-      data.direccion_entrega ?? ''
+      data.direccion_entrega ?? '',
+      data.fecha || new Date().toISOString()
     ]
   );
   return result.lastInsertRowId;
@@ -96,18 +98,20 @@ export function updateAlbaran(id: number, data: {
   fecha_entrega: string;
   firma_data?: string | null;
   direccion_entrega?: string;
+  fecha?: string;
 }) {
   return db.runSync(
     `UPDATE albaranes 
      SET numero = ?, cliente_id = ?, cliente_nombre = ?, subtotal = ?, descuento = ?, 
          iva_porcentaje = ?, iva_importe = ?, irpf_porcentaje = ?, irpf_importe = ?, 
-         total = ?, notas = ?, fecha_entrega = ?, firma_data = ?, direccion_entrega = ?
+         total = ?, notas = ?, fecha_entrega = ?, firma_data = ?, direccion_entrega = ?, fecha = ?
      WHERE id = ?`,
     [
       data.numero, data.cliente_id, data.cliente_nombre,
       data.subtotal, data.descuento, data.iva_porcentaje, data.iva_importe,
       data.irpf_porcentaje, data.irpf_importe, data.total,
-      data.notas, data.fecha_entrega, data.firma_data ?? null, data.direccion_entrega ?? '', id
+      data.notas, data.fecha_entrega, data.firma_data ?? null, data.direccion_entrega ?? '',
+      data.fecha || new Date().toISOString(), id
     ]
   );
 }

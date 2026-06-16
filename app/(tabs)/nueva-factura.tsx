@@ -75,11 +75,35 @@ export default function NuevaFactura() {
   const [notas, setNotas] = useState("");
   const [metodoPago, setMetodoPago] = useState("efectivo");
   const [fechaVencimiento, setFechaVencimiento] = useState("");
-  const [fechaEntrega, setFechaEntrega] = useState("");
-  const [mostrarDatePickerEntrega, setMostrarDatePickerEntrega] = useState(false);
+  const [fechaEmision, setFechaEmision] = useState(getHoyDDMMYYYY());
   const [mostrarDatePickerVencimiento, setMostrarDatePickerVencimiento] = useState(false);
+  const [mostrarDatePickerEmision, setMostrarDatePickerEmision] = useState(false);
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
+
+  function getHoyDDMMYYYY() {
+    const hoy = new Date();
+    const dia = String(hoy.getDate()).padStart(2, '0');
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    return `${dia}/${mes}/${hoy.getFullYear()}`;
+  }
+
+  function fechaDDMMYYYYaISO(fecha: string) {
+    const parts = fecha.split('/');
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).toISOString();
+    }
+    return new Date().toISOString();
+  }
+
+  function fechaISOaDDMMYYYY(fecha: string | undefined) {
+    if (!fecha) return getHoyDDMMYYYY();
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return getHoyDDMMYYYY();
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dia}/${mes}/${d.getFullYear()}`;
+  }
   const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 5 });
   const [numeroFactura, setNumeroFactura] = useState("");
   const [numeracionConfig, setNumeracionConfigState] = useState<{ prefijo: string; sufijo: string; digitos: number }>({ prefijo: 'F-', sufijo: '', digitos: 4 });
@@ -228,7 +252,7 @@ export default function NuevaFactura() {
     setNotas("");
     setMetodoPago("efectivo");
     setFechaVencimiento("");
-    setFechaEntrega("");
+    setFechaEmision(getHoyDDMMYYYY());
     setNumeroFactura(getNextNumeroFactura(numeracionConfig));
   }
 
@@ -252,7 +276,8 @@ export default function NuevaFactura() {
     setNotas(factura.notas || "");
     setMetodoPago(factura.metodo_pago || "efectivo");
     setFechaVencimiento(factura.fecha_vencimiento || "");
-    setFechaEntrega(factura.fecha_entrega || "");
+
+    setFechaEmision(fechaISOaDDMMYYYY(factura.fecha));
 
     const itemsCargados: Item[] = facturaItems.map((item: any) => ({
       id: Math.random().toString(),
@@ -321,8 +346,7 @@ export default function NuevaFactura() {
         notas,
         metodo_pago: metodoPago,
         fecha_vencimiento: fechaVencimiento,
-        fecha_entrega: fechaEntrega,
-        fecha: new Date().toISOString(),
+        fecha: fechaDDMMYYYYaISO(fechaEmision),
         estado: 'pendiente',
       };
 
@@ -393,8 +417,7 @@ export default function NuevaFactura() {
         cliente_nombre: clienteSeleccionado.nombre,
         subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
         iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
-        total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
-        fecha_entrega: fechaEntrega,
+        total: totalEnEuros, notas,        metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
         fecha: new Date().toISOString(), estado: 'pendiente',
       };
 
@@ -427,7 +450,7 @@ export default function NuevaFactura() {
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
           iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
           total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
-          fecha_entrega: fechaEntrega,
+          fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
         deleteFacturaItems(parseInt(facturaId!));
         for (const item of itemsValidos) {
@@ -446,7 +469,7 @@ export default function NuevaFactura() {
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: ivaPorcentaje,
           iva_importe: ivaEnEuros, irpf_porcentaje: irpfPorcentaje, irpf_importe: irpfEnEuros,
           total: totalEnEuros, notas, metodo_pago: metodoPago, fecha_vencimiento: fechaVencimiento,
-          fecha_entrega: fechaEntrega,
+          fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
         const yaTeniaPrimera = await AsyncStorage.getItem('ha_creado_primera_factura');
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
@@ -597,7 +620,7 @@ export default function NuevaFactura() {
             notas,
             metodo_pago: metodoPago,
             fecha_vencimiento: fechaVencimiento,
-            fecha_entrega: fechaEntrega,
+            fecha: fechaDDMMYYYYaISO(fechaEmision),
           });
 
           // Eliminar items existentes y insertar nuevos
@@ -641,7 +664,7 @@ export default function NuevaFactura() {
             notas,
             metodo_pago: metodoPago,
             fecha_vencimiento: fechaVencimiento,
-            fecha_entrega: fechaEntrega,
+            fecha: fechaDDMMYYYYaISO(fechaEmision),
           });
 
           // Checkear ANTES de setear el flag para saber si es la primera factura
@@ -698,7 +721,7 @@ export default function NuevaFactura() {
           notas,
           metodo_pago: metodoPago,
           fecha_vencimiento: fechaVencimiento,
-          fecha_entrega: fechaEntrega,
+          fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
 
         // Checkear ANTES de setear el flag
@@ -821,7 +844,8 @@ export default function NuevaFactura() {
 
   function hayCambiosSinGuardar() {
     if (notas.trim().length > 0) return true;
-    if (fechaEntrega.trim().length > 0) return true;
+    if (fechaVencimiento.trim().length > 0) return true;
+    if (fechaEmision !== getHoyDDMMYYYY()) return true;
     if (clienteSeleccionado) return true;
     if (items.some(i => i.descripcion.trim().length > 0 || (parseFloat(i.precio) || 0) > 0)) return true;
     return false;
@@ -957,6 +981,32 @@ export default function NuevaFactura() {
             )}
           </View>
 
+          {/* Fecha de emisión */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEmision(true)}>
+              <Text style={{ color: fechaEmision ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaEmision || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {mostrarDatePickerEmision && (
+              <DateTimePicker
+                value={(() => { const parts = fechaEmision.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerEmision(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaEmision(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
+          </View>
+
           {/* Fecha de vencimiento */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
             <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_vencimiento')}</Text>
@@ -982,37 +1032,6 @@ export default function NuevaFactura() {
                     const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
                     const año = selectedDate.getFullYear();
                     setFechaVencimiento(`${dia}/${mes}/${año}`);
-                  }
-                }}
-              />
-            )}
-          </View>
-
-          {/* Fecha de entrega */}
-          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_entrega')}</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEntrega(true)}>
-              <Text style={{ color: fechaEntrega ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
-                {fechaEntrega || 'DD/MM/AAAA'}
-              </Text>
-            </TouchableOpacity>
-            {fechaEntrega ? (
-              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaEntrega('')}>
-                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
-              </TouchableOpacity>
-            ) : null}
-            {mostrarDatePickerEntrega && (
-              <DateTimePicker
-                value={fechaEntrega ? (() => { const parts = fechaEntrega.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  setMostrarDatePickerEntrega(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    const dia = String(selectedDate.getDate()).padStart(2, '0');
-                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const año = selectedDate.getFullYear();
-                    setFechaEntrega(`${dia}/${mes}/${año}`);
                   }
                 }}
               />

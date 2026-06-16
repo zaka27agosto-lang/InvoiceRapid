@@ -71,12 +71,38 @@ export default function NuevoAlbaran() {
   const [itemSeleccionadoParaProducto, setItemSeleccionadoParaProducto] = useState<string | null>(null);
   const [notas, setNotas] = useState("");
   const [fechaEntrega, setFechaEntrega] = useState("");
+  const [fechaEmision, setFechaEmision] = useState(getHoyDDMMYYYY());
   const [mostrarDatePickerEntrega, setMostrarDatePickerEntrega] = useState(false);
+  const [mostrarDatePickerEmision, setMostrarDatePickerEmision] = useState(false);
   const [direccionEntrega, setDireccionEntrega] = useState("");
   const [firmaData, setFirmaData] = useState<string | null>(null);
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
+
+  function getHoyDDMMYYYY() {
+    const hoy = new Date();
+    const dia = String(hoy.getDate()).padStart(2, '0');
+    const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+    return `${dia}/${mes}/${hoy.getFullYear()}`;
+  }
+
+  function fechaDDMMYYYYaISO(fecha: string) {
+    const parts = fecha.split('/');
+    if (parts.length === 3) {
+      return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])).toISOString();
+    }
+    return new Date().toISOString();
+  }
+
+  function fechaISOaDDMMYYYY(fecha: string | undefined) {
+    if (!fecha) return getHoyDDMMYYYY();
+    const d = new Date(fecha);
+    if (isNaN(d.getTime())) return getHoyDDMMYYYY();
+    const dia = String(d.getDate()).padStart(2, '0');
+    const mes = String(d.getMonth() + 1).padStart(2, '0');
+    return `${dia}/${mes}/${d.getFullYear()}`;
+  }
   const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 5 });
   const [numeroAlbaran, setNumeroAlbaran] = useState("");
   const [numeracionConfig, setNumeracionConfigState] = useState<{ prefijo: string; sufijo: string; digitos: number }>({ prefijo: 'A-', sufijo: '', digitos: 4 });
@@ -185,6 +211,7 @@ export default function NuevoAlbaran() {
     setItems([nuevoItem()]);
     setNotas("");
     setFechaEntrega("");
+    setFechaEmision(getHoyDDMMYYYY());
     setDireccionEntrega("");
     setFirmaData(null);
     setNumeroAlbaran(getNextNumeroAlbaran(numeracionConfig));
@@ -202,6 +229,7 @@ export default function NuevoAlbaran() {
     setClienteSeleccionado({ id: albaran.cliente_id, nombre: albaran.cliente_nombre });
     setNotas(albaran.notas || "");
     setFechaEntrega(albaran.fecha_entrega || "");
+    setFechaEmision(fechaISOaDDMMYYYY(albaran.fecha));
     setDireccionEntrega(albaran.direccion_entrega || "");
     setFirmaData(albaran.firma_data || null);
 
@@ -250,7 +278,7 @@ export default function NuevoAlbaran() {
         iva_porcentaje: 0, iva_importe: 0, irpf_porcentaje: 0,
         irpf_importe: 0, total: subtotalBruto, notas, fecha_entrega: fechaEntrega,
         direccion_entrega: direccionEntrega,
-        fecha: new Date().toISOString(), estado: 'pendiente',
+        fecha: fechaDDMMYYYYaISO(fechaEmision), estado: 'pendiente',
       };
       const itemsConCalculos = itemsValidos.map(item => ({
         descripcion: item.descripcion, cantidad: item.cantidad, unidad: item.unidad,
@@ -297,6 +325,7 @@ export default function NuevoAlbaran() {
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
           total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
           direccion_entrega: direccionEntrega,
+          fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
         deleteAlbaranItems(parseInt(albaranId!));
         for (const item of itemsValidos) {
@@ -316,6 +345,7 @@ export default function NuevoAlbaran() {
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
           total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
           direccion_entrega: direccionEntrega,
+          fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
         for (const item of itemsValidos) {
@@ -336,7 +366,7 @@ export default function NuevoAlbaran() {
         subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0, iva_importe: 0,
         irpf_porcentaje: 0, irpf_importe: 0, total: subtotalEnEuros, notas,
         fecha_entrega: fechaEntrega, direccion_entrega: direccionEntrega,
-        fecha: new Date().toISOString(), estado: 'pendiente',
+        fecha: fechaDDMMYYYYaISO(fechaEmision), estado: 'pendiente',
       };
       const itemsConCalculos = itemsValidos.map(item => ({
         descripcion: item.descripcion, cantidad: item.cantidad, unidad: item.unidad,
@@ -423,6 +453,7 @@ export default function NuevoAlbaran() {
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
           total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
           direccion_entrega: direccionEntrega,
+          fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
         deleteAlbaranItems(parseInt(albaranId!));
         for (const item of itemsValidos) {
@@ -444,6 +475,7 @@ export default function NuevoAlbaran() {
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
           total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
           direccion_entrega: direccionEntrega,
+          fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
         for (const item of itemsValidos) {
@@ -471,6 +503,7 @@ export default function NuevoAlbaran() {
   function hayCambiosSinGuardar() {
     if (notas.trim().length > 0) return true;
     if (fechaEntrega.trim().length > 0) return true;
+    if (fechaEmision !== getHoyDDMMYYYY()) return true;
     if (direccionEntrega.trim().length > 0) return true;
     if (clienteSeleccionado) return true;
     if (firmaData) return true;
@@ -579,6 +612,32 @@ export default function NuevoAlbaran() {
                   <Text style={[styles.clienteBtnTexto, { color: currentTheme.colors.primary }]}>{t('anadir_cliente')}</Text>
                 </TouchableOpacity>
               </View>
+            )}
+          </View>
+
+          {/* Fecha de emisión */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEmision(true)}>
+              <Text style={{ color: fechaEmision ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaEmision || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {mostrarDatePickerEmision && (
+              <DateTimePicker
+                value={(() => { const parts = fechaEmision.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerEmision(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaEmision(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
             )}
           </View>
 
