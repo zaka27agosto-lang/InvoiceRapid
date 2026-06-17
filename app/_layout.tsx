@@ -1,8 +1,8 @@
 import { Stack, useRouter, useSegments } from "expo-router";
-import { ActivityIndicator, AppState, View } from "react-native";
+import { ActivityIndicator, Alert, AppState, View } from "react-native";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { SyncProvider } from "../contexts/SyncContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
@@ -10,6 +10,8 @@ import '../utils/i18n';
 import { cargarIdioma } from '../utils/i18n';
 import { initDB } from "./db/database";
 import { adsService } from "../services/adsService";
+import { AppLockScreen } from "../components/AppLockScreen";
+import { useSecurity } from "../hooks/useSecurity";
 
 /**
  * RootNavigator — stack ÚNICO con TODAS las pantallas.
@@ -74,6 +76,16 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const appState = useRef(AppState.currentState);
+  const { securityStatus, lockState, authenticate } = useSecurity();
+  const [lockScreenDismissed, setLockScreenDismissed] = useState(false);
+  const [rootWarningShown, setRootWarningShown] = useState(false);
+
+  // Resetear el dismiss cuando la app se bloquea de nuevo
+  useEffect(() => {
+    if (lockState.isLocked) {
+      setLockScreenDismissed(false);
+    }
+  }, [lockState.isLocked]);
 
   useEffect(() => {
     initDB();
@@ -92,12 +104,34 @@ export default function RootLayout() {
     return () => subscription.remove();
   }, []);
 
+  // Aviso de dispositivo rooteado/emulador (solo una vez)
+  useEffect(() => {
+    if (rootWarningShown) return;
+    if (securityStatus.isEmulator || securityStatus.isRooted) {
+      setRootWarningShown(true);
+      const mensaje = securityStatus.isEmulator
+        ? 'Estás ejecutando la app en un emulador. Tus datos de facturación podrían ser menos seguros.'
+        : 'Se ha detectado que tu dispositivo podría estar rooteado. Tus datos de facturación podrían estar en riesgo.';
+      Alert.alert('⚠️ Aviso de seguridad', mensaje);
+    }
+  }, [securityStatus.isEmulator, securityStatus.isRooted, rootWarningShown]);
+
+  // Gestionar AppLock: mostrar pantalla de bloqueo cuando sea necesario
+  const showLockScreen = lockState.isLocked && !lockScreenDismissed;
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <AuthProvider>
         <SyncProvider>
           <ThemeProvider>
             <RootNavigator />
+            {showLockScreen && (
+              <AppLockScreen
+                securityStatus={securityStatus}
+                lockState={lockState}
+                onAuthenticate={authenticate}
+              />
+            )}
           </ThemeProvider>
         </SyncProvider>
       </AuthProvider>

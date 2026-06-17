@@ -19,6 +19,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuthGuard } from "../../hooks/useAuthGuard";
+import { useSecurity } from "../../hooks/useSecurity";
 import { supabase } from "../../services/supabase";
 import { adsService } from "../../services/adsService";
 import SwipeNavigation from "../../components/SwipeNavigation";
@@ -582,9 +583,11 @@ export default function Ajustes() {
           </View>
         </View>
 
-        {/* Privacidad y Datos */}
+        {/* Seguridad */}
         <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
           <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('privacidad_datos')}</Text>
+          
+          <AppLockToggle />
           
           <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/legal/privacy')}>
             <Ionicons name="document-text-outline" size={20} color={currentTheme.colors.primary} />
@@ -1047,6 +1050,40 @@ export default function Ajustes() {
       />
     </View>
     </SwipeNavigation>
+  );
+}
+
+// ─── App Lock Toggle ───
+function AppLockToggle() {
+  const { securityStatus, enableAppLock, disableAppLock } = useSecurity();
+  const { currentTheme } = useTheme();
+
+  return (
+    <View style={styles.switchFila}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Ionicons
+          name={securityStatus.biometricType === 'face' ? 'scan-outline' : 'finger-print-outline'}
+          size={20}
+          color={currentTheme.colors.primary}
+        />
+        <Text style={styles.switchLabel}>Bloqueo de app</Text>
+      </View>
+      <TouchableOpacity
+        style={[styles.switchBtn, securityStatus.lockEnabled && { backgroundColor: currentTheme.colors.primary }]}
+        onPress={async () => {
+          if (securityStatus.lockEnabled) {
+            await disableAppLock();
+          } else {
+            const result = await enableAppLock();
+            if (!result.success) {
+              Alert.alert('No disponible', result.error || 'Tu dispositivo no soporta bloqueo biométrico.');
+            }
+          }
+        }}
+      >
+        <View style={[styles.switchCircle, securityStatus.lockEnabled && styles.switchCircleActivo]} />
+      </TouchableOpacity>
+    </View>
   );
 }
 
