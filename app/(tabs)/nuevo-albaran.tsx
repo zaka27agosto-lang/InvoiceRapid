@@ -25,7 +25,7 @@ import { generarYCompartirPDFAlbaran, generarPDFPreviewAlbaran } from "../../uti
 import Pdf from 'react-native-pdf';
 import { SignaturePad } from "../../components/SignaturePad";
 import { getMoneda, getNumeracionConfig, getPlantillaPDF } from "../../utils/settings";
-import { checkInvoiceLimitAsync, incrementInvoiceCounter, getRemainingRewardedAds, incrementRewardedAdCount } from "../../utils/subscription";
+
 import { getClientes } from "../db/clientes";
 import { deleteAlbaranItems, getAlbaran, getAlbaranItems, getNextNumeroAlbaran, insertAlbaran, insertAlbaranItem, updateAlbaran } from "../db/albaranes";
 import { getProductos } from "../db/productos";
@@ -52,7 +52,6 @@ export default function NuevoAlbaran() {
   const esModoEdicion = !!albaranId;
 
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
-  const [pendingRewardedSave, setPendingRewardedSave] = useState(false);
   const [comprando, setComprando] = useState(false);
   const [generandoPDF, setGenerandoPDF] = useState(false);
   const [generandoPreview, setGenerandoPreview] = useState(false);
@@ -103,7 +102,6 @@ export default function NuevoAlbaran() {
     const mes = String(d.getMonth() + 1).padStart(2, '0');
     return `${dia}/${mes}/${d.getFullYear()}`;
   }
-  const [limiteInfo, setLimiteInfo] = useState<{ canCreate: boolean; currentCount: number; limit: number }>({ canCreate: true, currentCount: 0, limit: 5 });
   const [numeroAlbaran, setNumeroAlbaran] = useState("");
   const [numeracionConfig, setNumeracionConfigState] = useState<{ prefijo: string; sufijo: string; digitos: number }>({ prefijo: 'A-', sufijo: '', digitos: 4 });
   const scrollRef = useRef<ScrollView>(null);
@@ -115,7 +113,6 @@ export default function NuevoAlbaran() {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
     });
-    checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
     getNumeracionConfig().then(cfg => {
       // Para albaranes usamos prefijo 'A-' por defecto
       setNumeracionConfigState({ prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos });
@@ -140,7 +137,6 @@ export default function NuevoAlbaran() {
   useFocusEffect(
     useCallback(() => {
       scrollRef.current?.scrollTo({ y: 0, animated: false });
-      checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
       getMoneda().then(m => {
         setSimboloMoneda(m.simbolo);
         setCodigoMoneda(m.codigo);
@@ -296,15 +292,6 @@ export default function NuevoAlbaran() {
   }
 
   async function handleExportarPDF() {
-    if (!esModoEdicion && !isPremium && !limiteInfo.canCreate) {
-      const diasRest3 = getDiasRestantesMes();
-      const mensajeLimite3 = t('limite_desc') + '\n\n' + t('se_renueva_en', { dias: diasRest3 });
-      Alert.alert(t('limite_alcanzado'), mensajeLimite3, [
-        { text: t('cancelar'), style: 'cancel' },
-        { text: t('unlock_premium'), onPress: () => router.push('/(tabs)/ajustes') }
-      ]);
-      return;
-    }
     if (!clienteSeleccionado) { Alert.alert(t('cliente_requerido'), t('selecciona_cliente')); return; }
     const itemsValidos = items.filter(i => i.descripcion.trim());
     if (itemsValidos.length === 0) { Alert.alert(t('sin_articulos'), t('anadirArticuloValidoAlbaran')); return; }
@@ -315,8 +302,6 @@ export default function NuevoAlbaran() {
       const subtotalEnEuros = await convertirAEurosParaGuardar(subtotalBruto, codigoMoneda);
 
       let savedId = esModoEdicion ? parseInt(albaranId!) : 0;
-      const isRewardedSave = pendingRewardedSave;
-      if (pendingRewardedSave) setPendingRewardedSave(false);
 
       if (esModoEdicion) {
         updateAlbaran(parseInt(albaranId!), {
@@ -357,7 +342,6 @@ export default function NuevoAlbaran() {
             precio_unitario: precioEnEuros, descuento: parseFloat(item.descuento) || 0, subtotal: subtotalItemEnEuros,
           });
         }
-        if (!isRewardedSave) await incrementInvoiceCounter();
         savedId = newId as number;
       }
 
@@ -386,58 +370,7 @@ export default function NuevoAlbaran() {
     }
   }
 
-  
-  function getDiasRestantesMes(): number {
-    const hoy = new Date();
-    const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
-    return Math.ceil((ultimoDia.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
-  }
-
   async function guardarAlbaran() {
-    if (!esModoEdicion && !isPremium && !limiteInfo.canCreate && !pendingRewardedSave) {
-      const remaining = await getRemainingRewardedAds();
-      const buttons: any[] = [{ text: t('cancelar'), style: 'cancel' }];
-      if (remaining > 0) {
-        buttons.push({
-          text: `${t('ver_anuncio')} (${remaining} ${t('hoy')})`,
-          onPress: async () => {
-            const rewarded = await adsService.showRewardedAd();
-            if (rewarded) {
-              await incrementRewardedAdCount();
-              setPendingRewardedSave(true);
-              Alert.alert(t('recompensa_recibida'), t('puedes_guardar_factura'), [{ text: t('guardar'), onPress: () => guardarAlbaran() }]);
-            } else {
-              const errorType = adsService.lastRewardedError;
-              if (errorType === 'no_fill') Alert.alert(t('sin_anuncios_disponibles'), t('sin_anuncios_desc'));
-              else Alert.alert(t('anuncio_no_completado'), t('intenta_de_nuevo'));
-            }
-          },
-        });
-      }
-      buttons.push({ text: t('unlock_premium'), onPress: () => router.push('/(tabs)/ajustes') });
-      const diasRest = getDiasRestantesMes();
-      const mensajeLimite = t('limite_desc') + '\n\n' + t('se_renueva_en', { dias: diasRest });
-      Alert.alert(t('limite_alcanzado'), mensajeLimite, buttons);
-      return;
-    }
-
-    const isRewardedSave = pendingRewardedSave;
-    if (pendingRewardedSave) setPendingRewardedSave(false);
-
-    // Para usuarios gratuitos en modo edición, verificar límite antes de editar
-    if (esModoEdicion && !isPremium && !limiteInfo.canCreate) {
-      const diasRestE = getDiasRestantesMes();
-      Alert.alert(
-        t('limite_alcanzado'),
-        t('limite_desc') + '\n\n' + t('se_renueva_en', { dias: diasRestE }),
-        [
-          { text: t('cancelar'), style: 'cancel' },
-          { text: t('unlock_premium'), onPress: () => router.push('/(tabs)/ajustes') }
-        ]
-      );
-      return;
-    }
-
     if (!clienteSeleccionado) { Alert.alert(t('cliente_requerido'), t('selecciona_cliente')); return; }
     const itemsValidos = items.filter(i => i.descripcion.trim());
     if (itemsValidos.length === 0) { Alert.alert(t('sin_articulos'), t('anadirArticuloValidoAlbaran')); return; }
@@ -487,7 +420,6 @@ export default function NuevoAlbaran() {
             precio_unitario: precioEnEuros, descuento: parseFloat(item.descuento) || 0, subtotal: subtotalItemEnEuros,
           });
         }
-        if (!isRewardedSave) await incrementInvoiceCounter();
         await adsService.incrementAction(isPremium);
         savingRef.current = true;
         router.back();
@@ -546,30 +478,6 @@ export default function NuevoAlbaran() {
           </TouchableOpacity>
         </View>
 
-          {/* Límite mensual */}
-          {!isPremium && (
-            <View style={{ marginHorizontal: 16, marginBottom: 8 }}>
-              {limiteInfo.canCreate ? (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: currentTheme.colors.card, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: currentTheme.colors.border || '#f0f0f0' }}>
-                  <Ionicons name="document-text-outline" size={14} color={currentTheme.colors.textSecondary} />
-                  <Text style={{ fontSize: 12, color: currentTheme.colors.textSecondary, fontWeight: '500' }}>
-                    {limiteInfo.currentCount} {t('de')} {limiteInfo.limit} {t('facturas_restantes')}
-                  </Text>
-                  <View style={{ flex: 1, height: 4, backgroundColor: (currentTheme.colors.border || '#e8e8e8'), borderRadius: 2, marginHorizontal: 4, maxWidth: 60 }}>
-                    <View style={{ width: ((limiteInfo.currentCount / limiteInfo.limit) * 100 + '%') as any, height: 4, backgroundColor: '#FF9F43', borderRadius: 2 }} />
-                  </View>
-                </View>
-              ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#FFF3E0', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, borderWidth: 1, borderColor: '#FFB74D' }}>
-                  <Ionicons name="alert-circle-outline" size={14} color="#FF4757" />
-                  <Text style={{ fontSize: 12, color: '#FF4757', fontWeight: '600' }}>
-                    {t('limite_alcanzado')} {'\u00b7'} {t('se_renueva_en', { dias: getDiasRestantesMes() })}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-
         <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false} scrollEnabled={scrollEnabled}>
 
           {/* Número de albarán */}
@@ -579,6 +487,63 @@ export default function NuevoAlbaran() {
               style={styles.input} placeholder="A-0001" placeholderTextColor="#bbb"
               value={numeroAlbaran} onChangeText={setNumeroAlbaran}
             />
+          </View>
+
+          {/* Fecha de emisión */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEmision(true)}>
+              <Text style={{ color: fechaEmision ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaEmision || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {mostrarDatePickerEmision && (
+              <DateTimePicker
+                value={(() => { const parts = fechaEmision.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerEmision(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaEmision(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
+          </View>
+
+          {/* Fecha de vencimiento */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_vencimiento')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerVencimiento(true)}>
+              <Text style={{ color: fechaVencimiento ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaVencimiento || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {fechaVencimiento ? (
+              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaVencimiento('')}>
+                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+            {mostrarDatePickerVencimiento && (
+              <DateTimePicker
+                value={fechaVencimiento ? (() => { const parts = fechaVencimiento.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerVencimiento(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaVencimiento(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
           </View>
 
           {/* Cliente */}
@@ -697,63 +662,6 @@ export default function NuevoAlbaran() {
               <Ionicons name="add-circle-outline" size={20} color={currentTheme.colors.primary} />
               <Text style={[styles.addItemTexto, { color: currentTheme.colors.primary }]}>{t('anadir_articulo')}</Text>
             </TouchableOpacity>
-          </View>
-
-          {/* Fecha de emisión */}
-          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEmision(true)}>
-              <Text style={{ color: fechaEmision ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
-                {fechaEmision || 'DD/MM/AAAA'}
-              </Text>
-            </TouchableOpacity>
-            {mostrarDatePickerEmision && (
-              <DateTimePicker
-                value={(() => { const parts = fechaEmision.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  setMostrarDatePickerEmision(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    const dia = String(selectedDate.getDate()).padStart(2, '0');
-                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const año = selectedDate.getFullYear();
-                    setFechaEmision(`${dia}/${mes}/${año}`);
-                  }
-                }}
-              />
-            )}
-          </View>
-
-          {/* Fecha de vencimiento */}
-          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_vencimiento')}</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerVencimiento(true)}>
-              <Text style={{ color: fechaVencimiento ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
-                {fechaVencimiento || 'DD/MM/AAAA'}
-              </Text>
-            </TouchableOpacity>
-            {fechaVencimiento ? (
-              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaVencimiento('')}>
-                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
-              </TouchableOpacity>
-            ) : null}
-            {mostrarDatePickerVencimiento && (
-              <DateTimePicker
-                value={fechaVencimiento ? (() => { const parts = fechaVencimiento.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  setMostrarDatePickerVencimiento(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    const dia = String(selectedDate.getDate()).padStart(2, '0');
-                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const año = selectedDate.getFullYear();
-                    setFechaVencimiento(`${dia}/${mes}/${año}`);
-                  }
-                }}
-              />
-            )}
           </View>
 
           {/* Notas */}

@@ -125,7 +125,7 @@ async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean
         <div class="info-grid">
           <div class="info-box">
             <h3>Emitido por</h3>
-            <strong>${empresa.nombre || 'Mi Empresa / Autónomo'}</strong>
+            <strong>${empresa.incluirEnFactura ? (empresa.nombre || 'Mi Empresa / Autónomo') : ''}</strong>
             <p>${empresa.incluirEnFactura ? `${empresa.nif ? `NIF: ${empresa.nif}<br>` : ''}${empresa.direccion || ''}${empresa.telefono ? `<br>${empresa.telefono}` : ''}${empresa.email ? `<br>${empresa.email}` : ''}` : ''}</p>
           </div>
           <div class="info-box">
@@ -432,7 +432,7 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
         <div class="info-grid">
           <div class="info-box">
             <h3>Facturado por</h3>
-            <strong>${empresa.nombre || 'Mi Empresa / Autónomo'}</strong>
+            <strong>${empresa.incluirEnFactura ? (empresa.nombre || 'Mi Empresa / Autónomo') : ''}</strong>
             <p>${empresa.incluirEnFactura ? `${empresa.nif ? `NIF: ${empresa.nif}<br>` : ''}${empresa.direccion || ''}${empresa.telefono ? `<br>${empresa.telefono}` : ''}${empresa.email ? `<br>${empresa.email}` : ''}` : ''}</p>
           </div>
           <div class="info-box">
