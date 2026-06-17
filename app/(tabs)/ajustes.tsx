@@ -66,7 +66,7 @@ export default function Ajustes() {
   const [plantillaActual, setPlantillaActual] = useState<PlantillaPDF>('default');
   const [formatoFechaActual, setFormatoFechaActual] = useState<FormatoFecha>('DD/MM/YYYY');
   const [datos, setDatos] = useState<DatosEmpresa>({
-    nombre: '', nif: '', direccion: '', telefono: '', email: '', incluirEnFactura: true
+    nombre: '', nif: '', direccion: '', telefono: '', email: ''
   });
   const [planSeleccionado, setPlanSeleccionado] = useState<any>(null);
   const [previewUri, setPreviewUri] = useState<string | null>(null);
@@ -727,15 +727,6 @@ export default function Ajustes() {
                 />
               </View>
             ))}
-            <View style={styles.switchFila}>
-              <Text style={styles.switchLabel}>{t('incluir_en_factura')}</Text>
-              <TouchableOpacity
-                style={[styles.switchBtn, datos.incluirEnFactura && { backgroundColor: currentTheme.colors.primary }]}
-                onPress={() => setDatos((prev: DatosEmpresa) => ({ ...prev, incluirEnFactura: !prev.incluirEnFactura }))}
-              >
-                <View style={[styles.switchCircle, datos.incluirEnFactura && styles.switchCircleActivo]} />
-              </TouchableOpacity>
-            </View>
             <View style={{ height: 60 }} />
           </ScrollView>
         </View>

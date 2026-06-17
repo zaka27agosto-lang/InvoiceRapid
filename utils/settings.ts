@@ -6,7 +6,6 @@ export type DatosEmpresa = {
   direccion: string;
   telefono: string;
   email: string;
-  incluirEnFactura: boolean;
 };
 
 export type Moneda = {
@@ -81,7 +80,7 @@ export async function getDatosEmpresa(): Promise<DatosEmpresa> {
     const guardados = await AsyncStorage.getItem('datos_empresa');
     if (guardados) return JSON.parse(guardados);
   } catch {}
-  return { nombre: '', nif: '', direccion: '', telefono: '', email: '', incluirEnFactura: true };
+  return { nombre: '', nif: '', direccion: '', telefono: '', email: '' };
 }
 
 export async function setDatosEmpresa(datos: DatosEmpresa): Promise<void> {
