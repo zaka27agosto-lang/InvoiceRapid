@@ -485,9 +485,9 @@ export default function NuevaFactura() {
           });
         }
         if (!isRewardedSave && !isPremium) await incrementInvoiceCounter();
-        if (yaTeniaPrimera !== 'true' && !isPremium) {
+        if (yaTeniaPrimera !== 'true' && !(await esRealmentePremium())) {
           savingRef.current = true;
-          router.push('/settings/referral' as any);
+          router.replace('/settings/referral' as any);
           return;
         }
       }
@@ -513,6 +513,12 @@ export default function NuevaFactura() {
     const hoy = new Date();
     const ultimoDia = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0);
     return Math.ceil((ultimoDia.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
+  }
+
+  async function esRealmentePremium(): Promise<boolean> {
+    if (isPremium) return true;
+    const stored = await AsyncStorage.getItem('is_premium');
+    return stored === 'true';
   }
 
   async function guardarFactura() {
@@ -698,8 +704,8 @@ export default function NuevaFactura() {
 
           // Si es la primera factura, redirigir a la pantalla de invitar amigos
           savingRef.current = true;
-          if (yaTeniaPrimera !== 'true' && !isPremium) {
-            router.push('/settings/referral' as any);
+          if (yaTeniaPrimera !== 'true' && !(await esRealmentePremium())) {
+            router.replace('/settings/referral' as any);
           } else {
             router.back();
           }
@@ -755,8 +761,8 @@ export default function NuevaFactura() {
 
         // Si es la primera factura, redirigir a referidos
         savingRef.current = true;
-        if (yaTeniaPrimera !== 'true' && !isPremium) {
-          router.push('/settings/referral' as any);
+        if (yaTeniaPrimera !== 'true' && !(await esRealmentePremium())) {
+          router.replace('/settings/referral' as any);
         } else {
           router.back();
         }
@@ -981,63 +987,6 @@ export default function NuevaFactura() {
             )}
           </View>
 
-          {/* Fecha de emisión */}
-          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEmision(true)}>
-              <Text style={{ color: fechaEmision ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
-                {fechaEmision || 'DD/MM/AAAA'}
-              </Text>
-            </TouchableOpacity>
-            {mostrarDatePickerEmision && (
-              <DateTimePicker
-                value={(() => { const parts = fechaEmision.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  setMostrarDatePickerEmision(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    const dia = String(selectedDate.getDate()).padStart(2, '0');
-                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const año = selectedDate.getFullYear();
-                    setFechaEmision(`${dia}/${mes}/${año}`);
-                  }
-                }}
-              />
-            )}
-          </View>
-
-          {/* Fecha de vencimiento */}
-          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_vencimiento')}</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerVencimiento(true)}>
-              <Text style={{ color: fechaVencimiento ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
-                {fechaVencimiento || 'DD/MM/AAAA'}
-              </Text>
-            </TouchableOpacity>
-            {fechaVencimiento ? (
-              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaVencimiento('')}>
-                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
-              </TouchableOpacity>
-            ) : null}
-            {mostrarDatePickerVencimiento && (
-              <DateTimePicker
-                value={fechaVencimiento ? (() => { const parts = fechaVencimiento.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  setMostrarDatePickerVencimiento(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    const dia = String(selectedDate.getDate()).padStart(2, '0');
-                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const año = selectedDate.getFullYear();
-                    setFechaVencimiento(`${dia}/${mes}/${año}`);
-                  }
-                }}
-              />
-            )}
-          </View>
-
           {/* Artículos */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
             <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('articulos')}</Text>
@@ -1123,6 +1072,63 @@ export default function NuevaFactura() {
               <Ionicons name="add-circle-outline" size={20} color={currentTheme.colors.primary} />
               <Text style={[styles.addItemTexto, { color: currentTheme.colors.primary }]}>{t('anadir_articulo')}</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Fecha de emisión */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEmision(true)}>
+              <Text style={{ color: fechaEmision ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaEmision || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {mostrarDatePickerEmision && (
+              <DateTimePicker
+                value={(() => { const parts = fechaEmision.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerEmision(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaEmision(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
+          </View>
+
+          {/* Fecha de vencimiento */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_vencimiento')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerVencimiento(true)}>
+              <Text style={{ color: fechaVencimiento ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaVencimiento || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {fechaVencimiento ? (
+              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaVencimiento('')}>
+                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+            {mostrarDatePickerVencimiento && (
+              <DateTimePicker
+                value={fechaVencimiento ? (() => { const parts = fechaVencimiento.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerVencimiento(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaVencimiento(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
           </View>
 
           {/* Impuestos */}

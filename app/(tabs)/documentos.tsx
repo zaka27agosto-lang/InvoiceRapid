@@ -130,10 +130,16 @@ export default function Documentos() {
     getMoneda().then(m => {
       setSimboloMoneda(m.simbolo); setCodigoMoneda(m.codigo);
       if (facturaIdParam && !mostrarDetalle && !mostrarDetalleAlbaran) {
-        if (tipo === 'facturas' || modo === 'facturas') {
+        if (tipo === 'albaranes') {
+          const albaran = (getAlbaranes()).find((a) => a.id === parseInt(facturaIdParam));
+          if (albaran) { abrirDetalleAlbaran(albaran, m.codigo); router.setParams({ facturaId: undefined }); }
+        } else if (tipo === 'facturas') {
           const factura = (getFacturas()).find((f) => f.id === parseInt(facturaIdParam));
           if (factura) { abrirDetalleFactura(factura, m.codigo); router.setParams({ facturaId: undefined }); }
-        } else if (tipo === 'albaranes' || modo === 'albaranes') {
+        } else if (modo === 'facturas') {
+          const factura = (getFacturas()).find((f) => f.id === parseInt(facturaIdParam));
+          if (factura) { abrirDetalleFactura(factura, m.codigo); router.setParams({ facturaId: undefined }); }
+        } else if (modo === 'albaranes') {
           const albaran = (getAlbaranes()).find((a) => a.id === parseInt(facturaIdParam));
           if (albaran) { abrirDetalleAlbaran(albaran, m.codigo); router.setParams({ facturaId: undefined }); }
         }
@@ -348,8 +354,7 @@ export default function Documentos() {
       subtotal: albaranDetalle.subtotal, descuento: albaranDetalle.descuento, iva_porcentaje: albaranDetalle.iva_porcentaje,
       iva_importe: albaranDetalle.iva_importe, irpf_porcentaje: albaranDetalle.irpf_porcentaje,
       irpf_importe: albaranDetalle.irpf_importe, total: albaranDetalle.total, notas: albaranDetalle.notas,
-      metodo_pago: 'efectivo', fecha_vencimiento: '',
-      fecha_entrega: albaranDetalle.fecha_entrega,
+      metodo_pago: 'efectivo', fecha_vencimiento: albaranDetalle.fecha_entrega,
     });
     itemsOriginales.forEach((item: any) => insertFacturaItem({
       factura_id: newId as number, descripcion: item.descripcion, cantidad: item.cantidad,
@@ -783,7 +788,7 @@ export default function Documentos() {
                   <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{albaranDetalle.fecha ? formatearFechaSync(albaranDetalle.fecha) : ''}</Text>
                 </View>
                 <View style={[styles.detalleFechaBox, { backgroundColor: currentTheme.colors.card }]}>
-                  <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('fecha_entrega')}</Text>
+                  <Text style={[styles.detalleFechaLabel, { color: currentTheme.colors.textSecondary }]}>{t('vencimiento')}</Text>
                   <Text style={[styles.detalleFechaValor, { color: currentTheme.colors.text }]}>{albaranDetalle.fecha_entrega ? formatearFechaSync(albaranDetalle.fecha_entrega) : '—'}</Text>
                 </View>
               </View>

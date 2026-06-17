@@ -70,9 +70,9 @@ export default function NuevoAlbaran() {
   const [busquedaProducto, setBusquedaProducto] = useState("");
   const [itemSeleccionadoParaProducto, setItemSeleccionadoParaProducto] = useState<string | null>(null);
   const [notas, setNotas] = useState("");
-  const [fechaEntrega, setFechaEntrega] = useState("");
+  const [fechaVencimiento, setFechaVencimiento] = useState("");
   const [fechaEmision, setFechaEmision] = useState(getHoyDDMMYYYY());
-  const [mostrarDatePickerEntrega, setMostrarDatePickerEntrega] = useState(false);
+  const [mostrarDatePickerVencimiento, setMostrarDatePickerVencimiento] = useState(false);
   const [mostrarDatePickerEmision, setMostrarDatePickerEmision] = useState(false);
   const [direccionEntrega, setDireccionEntrega] = useState("");
   const [firmaData, setFirmaData] = useState<string | null>(null);
@@ -135,7 +135,7 @@ export default function NuevoAlbaran() {
       );
     });
     return unsubscribe;
-  }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas, firmaData, fechaEntrega]);
+  }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas, firmaData, fechaVencimiento]);
 
   useFocusEffect(
     useCallback(() => {
@@ -210,7 +210,7 @@ export default function NuevoAlbaran() {
     setClienteSeleccionado(null);
     setItems([nuevoItem()]);
     setNotas("");
-    setFechaEntrega("");
+    setFechaVencimiento("");
     setFechaEmision(getHoyDDMMYYYY());
     setDireccionEntrega("");
     setFirmaData(null);
@@ -228,7 +228,7 @@ export default function NuevoAlbaran() {
     setNumeroAlbaran(albaran.numero);
     setClienteSeleccionado({ id: albaran.cliente_id, nombre: albaran.cliente_nombre });
     setNotas(albaran.notas || "");
-    setFechaEntrega(albaran.fecha_entrega || "");
+    setFechaVencimiento(albaran.fecha_entrega || "");
     setFechaEmision(fechaISOaDDMMYYYY(albaran.fecha));
     setDireccionEntrega(albaran.direccion_entrega || "");
     setFirmaData(albaran.firma_data || null);
@@ -276,7 +276,7 @@ export default function NuevoAlbaran() {
         id: 0, numero: numeroAlbaran || 'PREVIEW', cliente_id: clienteSeleccionado?.id || 0,
         cliente_nombre: clienteSeleccionado?.nombre || '', subtotal: subtotalBruto, descuento: 0,
         iva_porcentaje: 0, iva_importe: 0, irpf_porcentaje: 0,
-        irpf_importe: 0, total: subtotalBruto, notas, fecha_entrega: fechaEntrega,
+        irpf_importe: 0, total: subtotalBruto, notas, fecha_entrega: fechaVencimiento,
         direccion_entrega: direccionEntrega,
         fecha: fechaDDMMYYYYaISO(fechaEmision), estado: 'pendiente',
       };
@@ -323,7 +323,7 @@ export default function NuevoAlbaran() {
           numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0,
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
-          total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
+          total: subtotalEnEuros, notas, fecha_entrega: fechaVencimiento, firma_data: firmaData,
           direccion_entrega: direccionEntrega,
           fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
@@ -343,7 +343,7 @@ export default function NuevoAlbaran() {
           numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0,
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
-          total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
+          total: subtotalEnEuros, notas, fecha_entrega: fechaVencimiento, firma_data: firmaData,
           direccion_entrega: direccionEntrega,
           fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
@@ -365,7 +365,7 @@ export default function NuevoAlbaran() {
         id: savedId, numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
         subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0, iva_importe: 0,
         irpf_porcentaje: 0, irpf_importe: 0, total: subtotalEnEuros, notas,
-        fecha_entrega: fechaEntrega, direccion_entrega: direccionEntrega,
+        fecha_entrega: fechaVencimiento, direccion_entrega: direccionEntrega,
         fecha: fechaDDMMYYYYaISO(fechaEmision), estado: 'pendiente',
       };
       const itemsConCalculos = itemsValidos.map(item => ({
@@ -451,7 +451,7 @@ export default function NuevoAlbaran() {
           numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0,
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
-          total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
+          total: subtotalEnEuros, notas, fecha_entrega: fechaVencimiento, firma_data: firmaData,
           direccion_entrega: direccionEntrega,
           fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
@@ -473,7 +473,7 @@ export default function NuevoAlbaran() {
           numero, cliente_id: clienteSeleccionado.id, cliente_nombre: clienteSeleccionado.nombre,
           subtotal: subtotalEnEuros, descuento: 0, iva_porcentaje: 0,
           iva_importe: 0, irpf_porcentaje: 0, irpf_importe: 0,
-          total: subtotalEnEuros, notas, fecha_entrega: fechaEntrega, firma_data: firmaData,
+          total: subtotalEnEuros, notas, fecha_entrega: fechaVencimiento, firma_data: firmaData,
           direccion_entrega: direccionEntrega,
           fecha: fechaDDMMYYYYaISO(fechaEmision),
         });
@@ -502,7 +502,7 @@ export default function NuevoAlbaran() {
 
   function hayCambiosSinGuardar() {
     if (notas.trim().length > 0) return true;
-    if (fechaEntrega.trim().length > 0) return true;
+    if (fechaVencimiento.trim().length > 0) return true;
     if (fechaEmision !== getHoyDDMMYYYY()) return true;
     if (direccionEntrega.trim().length > 0) return true;
     if (clienteSeleccionado) return true;
@@ -615,63 +615,6 @@ export default function NuevoAlbaran() {
             )}
           </View>
 
-          {/* Fecha de emisión */}
-          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEmision(true)}>
-              <Text style={{ color: fechaEmision ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
-                {fechaEmision || 'DD/MM/AAAA'}
-              </Text>
-            </TouchableOpacity>
-            {mostrarDatePickerEmision && (
-              <DateTimePicker
-                value={(() => { const parts = fechaEmision.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  setMostrarDatePickerEmision(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    const dia = String(selectedDate.getDate()).padStart(2, '0');
-                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const año = selectedDate.getFullYear();
-                    setFechaEmision(`${dia}/${mes}/${año}`);
-                  }
-                }}
-              />
-            )}
-          </View>
-
-          {/* Fecha de entrega */}
-          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
-            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_entrega')}</Text>
-            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEntrega(true)}>
-              <Text style={{ color: fechaEntrega ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
-                {fechaEntrega || 'DD/MM/AAAA'}
-              </Text>
-            </TouchableOpacity>
-            {fechaEntrega ? (
-              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaEntrega('')}>
-                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
-              </TouchableOpacity>
-            ) : null}
-            {mostrarDatePickerEntrega && (
-              <DateTimePicker
-                value={fechaEntrega ? (() => { const parts = fechaEntrega.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
-                mode="date"
-                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
-                onChange={(event, selectedDate) => {
-                  setMostrarDatePickerEntrega(Platform.OS === 'ios');
-                  if (selectedDate) {
-                    const dia = String(selectedDate.getDate()).padStart(2, '0');
-                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
-                    const año = selectedDate.getFullYear();
-                    setFechaEntrega(`${dia}/${mes}/${año}`);
-                  }
-                }}
-              />
-            )}
-          </View>
-
           {/* Dirección de entrega */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
             <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('direccion_entrega')}</Text>
@@ -754,6 +697,63 @@ export default function NuevoAlbaran() {
               <Ionicons name="add-circle-outline" size={20} color={currentTheme.colors.primary} />
               <Text style={[styles.addItemTexto, { color: currentTheme.colors.primary }]}>{t('anadir_articulo')}</Text>
             </TouchableOpacity>
+          </View>
+
+          {/* Fecha de emisión */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('emision')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerEmision(true)}>
+              <Text style={{ color: fechaEmision ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaEmision || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {mostrarDatePickerEmision && (
+              <DateTimePicker
+                value={(() => { const parts = fechaEmision.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerEmision(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaEmision(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
+          </View>
+
+          {/* Fecha de vencimiento */}
+          <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
+            <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('fecha_vencimiento')}</Text>
+            <TouchableOpacity style={[styles.input, { justifyContent: 'center' }]} onPress={() => setMostrarDatePickerVencimiento(true)}>
+              <Text style={{ color: fechaVencimiento ? currentTheme.colors.text : currentTheme.colors.textSecondary, fontSize: 15 }}>
+                {fechaVencimiento || 'DD/MM/AAAA'}
+              </Text>
+            </TouchableOpacity>
+            {fechaVencimiento ? (
+              <TouchableOpacity style={{ position: 'absolute', right: 18, top: 52 }} onPress={() => setFechaVencimiento('')}>
+                <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+            {mostrarDatePickerVencimiento && (
+              <DateTimePicker
+                value={fechaVencimiento ? (() => { const parts = fechaVencimiento.split('/'); return new Date(parseInt(parts[2]), parseInt(parts[1]) - 1, parseInt(parts[0])); })() : new Date()}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={(event, selectedDate) => {
+                  setMostrarDatePickerVencimiento(Platform.OS === 'ios');
+                  if (selectedDate) {
+                    const dia = String(selectedDate.getDate()).padStart(2, '0');
+                    const mes = String(selectedDate.getMonth() + 1).padStart(2, '0');
+                    const año = selectedDate.getFullYear();
+                    setFechaVencimiento(`${dia}/${mes}/${año}`);
+                  }
+                }}
+              />
+            )}
           </View>
 
           {/* Notas */}

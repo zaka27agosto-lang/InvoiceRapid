@@ -140,7 +140,7 @@ async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean
             <strong>${fechaEmisionStr}</strong>
           </div>
           <div class="fecha-box">
-            <span>Fecha de entrega</span>
+            <span>Fecha de vencimiento</span>
             <strong>${fechaEntregaStr}</strong>
           </div>
         </div>
