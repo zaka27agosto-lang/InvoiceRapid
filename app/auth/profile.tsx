@@ -229,19 +229,19 @@ export default function Profile() {
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
 
-          {/* Establecer contraseña (solo cuentas Google) */}
-          {esCuentaGoogle && (
-            <TouchableOpacity style={styles.infoRow} onPress={() => setMostrarEstablecerPassword(true)}>
-              <Ionicons name="lock-closed-outline" size={20} color={currentTheme.colors.primary} />
-              <View style={styles.infoContent}>
-                <Text style={[styles.infoLabel, { color: currentTheme.colors.textSecondary }]}>{t('establecer_password')}</Text>
-                <Text style={[styles.infoValue, { color: currentTheme.colors.text }]}>
-                  {t('sin_password')}
-                </Text>
-              </View>
-              <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
-            </TouchableOpacity>
-          )}
+          {/* Establecer/Cambiar contraseña */}
+          <TouchableOpacity style={styles.infoRow} onPress={() => setMostrarEstablecerPassword(true)}>
+            <Ionicons name="lock-closed-outline" size={20} color={currentTheme.colors.primary} />
+            <View style={styles.infoContent}>
+              <Text style={[styles.infoLabel, { color: currentTheme.colors.textSecondary }]}>
+                {esCuentaGoogle ? t('establecer_password') : t('cambiar_password')}
+              </Text>
+              <Text style={[styles.infoValue, { color: currentTheme.colors.text }]}>
+                {esCuentaGoogle ? t('sin_password') : '••••••••'}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity
@@ -289,7 +289,9 @@ export default function Profile() {
             <TouchableOpacity onPress={() => setMostrarEstablecerPassword(false)}>
               <Ionicons name="close" size={26} color="#1a1a1a" />
             </TouchableOpacity>
-            <Text style={styles.modalTitulo}>{t('establecer_password')}</Text>
+            <Text style={styles.modalTitulo}>
+              {esCuentaGoogle ? t('establecer_password') : t('cambiar_password')}
+            </Text>
             <TouchableOpacity onPress={handleEstablecerPassword} disabled={loading}>
               <Text style={styles.modalGuardar}>{t('guardar')}</Text>
             </TouchableOpacity>

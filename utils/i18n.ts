@@ -396,6 +396,7 @@ const es = {
     // Perfil
     acciones: 'Acciones',
     establecer_password: 'Establecer contraseña',
+    cambiar_password: 'Cambiar contraseña',
     sin_password: 'Sin contraseña',
     nombre_requerido: 'El nombre es obligatorio',
     nombre_actualizado: 'Nombre actualizado correctamente',
@@ -895,6 +896,7 @@ const en = {
     // Profile
     acciones: 'Actions',
     establecer_password: 'Set password',
+    cambiar_password: 'Change password',
     sin_password: 'No password',
     nombre_requerido: 'Name is required',
     nombre_actualizado: 'Name updated successfully',
@@ -1394,6 +1396,7 @@ const fr = {
     // Profil
     acciones: 'Actions',
     establecer_password: 'Définir le mot de passe',
+    cambiar_password: 'Changer le mot de passe',
     sin_password: 'Sans mot de passe',
     nombre_requerido: 'Le nom est obligatoire',
     nombre_actualizado: 'Nom mis à jour',
@@ -1892,6 +1895,7 @@ const de = {
     // Profil
     acciones: 'Aktionen',
     establecer_password: 'Passwort festlegen',
+    cambiar_password: 'Passwort ändern',
     sin_password: 'Kein Passwort',
     nombre_requerido: 'Name ist erforderlich',
     nombre_actualizado: 'Name erfolgreich aktualisiert',
@@ -2390,6 +2394,7 @@ const it = {
     // Profilo
     acciones: 'Azioni',
     establecer_password: 'Imposta password',
+    cambiar_password: 'Cambia password',
     sin_password: 'Nessuna password',
     nombre_requerido: 'Il nome è obbligatorio',
     nombre_actualizado: 'Nome aggiornato con successo',

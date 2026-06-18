@@ -1,6 +1,8 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import { syncService, SyncResult } from '../services/syncService';
+import { clearAllData } from '../app/db/database';
 
 import { useAuth } from './AuthContext';
 
@@ -37,9 +39,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [isSyncing]);
 
   // Pull cloud data cuando el usuario inicia sesión
+  // 🔒 Si el usuario cambió (logout + login con otra cuenta), limpiar BD local primero
   useEffect(() => {
     if (user && !hasInitialSync) {
-      pullCloudData();
+      handleUserLogin();
     }
   }, [user, hasInitialSync]);
 
@@ -48,6 +51,36 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     setHasInitialSync(false);
     setInitialPullAttempted(false);
   }, [user?.id]);
+
+  /**
+   * Maneja el login de un usuario:
+   * - Si es el mismo usuario que la última sesión, solo hace pull
+   * - Si es un usuario DIFERENTE, limpia la BD local antes del pull
+   *   para evitar fugas de datos entre cuentas
+   * - Si es primer login (sin last_user_id), guarda el ID y hace pull
+   */
+  async function handleUserLogin() {
+    if (!user) return;
+    try {
+      const lastUserId = await AsyncStorage.getItem('last_user_id');
+      if (lastUserId && lastUserId !== user.id) {
+        // ⚠️ Usuario diferente — limpiar BD local para evitar fuga de datos
+        // Solo guardamos last_user_id DESPUÉS de limpiar con éxito,
+        // así si falla la limpieza, se reintentará en el próximo login
+        clearAllData();
+        await AsyncStorage.multiRemove([
+          'sync_queue',
+          'is_premium',
+          'monthly_invoice_counter',
+        ]).catch(() => {});
+      }
+      // Guardar last_user_id (primer login o mismo usuario)
+      await AsyncStorage.setItem('last_user_id', user.id);
+    } catch {
+      // Si getItem o setItem fallan, continuamos sin bloquear el login
+    }
+    await pullCloudData();
+  }
 
   // Auto-sync periódico cada 60 segundos mientras haya sesión y conexión
   useEffect(() => {

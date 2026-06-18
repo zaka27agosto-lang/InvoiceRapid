@@ -36,8 +36,10 @@ function RootNavigator() {
     if (isLoading) return;
 
     const inAuthGroup = segments[0] === 'auth';
-    // auth/profile es accesible con sesión — no redirigir
-    const isAuthOnlyScreen = inAuthGroup && segments[1] !== 'profile';
+    // auth/profile y auth/callback son accesibles con sesión — no redirigir
+    // (callback necesita sesión para el flujo de recovery/verificación)
+    const secondSegment = (segments as string[])[1];
+    const isAuthOnlyScreen = inAuthGroup && secondSegment !== 'profile' && secondSegment !== 'callback';
 
     if (!user && !inAuthGroup) {
       router.replace('/auth/login');

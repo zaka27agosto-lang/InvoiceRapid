@@ -169,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!supabase) return;
 
     try {
+      const userId = user?.id;
 
       // 🔥 Forzar estado a null INMEDIATAMENTE para que el layout
       // navegue a /auth/login ANTES de cualquier limpieza de BD.
@@ -179,7 +180,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Ejecutar limpieza en segundo plano DESPUÉS de que React
       // haya procesado el cambio de estado y la navegación.
-      const userId = user?.id;
       InteractionManager.runAfterInteractions(async () => {
         try {
           // Si ya hay sesión activa (otro usuario inició sesión), abortar limpieza
@@ -197,11 +197,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
 
           // Cerrar sesión en Supabase y limpiar estado local
-          // NO limpiamos la BD local aquí porque podría interferir con
-          // pantallas aún montadas. La BD se limpia solo al eliminar cuenta.
+          // Limpiamos AsyncStorage (cola de sync, premium, last_user_id)
+          // para evitar que el siguiente usuario herede datos del anterior.
+          // La BD local NO se limpia aquí — se limpia en SyncContext
+          // cuando detecta que el nuevo usuario es diferente.
           await Promise.all([
             supabase!.auth.signOut().catch(() => {}),
-            AsyncStorage.multiRemove(['is_premium']).catch(() => {}),
+            AsyncStorage.multiRemove([
+              'is_premium',
+              'sync_queue',
+              'last_user_id',
+              'monthly_invoice_counter',
+            ]).catch(() => {}),
           ]);
 
         } catch {
