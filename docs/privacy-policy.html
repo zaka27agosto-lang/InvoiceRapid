@@ -40,7 +40,7 @@
       font-size: 0.95rem;
       margin-bottom: 1.5em;
     }
-    ul {
+    ul, ol {
       margin-left: 1.2em;
     }
     strong {
@@ -61,7 +61,7 @@
 
   <h1>Política de Privacidad — InvoiceRapid PRO</h1>
   <p class="meta">
-    <strong>Última actualización:</strong> 01/06/2026<br />
+    <strong>Última actualización:</strong> 18/06/2026<br />
     <strong>Desarrollador:</strong> ZKR Studio<br />
   </p>
 
@@ -82,8 +82,10 @@
   <ul>
     <li>Dirección de correo electrónico.</li>
     <li>Contraseña.</li>
-    <li>Datos introducidos manualmente en la aplicación: clientes, productos, facturas y configuraciones.</li>
+    <li>Datos introducidos manualmente en la aplicación: clientes, productos, facturas, albaranes y configuraciones.</li>
     <li>Historial de compras (suscripciones o pagos realizados a través de la tienda).</li>
+    <li>Códigos de referido y relaciones de referidos (cuando se utilizan).</li>
+    <li>Firmas manuscritas capturadas en albaranes (solo si el usuario utiliza esta función).</li>
   </ul>
 
   <h3>2.2. Datos recopilados automáticamente</h3>
@@ -110,7 +112,16 @@
     También puede restablecer su identificador de publicidad desde esa misma pantalla.
   </p>
 
-  <h3>2.3. Servicios externos utilizados</h3>
+  <h3>2.3. Datos biométricos (App Lock)</h3>
+  <p>
+    La aplicación ofrece una función de bloqueo biométrico (App Lock) que utiliza huella dactilar, Face ID
+    o reconocimiento de iris para proteger el acceso a la aplicación. Los datos biométricos son procesados
+    exclusivamente por el sistema operativo del dispositivo (Android/iOS) y <strong>nunca son accesibles</strong>
+    para InvoiceRapid PRO ni para ninguno de los servicios externos utilizados. La aplicación solo recibe una
+    confirmación de éxito/fallo de la autenticación, sin acceder en ningún momento a los datos biométricos sin procesar.
+  </p>
+
+  <h3>2.4. Servicios externos utilizados</h3>
   <p>La aplicación utiliza los siguientes servicios de terceros:</p>
   <ul>
     <li><strong>Supabase</strong>: autenticación y base de datos.</li>
@@ -132,7 +143,14 @@
     <li>Prevenir fraudes y garantizar la seguridad de la cuenta y de las transacciones.</li>
   </ul>
 
-  <h3>3.2. Datos automáticos (fallos, diagnóstico, rendimiento, IDs)</h3>
+  <h3>3.2. Datos de referidos</h3>
+  <p>
+    Los códigos de referido y las relaciones de referidos se utilizan exclusivamente para gestionar el programa
+    de invitación de amigos, permitiendo a los usuarios compartir la aplicación y obtener beneficios.
+    Estos datos se almacenan en Supabase y no se comparten con terceros.
+  </p>
+
+  <h3>3.3. Datos automáticos (fallos, diagnóstico, rendimiento, IDs)</h3>
   <p>Estos datos se utilizan para:</p>
   <ul>
     <li>Analizar el rendimiento y la estabilidad de la aplicación.</li>
@@ -171,8 +189,9 @@
     <li><strong>Datos de cuenta (email, contraseña):</strong> se conservan mientras la cuenta esté activa. Al solicitar
       la eliminación, la cuenta entra en un período de gracia de 30 días durante el cual el usuario puede restaurarla.
       Transcurrido ese plazo sin restauración, los datos se eliminan permanentemente.</li>
-    <li><strong>Facturas, clientes y productos:</strong> se conservan mientras la cuenta esté activa y durante el
-      período de gracia de 30 días tras la solicitud de eliminación. Se eliminan permanentemente al finalizar dicho período.</li>
+    <li><strong>Facturas, clientes, productos, albaranes y firmas:</strong> se conservan mientras la cuenta esté activa
+      y durante el período de gracia de 30 días tras la solicitud de eliminación. Se eliminan permanentemente al
+      finalizar dicho período.</li>
     <li><strong>Historial de compras:</strong> se conserva por obligaciones fiscales (hasta 6 años según la legislación
       española), incluso tras la eliminación permanente de la cuenta. Estos registros no contienen datos personales más
       allá del identificador de transacción.</li>
@@ -188,6 +207,7 @@
     <li>Transmisión de datos mediante conexiones cifradas (HTTPS).</li>
     <li>Almacenamiento en servicios que implementan medidas de seguridad adecuadas.</li>
     <li>Acceso restringido a los datos mediante autenticación.</li>
+    <li>Bloqueo biométrico opcional (App Lock) para proteger el acceso local a la aplicación.</li>
   </ul>
 
   <h2>7. Eliminación de datos</h2>
@@ -227,6 +247,7 @@
     <li>Acceder a sus datos personales.</li>
     <li>Solicitar la rectificación de datos inexactos o incompletos.</li>
     <li>Solicitar la eliminación de su cuenta y de los datos asociados.</li>
+    <li>Exportar sus datos en un formato legible (RGPD) desde Ajustes → Privacidad y Datos → Exportar datos.</li>
     <li>Usar la aplicación sin crear una cuenta, si así lo prefiere.</li>
     <li>Oponerse al tratamiento de sus datos personales.</li>
     <li>Solicitar la portabilidad de sus datos a otro proveedor de servicios.</li>

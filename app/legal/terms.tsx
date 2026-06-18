@@ -21,109 +21,131 @@ export default function Terms() {
 
       <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={[styles.content, { backgroundColor: currentTheme.colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Introducción</Text>
+          <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>Términos y Condiciones — InvoiceRapid PRO</Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. Introducción</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Bienvenido a InvoiceRapid. Estos Términos y Condiciones (&quot;Términos&quot;) rigen el uso de nuestra aplicación móvil de facturación. Al descargar, instalar o utilizar InvoiceRapid, usted acepta estos Términos.
+            Bienvenido a InvoiceRapid PRO ("la Aplicación"). Estos Términos y Condiciones rigen el uso de nuestra aplicación móvil de facturación. Al descargar, instalar o utilizar InvoiceRapid PRO, usted acepta estos Términos en su totalidad. Si no está de acuerdo, no utilice la Aplicación.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Uso del Servicio</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>2. Uso del Servicio</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid le permite crear, gestionar y enviar facturas. Usted acepta utilizar el servicio únicamente para fines legítimos y de conformidad con estos Términos. No está permitido:
+            InvoiceRapid PRO le permite crear, gestionar y enviar facturas y albaranes. Usted acepta utilizar el servicio únicamente para fines legítimos. No está permitido:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Utilizar la aplicación para actividades fraudulentas o ilegales.
+            {'\u2022'} Utilizar la aplicación para actividades fraudulentas o ilegales.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Crear facturas falsas o engañosas.
+            {'\u2022'} Crear facturas o albaranes falsos o engañosos.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Intentar acceder a cuentas o datos de otros usuarios sin autorización.
+            {'\u2022'} Intentar acceder a cuentas o datos de otros usuarios sin autorización.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Interferir con el funcionamiento de la aplicación.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Cuenta de Usuario</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Para acceder a ciertas funciones, debe crear una cuenta. Usted es responsable de:
+            {'\u2022'} Interferir con el funcionamiento normal de la aplicación.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Mantener la confidencialidad de su contraseña.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Proporcionar información veraz y actualizada.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Notificarnos inmediatamente de cualquier uso no autorizado de su cuenta.
+            {'\u2022'} Realizar ingeniería inversa, descompilar o modificar la aplicación.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Propiedad Intelectual</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>3. Cuenta de Usuario</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid PRO y todo su contenido, diseño, funcionalidades y código son propiedad exclusiva de ZKR Studio. Está prohibido:
+            Para acceder a funciones como la sincronización en la nube y las suscripciones premium, debe crear una cuenta. Usted es responsable de:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Copiar, modificar o distribuir la aplicación.
+            {'\u2022'} Mantener la confidencialidad de su contraseña.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Utilizar marcas registradas o logotipos sin autorización.
+            {'\u2022'} Proporcionar información veraz, precisa y actualizada.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Realizar ingeniería inversa de la aplicación.
-          </Text>
-
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Limitación de Responsabilidad</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            InvoiceRapid se proporciona &quot;tal cual&quot; sin garantías de ningún tipo. No somos responsables de:
+            {'\u2022'} Notificarnos inmediatamente de cualquier uso no autorizado de su cuenta.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Pérdidas de datos o ingresos derivados del uso de la aplicación.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Errores técnicos o interrupciones del servicio.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Daños indirectos, incidentales o consecuentes.
+            La aplicación puede utilizarse sin crear una cuenta, en cuyo caso los datos se almacenan únicamente en el dispositivo.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Suscripciones y Pagos</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>4. Propiedad Intelectual</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Las suscripciones Premium se procesan a través de Google Play Billing y son gestionadas por RevenueCat. Al suscribirse, usted:
+            InvoiceRapid PRO y todo su contenido, diseño, funcionalidades, código fuente, logotipos y marcas son propiedad exclusiva de ZKR Studio. Está prohibido:
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Autoriza los cargos recurrentes según el plan seleccionado (mensual, anual o pago único).
+            {'\u2022'} Copiar, modificar, distribuir o crear obras derivadas de la aplicación.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Acepta los términos y condiciones de Google Play.
+            {'\u2022'} Utilizar las marcas registradas o logotipos sin autorización previa por escrito.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Entiende que los pagos no son reembolsables por el periodo ya facturado, salvo lo dispuesto por Google Play.
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            • Puede gestionar o cancelar su suscripción desde Ajustes {'>'} Gestionar suscripción en la aplicación o desde Google Play {'>'} Suscripciones.
+            {'\u2022'} Extraer o reutilizar partes sustanciales del contenido de la aplicación.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Cancelación</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>5. Suscripciones y Pagos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Puede cancelar su suscripción Premium en cualquier momento desde Ajustes {'>'} Gestionar suscripción en la aplicación o desde Google Play {'>'} Suscripciones. La cancelación surtirá efecto al final del periodo de facturación actual. No se otorgarán reembolsos parciales.
+            InvoiceRapid PRO ofrece planes de suscripción premium (mensual, anual o de por vida) que desbloquean funciones adicionales como facturas ilimitadas, PDF sin marca de agua, plantillas premium y eliminación de anuncios.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Las suscripciones se procesan a través de Google Play Billing y son gestionadas por RevenueCat. Al suscribirse, usted:
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Autoriza los cargos recurrentes según el plan seleccionado (mensual, anual o pago único).
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Acepta los términos y condiciones de Google Play.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Entiende que los pagos no son reembolsables por el periodo ya facturado, salvo lo dispuesto por Google Play.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Puede gestionar o cancelar su suscripción desde Ajustes → Gestionar suscripción en la aplicación, o desde Google Play → Suscripciones.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Anuncios</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>6. Versión Gratuita y Anuncios</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            La versión gratuita de la aplicación muestra anuncios publicitarios a través de Google AdMob. Los usuarios premium no ven anuncios. Al utilizar la versión gratuita, usted acepta la visualización de anuncios y el uso de identificadores de dispositivo para personalización publicitaria, de acuerdo con nuestra Política de Privacidad y la configuración de consentimiento de anuncios.
+            La versión gratuita de la aplicación muestra anuncios publicitarios a través de Google AdMob y tiene un límite mensual de facturas. Los usuarios premium no ven anuncios y disfrutan de facturas ilimitadas. Al utilizar la versión gratuita, usted acepta la visualización de anuncios y el uso de identificadores de dispositivo para personalización publicitaria, de acuerdo con nuestra Política de Privacidad y la Política de Cookies.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Modificaciones</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>7. Limitación de Responsabilidad</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Nos reservamos el derecho de modificar estos Términos en cualquier momento. Le notificaremos de cambios importantes mediante la aplicación. El uso continuado de la aplicación después de dichos cambios constituye su aceptación.
+            InvoiceRapid PRO se proporciona "tal cual" sin garantías de ningún tipo, expresas o implícitas. En la máxima medida permitida por la ley, ZKR Studio no será responsable de:
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Pérdidas de datos, ingresos o beneficios derivados del uso de la aplicación.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Errores técnicos, interrupciones del servicio o fallos de conexión.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Daños indirectos, incidentales, especiales o consecuentes.
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} La exactitud fiscal o legal de las facturas y albaranes generados. El usuario es responsable de verificar el cumplimiento normativo de sus documentos.
           </Text>
 
-          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>Ley Aplicable</Text>
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>8. Cancelación</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Estos Términos se rigen por las leyes de España. Cualquier disputa se resolverá en los tribunales competentes de Madrid, España.
+            Puede cancelar su suscripción premium en cualquier momento desde Ajustes → Gestionar suscripción en la aplicación o desde Google Play → Suscripciones. La cancelación surtirá efecto al final del periodo de facturación actual. No se otorgarán reembolsos parciales por el periodo ya facturado.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>9. Modificaciones de los Términos</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Nos reservamos el derecho de modificar estos Términos en cualquier momento. Le notificaremos de cambios significativos mediante la aplicación. El uso continuado de la aplicación después de dichos cambios constituye su aceptación de los nuevos Términos.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>10. Ley Aplicable y Jurisdicción</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Estos Términos se rigen por las leyes de España. Cualquier disputa derivada de estos Términos o del uso de la aplicación se resolverá en los tribunales competentes de Madrid, España.
+          </Text>
+
+          <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>11. Contacto</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Para cualquier cuestión relacionada con estos Términos, puede contactarnos a través de la aplicación (Ajustes → Privacidad y Datos).
+          </Text>
+          <Text style={{ fontSize: 11, color: currentTheme.colors.textSecondary, opacity: 0.4, marginTop: 20 }}>
+            zkrstudio.contact@gmail.com
           </Text>
 
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 01/06/2026
+            Última actualización: 18/06/2026
           </Text>
         </View>
 
@@ -139,6 +161,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '800' },
   scroll: { flex: 1, paddingHorizontal: 16 },
   content: { padding: 20, borderRadius: 16, marginBottom: 20 },
+  headerTitle: { fontSize: 20, fontWeight: '800', marginBottom: 16 },
   sectionTitle: { fontSize: 18, fontWeight: '700', marginTop: 24, marginBottom: 8 },
   text: { fontSize: 15, lineHeight: 22, marginBottom: 12 },
   updateDate: { fontSize: 12, marginTop: 24, textAlign: 'center' },

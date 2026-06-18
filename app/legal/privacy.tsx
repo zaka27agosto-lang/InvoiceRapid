@@ -24,7 +24,7 @@ export default function Privacy() {
           <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>Política de Privacidad — InvoiceRapid PRO</Text>
 
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 01/06/2026
+            Última actualización: 18/06/2026
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. Introducción</Text>
@@ -48,10 +48,16 @@ export default function Privacy() {
             {'\u2022'} Contraseña.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            {'\u2022'} Datos introducidos manualmente: clientes, productos, facturas y configuraciones.
+            {'\u2022'} Datos introducidos manualmente: clientes, productos, facturas, albaranes y configuraciones.
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             {'\u2022'} Historial de compras (suscripciones o pagos).
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Códigos de referido y relaciones de referidos (cuando se utilizan).
+          </Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            {'\u2022'} Firmas manuscritas capturadas en albaranes (solo si el usuario utiliza esta función).
           </Text>
 
           <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.2. Datos recopilados automáticamente</Text>
@@ -77,7 +83,12 @@ export default function Privacy() {
             Publicidad personalizada: Google AdMob puede utilizar el ID de publicidad (AAID) para mostrar anuncios personalizados. El usuario puede desactivarlo desde Ajustes → Google → Anuncios → Desactivar personalización de anuncios.
           </Text>
 
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.3. Servicios externos utilizados</Text>
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.3. Datos biométricos (App Lock)</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            La aplicación ofrece una función de bloqueo biométrico (App Lock) que utiliza huella dactilar, Face ID o reconocimiento de iris para proteger el acceso a la aplicación. Los datos biométricos son procesados exclusivamente por el sistema operativo del dispositivo (Android/iOS) y nunca son accesibles para InvoiceRapid PRO ni para ninguno de los servicios externos utilizados. La aplicación solo recibe una confirmación de éxito/fallo de la autenticación, sin acceder en ningún momento a los datos biométricos sin procesar.
+          </Text>
+
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.4. Servicios externos utilizados</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             {'\u2022'} Supabase: autenticación y base de datos.
           </Text>
@@ -104,7 +115,12 @@ export default function Privacy() {
             El correo electrónico, contraseña, ID de usuario e historial de compras se utilizan para proporcionar y mantener las funciones de la aplicación, crear y autenticar la cuenta, sincronizar datos y prevenir fraudes.
           </Text>
 
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>3.2. Datos automáticos</Text>
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>3.2. Datos de referidos</Text>
+          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
+            Los códigos de referido y las relaciones de referidos se utilizan exclusivamente para gestionar el programa de invitación de amigos, permitiendo a los usuarios compartir la aplicación y obtener beneficios. Estos datos se almacenan en Supabase y no se comparten con terceros.
+          </Text>
+
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>3.3. Datos automáticos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             Se utilizan para analizar rendimiento y estabilidad, detectar y corregir errores, mejorar la experiencia de uso y prevenir fraudes.
           </Text>
@@ -116,12 +132,12 @@ export default function Privacy() {
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>5. Retención de datos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Los datos se conservan mientras la cuenta esté activa. Al solicitar la eliminación, la cuenta entra en un período de gracia de 30 días. Transcurrido ese plazo sin restauración, los datos se eliminan permanentemente. El historial de compras se conserva por obligaciones fiscales (hasta 6 años según legislación española).
+            Los datos se conservan mientras la cuenta esté activa. Al solicitar la eliminación, la cuenta entra en un período de gracia de 30 días. Transcurrido ese plazo sin restauración, los datos se eliminan permanentemente. Las firmas de albaranes se eliminan junto con los datos de la cuenta. El historial de compras se conserva por obligaciones fiscales (hasta 6 años según legislación española).
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>6. Seguridad</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Se aplican medidas técnicas razonables: transmisión cifrada (HTTPS), almacenamiento en servicios seguros, y acceso restringido mediante autenticación.
+            Se aplican medidas técnicas razonables: transmisión cifrada (HTTPS), almacenamiento en servicios seguros, acceso restringido mediante autenticación, y bloqueo biométrico opcional (App Lock) para proteger el acceso local a la aplicación.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>7. Eliminación de datos</Text>
@@ -135,7 +151,7 @@ export default function Privacy() {
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>8. Derechos del usuario</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            El usuario tiene derecho a acceder, rectificar, eliminar y exportar sus datos, así como a retirar el consentimiento en cualquier momento. También puede usar la aplicación sin crear cuenta.
+            El usuario tiene derecho a acceder, rectificar, eliminar y exportar sus datos, así como a retirar el consentimiento en cualquier momento. También puede usar la aplicación sin crear cuenta. La exportación de datos (RGPD) está disponible desde Ajustes → Privacidad y Datos → Exportar datos.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>9. Cumplimiento normativo</Text>
