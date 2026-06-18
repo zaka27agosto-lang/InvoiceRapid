@@ -32,15 +32,10 @@ serve(async (req) => {
       )
     }
 
-    // Verificar autorización: solo la app (con anon key) puede llamar esta función
-    const authHeader = req.headers.get('Authorization') || '';
-    const anonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
-    if (!authHeader.startsWith('Bearer ') || authHeader.replace('Bearer ', '') !== anonKey) {
-      return new Response(
-        JSON.stringify({ error: 'No autorizado' }),
-        { status: 401, headers: { 'Content-Type': 'application/json' } }
-      );
-    }
+    // 🔓 Este endpoint es público (sin autenticación). La protección contra
+    // enumeración de emails se basa en rate limiting por IP. No se validan
+    // credenciales porque la función necesita ser accesible antes del login
+    // (para verificar estado de cuenta en registro y login).
 
     const { email } = await req.json()
 

@@ -135,10 +135,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
 );
 
 -- 6. CLIENTES STRIPE (mapping user ↔ stripe customer)
--- ⚠️ Esta tabla NO tiene RLS activado porque checkout.ts la accede con la
---    anon key (JWT del usuario). Si en el futuro se activa RLS aquí, hay que
---    añadir policies SELECT/INSERT con auth.uid() = user_id o el checkout
---    se romperá.
 CREATE TABLE IF NOT EXISTS customers (
   id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -146,6 +142,21 @@ CREATE TABLE IF NOT EXISTS customers (
   created_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id)
 );
+
+-- customers RLS: usuarios solo ven su propio stripe_customer_id
+ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "customers_select_own"
+  ON customers FOR SELECT
+  USING (auth.uid() = user_id);
+
+CREATE POLICY "customers_insert_service"
+  ON customers FOR INSERT
+  WITH CHECK (false);
+
+CREATE POLICY "customers_update_service"
+  ON customers FOR UPDATE
+  USING (false);
 
 
 -- ============================================================
