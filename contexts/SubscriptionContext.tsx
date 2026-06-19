@@ -89,8 +89,11 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       Purchases.configure({ apiKey: REVENUECAT_API_KEY });
 
       // 🔐 Identificar con RevenueCat usando el ID de Supabase.
-      //    Así Purchases.getCustomerInfo() devuelve los entitlements
-      //    del usuario correcto desde el primer momento, sin flash.
+      //    Si el usuario aún no está disponible (AuthContext sigue cargando),
+      //    NO llamamos a checkPremiumStatus() todavía — el segundo useEffect
+      //    se encargará cuando user.id esté listo. Llamar checkPremiumStatus
+      //    sin identificar al usuario devuelve los entitlements del dispositivo
+      //    (cuenta anterior), causando fuga de suscripción entre cuentas.
       if (user?.id) {
         try {
           await Purchases.logIn(user.id);
@@ -103,9 +106,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
             rcUserIdRef.current = user.id;
           }
         }
+        await checkPremiumStatus();
+      } else {
+        // Usuario aún no cargado — el segundo useEffect identificará
+        // y verificará premium cuando AuthContext termine de cargar
+        setIsPremium(false);
       }
 
-      await checkPremiumStatus();
       const off = await Purchases.getOfferings();
       if (off.all && off.all['default']) setOfferings(off.all['default']);
     } catch {

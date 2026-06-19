@@ -1,19 +1,33 @@
-import { Redirect } from 'expo-router';
+import { Redirect, useGlobalSearchParams } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 
 /**
  * Pantalla inicial — redirige según el estado de autenticación.
  *
- * El Redirect se ejecuta en el primer render (antes de effects),
- * manejando el salto inicial desde / hacia el destino correcto.
- * Para cambios de auth durante la sesión (signIn, signOut),
- * RootNavigator en app/_layout.tsx usa useSegments + useEffect.
- *
- * Ambos mecanismos coexisten sin conflicto:
- *   - Redirect for the initial / → destination jump
- *   - useEffect for in-session auth state transitions
+ * Si la app se abre desde un deep link de recuperación de contraseña
+ * o verificación de email (token_hash en la URL), redirigimos a
+ * /auth/callback para que procese el token. Sin esto, el Redirect
+ * inmediato a /auth/login pisa el deep link antes de que expo-router
+ * pueda navegar a callback.tsx.
  */
 export default function Index() {
   const { user } = useAuth();
-  return <Redirect href={user ? "/(tabs)" : "/auth/login"} />;
+  const globalParams = useGlobalSearchParams<{ token_hash?: string; type?: string }>();
+
+  // Deep link de recuperación/verificación → dejar que callback.tsx procese el token
+  if (globalParams.token_hash) {
+    return (
+      <Redirect
+        href={{
+          pathname: '/auth/callback',
+          params: {
+            token_hash: globalParams.token_hash,
+            type: globalParams.type || 'recovery',
+          },
+        }}
+      />
+    );
+  }
+
+  return <Redirect href={user ? '/(tabs)' : '/auth/login'} />;
 }

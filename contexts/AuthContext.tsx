@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Session, User } from '@supabase/supabase-js';
 import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
-import { InteractionManager } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import { supabase } from '../services/supabase';
@@ -204,34 +203,31 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       //    que causan login en la cuenta equivocada o pantalla colgada.
       await supabase.auth.signOut();
 
-      // 🔥 4. Forzar estado a null para que el layout navegue a /auth/login
+      // 🧹 4. Limpiar AsyncStorage SINCRÓNICAMENTE, ANTES de setUser(null).
+      //    Si la limpieza se difiere (InteractionManager.runAfterInteractions),
+      //    se crea una ventana donde:
+      //    a) setUser(null) → SyncContext lee last_user_id del AsyncStorage
+      //       aún sin limpiar, y puede tomar decisiones incorrectas.
+      //    b) El auto-sync (60s) podría leer preferencias de la cuenta anterior.
+      //    Al limpiar ANTES de notificar a React, eliminamos esa ventana.
+      await AsyncStorage.multiRemove([
+        'is_premium',
+        'sync_queue',
+        'last_user_id',
+        'monthly_invoice_counter',
+        'datos_empresa',
+        'numeracion_config',
+        'primaryColor',
+        'moneda',
+        'plantilla_pdf',
+        'formato_fecha',
+        'ultimo_iva',
+        'ha_creado_primera_factura',
+      ]).catch(() => {});
+
+      // 🔥 5. Forzar estado a null para que el layout navegue a /auth/login
       setUser(null);
       setSession(null);
-
-      // 5. Limpiar AsyncStorage en segundo plano (no bloquea la UI)
-      InteractionManager.runAfterInteractions(async () => {
-        try {
-          // Verificar que no haya una nueva sesión activa
-          const { data } = await supabase!.auth.getSession();
-          if (data.session) return;
-
-          await AsyncStorage.multiRemove([
-            'is_premium',
-            'sync_queue',
-            'last_user_id',
-            'monthly_invoice_counter',
-            'datos_empresa',
-            'numeracion_config',
-            'primaryColor',
-            'moneda',
-            'plantilla_pdf',
-            'formato_fecha',
-            'ultimo_iva',
-            'ha_creado_primera_factura',
-          ]).catch(() => {});
-        } catch {
-        }
-      });
     } catch {
       // Si algo falla, al menos limpiamos el estado de React
       setUser(null);
