@@ -10,8 +10,15 @@ if (Platform.OS !== 'web') {
   db = SQLite.openDatabaseSync('facturas2.db');
 }
 
-export function clearAllData() {
-  if (!db) return;
+/**
+ * Elimina TODOS los datos de la BD local.
+ * Se llama cuando se detecta un cambio de usuario (logout + login con otra cuenta)
+ * para evitar fugas de datos entre cuentas.
+ *
+ * @returns true si la BD quedó vacía, false si algo falló
+ */
+export function clearAllData(): boolean {
+  if (!db) return false;
   try {
     db.execSync(`
       DELETE FROM factura_items;
@@ -21,7 +28,24 @@ export function clearAllData() {
       DELETE FROM clientes;
       DELETE FROM productos;
     `);
+
+    // 🔍 Verificar que todas las tablas quedaron vacías.
+    // Si clearAllData falla silenciosamente (BD bloqueada, corrupta),
+    // los datos de la cuenta anterior sobreviven y acaban subiéndose
+    // a la nube de la nueva cuenta en el siguiente auto-sync.
+    const remaining = db.getFirstSync(`
+      SELECT
+        (SELECT COUNT(*) FROM facturas) +
+        (SELECT COUNT(*) FROM factura_items) +
+        (SELECT COUNT(*) FROM clientes) +
+        (SELECT COUNT(*) FROM productos) +
+        (SELECT COUNT(*) FROM albaranes) +
+        (SELECT COUNT(*) FROM albaran_items) AS total
+    `) as { total: number } | null;
+
+    return (remaining?.total ?? 999) === 0;
   } catch (error) {
+    return false;
   }
 }
 

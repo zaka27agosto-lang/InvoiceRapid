@@ -28,6 +28,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const userRef = useRef(user);
   const isSyncingRef = useRef(false);
+  const isSwitchingUserRef = useRef(false);
 
   // Mantener referencias actualizadas para evitar closures obsoletos
   useEffect(() => {
@@ -61,23 +62,53 @@ export function SyncProvider({ children }: { children: ReactNode }) {
    */
   async function handleUserLogin() {
     if (!user) return;
+
+    // 🔒 Bloquear auto-sync mientras se procesa la transición de usuario.
+    //    Sin esto, el setInterval de 60s podría dispararse entre que
+    //    userRef apunta al nuevo usuario y clearAllData() termina,
+    //    subiendo datos del usuario anterior a la nube del nuevo.
+    isSwitchingUserRef.current = true;
+
     try {
       const lastUserId = await AsyncStorage.getItem('last_user_id');
       if (lastUserId && lastUserId !== user.id) {
-        // ⚠️ Usuario diferente — limpiar BD local para evitar fuga de datos
-        // Solo guardamos last_user_id DESPUÉS de limpiar con éxito,
-        // así si falla la limpieza, se reintentará en el próximo login
-        clearAllData();
+        // ⚠️ Usuario diferente — limpiar BD local, AsyncStorage y cola en memoria
+        // para evitar fugas de datos, preferencias y configuración
+        // entre cuentas.
+        const cleared = clearAllData();
+        syncService.clearQueue();
         await AsyncStorage.multiRemove([
+          // Estado de sesión y suscripción
           'sync_queue',
           'is_premium',
           'monthly_invoice_counter',
+          // Datos de empresa (NIF, dirección, etc.) — sensible
+          'datos_empresa',
+          // Numeración de facturas (prefijo, sufijo, dígitos)
+          'numeracion_config',
+          // Preferencias de usuario
+          'primaryColor',
+          'moneda',
+          'plantilla_pdf',
+          'formato_fecha',
+          'ultimo_iva',
+          'ha_creado_primera_factura',
         ]).catch(() => {});
+
+        // 🔒 Solo guardar last_user_id si la BD se limpió correctamente.
+        // Si falló (BD bloqueada, corrupta), NO actualizamos para que
+        // en el próximo login se reintente la limpieza.
+        if (!cleared) {
+          if (__DEV__) console.warn('[SyncContext] clearAllData falló — datos de la cuenta anterior podrían persistir');
+          return; // No seguir con el pull para no mezclar datos
+        }
       }
       // Guardar last_user_id (primer login o mismo usuario)
       await AsyncStorage.setItem('last_user_id', user.id);
     } catch {
       // Si getItem o setItem fallan, continuamos sin bloquear el login
+    } finally {
+      isSwitchingUserRef.current = false;
     }
     await pullCloudData();
   }
@@ -91,7 +122,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
     if (user && isOnline) {
       intervalRef.current = setInterval(() => {
-        if (userRef.current && !isSyncingRef.current) {
+        if (userRef.current && !isSyncingRef.current && !isSwitchingUserRef.current) {
           autoSync();
         }
       }, 60000);

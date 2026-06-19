@@ -799,6 +799,11 @@ export class SyncService {
     await AsyncStorage.setItem('sync_queue', JSON.stringify(this.syncQueue));
   }
 
+  /** Limpia la cola de sincronización en memoria (usar al cambiar de usuario) */
+  clearQueue(): void {
+    this.syncQueue = [];
+  }
+
   async processQueue(userId: string): Promise<void> {
     if (!(await this.isOnline()) || this.syncQueue.length === 0) return;
 

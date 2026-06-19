@@ -220,6 +220,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             'sync_queue',
             'last_user_id',
             'monthly_invoice_counter',
+            'datos_empresa',
+            'numeracion_config',
+            'primaryColor',
+            'moneda',
+            'plantilla_pdf',
+            'formato_fecha',
+            'ultimo_iva',
+            'ha_creado_primera_factura',
           ]).catch(() => {});
         } catch {
         }
