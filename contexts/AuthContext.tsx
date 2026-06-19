@@ -171,50 +171,61 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const userId = user?.id;
 
-      // 🔥 Forzar estado a null INMEDIATAMENTE para que el layout
-      // navegue a /auth/login ANTES de cualquier limpieza de BD.
-      // Así evitamos que las pantallas actuales se rompan al perder
-      // los datos de la BD mientras están montadas.
+      // 🔄 1. Sincronizar datos locales a la nube ANTES de cerrar sesión.
+      //    Solo si hay conexión — si no, los datos se quedan en la BD local
+      //    y se sincronizarán en el próximo login de este mismo usuario.
+      if (userId) {
+        try {
+          const NetInfo = await import('@react-native-community/netinfo');
+          const { isConnected } = await NetInfo.fetch();
+          if (isConnected) {
+            const { syncService } = await import('../services/syncService');
+            await syncService.syncAll(userId);
+          }
+        } catch {
+          // Silencioso — los datos no se pierden
+        }
+      }
+
+      // 🛑 2. Cerrar sesión en RevenueCat para evitar fuga de suscripción
+      //    entre cuentas (Account 1 Pro → Account 2 hereda Pro)
+      try {
+        const { default: Purchases } = await import('react-native-purchases');
+        await Purchases.logOut();
+      } catch {
+        // Purchases puede no estar inicializado si el usuario nunca
+        // llegó a los tabs — no es un error crítico
+      }
+
+      // 🔒 3. Cerrar sesión en Supabase SINCRÓNICAMENTE.
+      //    Esto es crítico: si se difiere, el SDK mantiene la sesión
+      //    antigua y al procesar un deep link de recuperación de
+      //    contraseña (verifyOtp) se producen conflictos de sesión
+      //    que causan login en la cuenta equivocada o pantalla colgada.
+      await supabase.auth.signOut();
+
+      // 🔥 4. Forzar estado a null para que el layout navegue a /auth/login
       setUser(null);
       setSession(null);
 
-      // Ejecutar limpieza en segundo plano DESPUÉS de que React
-      // haya procesado el cambio de estado y la navegación.
+      // 5. Limpiar AsyncStorage en segundo plano (no bloquea la UI)
       InteractionManager.runAfterInteractions(async () => {
         try {
-          // Si ya hay sesión activa (otro usuario inició sesión), abortar limpieza
+          // Verificar que no haya una nueva sesión activa
           const { data } = await supabase!.auth.getSession();
-          if (data.session) {
-            return;
-          }
-          // 🔄 Sincronizar datos locales a la nube antes de cerrar sesión
-          if (userId) {
-            try {
-              const { syncService } = await import('../services/syncService');
-              await syncService.syncAll(userId);
-            } catch {
-            }
-          }
+          if (data.session) return;
 
-          // Cerrar sesión en Supabase y limpiar estado local
-          // Limpiamos AsyncStorage (cola de sync, premium, last_user_id)
-          // para evitar que el siguiente usuario herede datos del anterior.
-          // La BD local NO se limpia aquí — se limpia en SyncContext
-          // cuando detecta que el nuevo usuario es diferente.
-          await Promise.all([
-            supabase!.auth.signOut().catch(() => {}),
-            AsyncStorage.multiRemove([
-              'is_premium',
-              'sync_queue',
-              'last_user_id',
-              'monthly_invoice_counter',
-            ]).catch(() => {}),
-          ]);
-
+          await AsyncStorage.multiRemove([
+            'is_premium',
+            'sync_queue',
+            'last_user_id',
+            'monthly_invoice_counter',
+          ]).catch(() => {});
         } catch {
         }
       });
     } catch {
+      // Si algo falla, al menos limpiamos el estado de React
       setUser(null);
       setSession(null);
     }

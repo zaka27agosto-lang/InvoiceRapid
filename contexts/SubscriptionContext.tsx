@@ -1,8 +1,9 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { notifyPremiumChange } from '../utils/premiumEvents';
 import { setPlantillaPDF } from '../utils/settings';
+import { useAuth } from './AuthContext';
 
 const REVENUECAT_API_KEY = process.env.EXPO_PUBLIC_REVENUECAT_API_KEY || '';
 
@@ -25,14 +26,50 @@ interface SubscriptionContextType {
 const SubscriptionContext = createContext<SubscriptionContextType | undefined>(undefined);
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [offerings, setOfferings] = useState<any>(null);
   const [wasPremium, setWasPremium] = useState(false);
+  const rcUserIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     initPurchases();
   }, []);
+
+  // 🔄 Re-identificar con RevenueCat cuando cambia el usuario de Supabase.
+  //    Esto evita que la cuenta 2 herede la suscripción Pro de la cuenta 1
+  //    en el mismo dispositivo. Purchases.logIn asocia el ID de Supabase
+  //    con la identidad de RevenueCat, aislando los entitlements por usuario.
+  useEffect(() => {
+    if (!user?.id || isLoading) return;
+    if (rcUserIdRef.current === user.id) return; // Ya identificado
+
+    const identifyRevenueCat = async () => {
+      try {
+        const { created } = await Purchases.logIn(user.id);
+        rcUserIdRef.current = user.id;
+        // Si es un usuario nuevo en RevenueCat (created=true) o existente,
+        // recargar entitlements para este usuario específico
+        await checkPremiumStatus();
+      } catch (e: any) {
+        // Error 24 = ya logueado con este usuario (ej. reconexión)
+        if (e.code === 24 || e.message?.toLowerCase().includes('already')) {
+          rcUserIdRef.current = user.id;
+          await checkPremiumStatus();
+        } else {
+          // Fallback: cerrar sesión en RevenueCat y usar identidad anónima
+          // (getCustomerInfo devolverá entitlements del dispositivo, no ideal
+          // pero mejor que crashear)
+          try { await Purchases.logOut(); } catch {}
+          rcUserIdRef.current = null;
+          await checkPremiumStatus();
+        }
+      }
+    };
+
+    identifyRevenueCat();
+  }, [user?.id, isLoading]);
 
   useEffect(() => {
     // Solo resetear color si premium cambia de true a false durante el uso
@@ -50,6 +87,24 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     try {
       Purchases.setLogLevel(__DEV__ ? LOG_LEVEL.DEBUG : LOG_LEVEL.ERROR);
       Purchases.configure({ apiKey: REVENUECAT_API_KEY });
+
+      // 🔐 Identificar con RevenueCat usando el ID de Supabase.
+      //    Así Purchases.getCustomerInfo() devuelve los entitlements
+      //    del usuario correcto desde el primer momento, sin flash.
+      if (user?.id) {
+        try {
+          await Purchases.logIn(user.id);
+          rcUserIdRef.current = user.id;
+        } catch (e: any) {
+          // Error 24 = ya logueado (reconexión) — ignorar
+          if (e.code !== 24 && !e.message?.toLowerCase().includes('already')) {
+            try { await Purchases.logOut(); } catch {}
+          } else {
+            rcUserIdRef.current = user.id;
+          }
+        }
+      }
+
       await checkPremiumStatus();
       const off = await Purchases.getOfferings();
       if (off.all && off.all['default']) setOfferings(off.all['default']);
