@@ -1,8 +1,8 @@
-import { Stack, useRouter, useSegments } from "expo-router";
-import { ActivityIndicator, Alert, AppState, View } from "react-native";
+import { Stack, useRootNavigationState, useRouter, useSegments } from "expo-router";
+import { ActivityIndicator, AppState, View } from "react-native";
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as WebBrowser from 'expo-web-browser';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { SyncProvider } from "../contexts/SyncContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
@@ -10,8 +10,13 @@ import '../utils/i18n';
 import { cargarIdioma } from '../utils/i18n';
 import { initDB } from "./db/database";
 import { adsService } from "../services/adsService";
-import { AppLockScreen } from "../components/AppLockScreen";
-import { useSecurity } from "../hooks/useSecurity";
+import {
+  refreshRemoteConfig,
+  startLiveUpdates,
+  stopLiveUpdates,
+  setLiveUpdateInterval,
+  LIVE_UPDATE_INTERVALS,
+} from "../utils/remoteConfig";
 
 /**
  * RootNavigator — stack ÚNICO con TODAS las pantallas.
@@ -31,22 +36,25 @@ function RootNavigator() {
   const { user, isLoading } = useAuth();
   const segments = useSegments();
   const router = useRouter();
+  const rootNavigationState = useRootNavigationState();
 
   useEffect(() => {
     if (isLoading) return;
+    // Esperar a que el router haya resuelto los segments reales (crítico para deep links)
+    if (!rootNavigationState?.key) return;
 
     const inAuthGroup = segments[0] === 'auth';
-    // auth/profile y auth/callback son accesibles con sesión — no redirigir
-    // (callback necesita sesión para el flujo de recovery/verificación)
     const secondSegment = (segments as string[])[1];
+    // auth/callback nunca debe ser interceptada por el guard — gestiona su propio flujo
+    const isCallback = inAuthGroup && secondSegment === 'callback';
     const isAuthOnlyScreen = inAuthGroup && secondSegment !== 'profile' && secondSegment !== 'callback';
 
-    if (!user && !inAuthGroup) {
+    if (!user && !inAuthGroup && !isCallback) {
       router.replace('/auth/login');
     } else if (user && isAuthOnlyScreen) {
       router.replace('/(tabs)');
     }
-  }, [user, segments, isLoading]);
+  }, [user, segments, isLoading, rootNavigationState?.key]);
 
   if (isLoading) {
     return (
@@ -78,48 +86,41 @@ function RootNavigator() {
 
 export default function RootLayout() {
   const appState = useRef(AppState.currentState);
-  const { securityStatus, lockState, authenticate } = useSecurity();
-  const [lockScreenDismissed, setLockScreenDismissed] = useState(false);
-  const [rootWarningShown, setRootWarningShown] = useState(false);
-
-  // Resetear el dismiss cuando la app se bloquea de nuevo
-  useEffect(() => {
-    if (lockState.isLocked) {
-      setLockScreenDismissed(false);
-    }
-  }, [lockState.isLocked]);
 
   useEffect(() => {
     initDB();
     cargarIdioma();
     adsService.initialize().catch(() => {});
+    // Refrescar configuración remota (referidos + interstitial thresholds)
+    // desde Supabase al startup. Esto actualiza el cache compartido de
+    // `utils/remoteConfig.ts`, que usan adsService y los componentes.
+    // Si falla la red, se mantiene el cache local o defaults — la app sigue funcionando.
+    refreshRemoteConfig().catch(() => {});
+    // Hot-reload sin reiniciar la app: polling cada 5 min para captar cambios
+    // del admin en app_config. El cleanup se hace al desmontar este layout.
+    startLiveUpdates();
     WebBrowser.maybeCompleteAuthSession();
 
-    // Recargar rewarded ad cuando la app vuelve a foreground
+    // Reaccionar a transiciones foreground/background:
+    //   - foreground → refresh inmediato + cadencia 1 min (admin tweaking)
+    //   - background  → cadencia 5 min (ahorrar batería, la app corre poco)
+    //   - también recarga rewarded ad como antes
     const subscription = AppState.addEventListener('change', (nextAppState) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
         adsService.reloadRewardedAd();
+        refreshRemoteConfig().catch(() => {});
+        setLiveUpdateInterval(LIVE_UPDATE_INTERVALS.foregroundMs);
+      } else if (nextAppState.match(/inactive|background/)) {
+        setLiveUpdateInterval(LIVE_UPDATE_INTERVALS.backgroundMs);
       }
       appState.current = nextAppState;
     });
 
-    return () => subscription.remove();
+    return () => {
+      subscription.remove();
+      stopLiveUpdates();
+    };
   }, []);
-
-  // Aviso de dispositivo rooteado/emulador (solo una vez)
-  useEffect(() => {
-    if (rootWarningShown) return;
-    if (securityStatus.isEmulator || securityStatus.isRooted) {
-      setRootWarningShown(true);
-      const mensaje = securityStatus.isEmulator
-        ? 'Estás ejecutando la app en un emulador. Tus datos de facturación podrían ser menos seguros.'
-        : 'Se ha detectado que tu dispositivo podría estar rooteado. Tus datos de facturación podrían estar en riesgo.';
-      Alert.alert('⚠️ Aviso de seguridad', mensaje);
-    }
-  }, [securityStatus.isEmulator, securityStatus.isRooted, rootWarningShown]);
-
-  // Gestionar AppLock: mostrar pantalla de bloqueo cuando sea necesario
-  const showLockScreen = lockState.isLocked && !lockScreenDismissed;
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -127,13 +128,6 @@ export default function RootLayout() {
         <SyncProvider>
           <ThemeProvider>
             <RootNavigator />
-            {showLockScreen && (
-              <AppLockScreen
-                securityStatus={securityStatus}
-                lockState={lockState}
-                onAuthenticate={authenticate}
-              />
-            )}
           </ThemeProvider>
         </SyncProvider>
       </AuthProvider>

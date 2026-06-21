@@ -13,6 +13,48 @@ const REVENUECAT_API = 'https://api.revenuecat.com/v1'
 // pero efectivo para ráfagas dentro de la misma instancia)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>()
 
+// ─── Configuración remota desde app_config ───
+// Estos valores se pueden cambiar desde el dashboard de Supabase sin recompilar.
+// Si la query falla o el valor es inválido, usamos defaults conservadores.
+// Cachear module-level es SEGURO aquí: cada invocación es stateless, pero un
+// valor se cachea para el siguiente request en la misma instancia Deno Deploy
+// caliente (reduce queries en ráfagas). Invalidamos con una edad máxima de 60s.
+const REMOTE_CONFIG_TTL_MS = 60_000
+const remoteConfigCache: { referral_required_count: number; loadedAt: number } = {
+  referral_required_count: 2,
+  loadedAt: 0,
+}
+
+async function getReferralRequiredCount(): Promise<number> {
+  if (Date.now() - remoteConfigCache.loadedAt < REMOTE_CONFIG_TTL_MS) {
+    return remoteConfigCache.referral_required_count
+  }
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('app_config')
+      .select('value')
+      .eq('key', 'referral_required_count')
+      .maybeSingle()
+    if (!error && data?.value) {
+      const n = parseInt(data.value, 10)
+      if (!isNaN(n) && n > 0) {
+        remoteConfigCache.referral_required_count = n
+        remoteConfigCache.loadedAt = Date.now()
+        return n
+      }
+    }
+  } catch {
+    // Silencioso — usamos cache o default
+  }
+  // Si había un valor previo cacheado pero expiró y falló la query,
+  // devolvemos el último valor conocido. Si nunca hemos cargado nada,
+  // devolvemos el default.
+  if (remoteConfigCache.loadedAt > 0) {
+    return remoteConfigCache.referral_required_count
+  }
+  return 2
+}
+
 function checkRateLimit(key: string, maxRequests: number, windowMs: number): boolean {
   const now = Date.now()
   const entry = rateLimitMap.get(key)
@@ -140,21 +182,27 @@ serve(async (req) => {
       )
     }
 
-    // 2b. El referidor debe tener menos de 3 referidos activados
+    // 2b. El referidor debe tener menos de N referidos activados
+    //    (N viene de app_config.referral_required_count, default 2)
+    const REFERRAL_REQUIRED_COUNT = await getReferralRequiredCount()
+
     const { count: activatedCount, error: countError } = await supabaseAdmin
       .from('referral_events')
       .select('*', { count: 'exact', head: true })
       .eq('referrer_id', referrer_id)
       .eq('status', 'activated')
 
-    if (!countError && activatedCount !== null && activatedCount >= 3) {
+    if (!countError && activatedCount !== null && activatedCount >= REFERRAL_REQUIRED_COUNT) {
       await supabaseAdmin
         .from('referral_events')
         .update({ status: 'rejected' })
         .eq('id', event.id)
 
       return new Response(
-        JSON.stringify({ success: false, error: 'El referidor ya ha alcanzado el límite de 3 referidos' }),
+        JSON.stringify({
+          success: false,
+          error: `El referidor ya ha alcanzado el límite de ${REFERRAL_REQUIRED_COUNT} referidos`,
+        }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       )
     }
@@ -259,12 +307,13 @@ serve(async (req) => {
     }
 
     // ====================================================================
-    // PASO 5: Conceder entitlement en RevenueCat al llegar a 3 referidos
+    // PASO 5: Conceder entitlement en RevenueCat al alcanzar el umbral
+    //   (REFERRAL_REQUIRED_COUNT viene de app_config, default 2)
     // ====================================================================
 
     const newCount = (activatedCount || 0) + 1
 
-    if (newCount === 3) {
+    if (newCount === REFERRAL_REQUIRED_COUNT) {
       const rcHeaders = {
         'Authorization': `Bearer ${REVENUECAT_SECRET_KEY}`,
         'Content-Type': 'application/json',

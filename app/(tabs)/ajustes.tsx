@@ -19,7 +19,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuthGuard } from "../../hooks/useAuthGuard";
-import { useSecurity } from "../../hooks/useSecurity";
 import { supabase } from "../../services/supabase";
 import { adsService } from "../../services/adsService";
 import SwipeNavigation from "../../components/SwipeNavigation";
@@ -587,7 +586,7 @@ export default function Ajustes() {
         <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
           <Text style={[styles.seccionTitulo, { color: currentTheme.colors.textSecondary }]}>{t('privacidad_datos')}</Text>
           
-          <AppLockToggle />
+
           
           <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/legal/privacy')}>
             <Ionicons name="document-text-outline" size={20} color={currentTheme.colors.primary} />
@@ -1044,40 +1043,6 @@ export default function Ajustes() {
   );
 }
 
-// ─── App Lock Toggle ───
-function AppLockToggle() {
-  const { securityStatus, enableAppLock, disableAppLock } = useSecurity();
-  const { currentTheme } = useTheme();
-
-  return (
-    <View style={styles.switchFila}>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Ionicons
-          name={securityStatus.biometricType === 'face' ? 'scan-outline' : 'finger-print-outline'}
-          size={20}
-          color={currentTheme.colors.primary}
-        />
-        <Text style={styles.switchLabel}>Bloqueo de app</Text>
-      </View>
-      <TouchableOpacity
-        style={[styles.switchBtn, securityStatus.lockEnabled && { backgroundColor: currentTheme.colors.primary }]}
-        onPress={async () => {
-          if (securityStatus.lockEnabled) {
-            await disableAppLock();
-          } else {
-            const result = await enableAppLock();
-            if (!result.success) {
-              Alert.alert('No disponible', result.error || 'Tu dispositivo no soporta bloqueo biométrico.');
-            }
-          }
-        }}
-      >
-        <View style={[styles.switchCircle, securityStatus.lockEnabled && styles.switchCircleActivo]} />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   wrapper: { flex: 1, backgroundColor: '#F8F7FF' },
   scroll: { flex: 1, paddingTop: 55, paddingHorizontal: 16 },
@@ -1106,8 +1071,6 @@ const styles = StyleSheet.create({
   campoWrapper: { marginBottom: 16 },
   campoLabel: { fontSize: 12, fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 6 },
   campoInput: { borderWidth: 1.5, borderColor: '#e8e8e8', borderRadius: 12, padding: 14, fontSize: 15, color: '#1a1a1a', backgroundColor: '#fafafa' },
-  switchFila: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#f0f0f0', marginTop: 8 },
-  switchLabel: { fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
   monedaItem: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
   monedaItemActivo: { backgroundColor: '#F8F7FF' },
   monedaSimbolo: { fontSize: 20, fontWeight: '700', color: '#007AFF', width: 40 },
@@ -1138,10 +1101,6 @@ const styles = StyleSheet.create({
   restaurarBtn: { alignItems: 'center', paddingVertical: 16 },
   restaurarTexto: { fontSize: 14, color: '#007AFF', fontWeight: '600' },
   legalTexto: { textAlign: 'center', fontSize: 13, color: '#666', paddingBottom: 10, paddingHorizontal: 20, lineHeight: 18 },
-  switchBtn: { width: 50, height: 28, borderRadius: 14, backgroundColor: '#e0e0e0', justifyContent: 'center', padding: 3 },
-  switchBtnActivo: { backgroundColor: '#007AFF' },
-  switchCircle: { width: 22, height: 22, borderRadius: 11, backgroundColor: '#fff' },
-  switchCircleActivo: { alignSelf: 'flex-end' },
   ivaOpciones: { flexDirection: 'row', gap: 12 },
   ivaBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#e8e8e8', backgroundColor: '#fafafa', alignItems: 'center' },
   ivaBtnTexto: { fontSize: 16, fontWeight: '700', color: '#888' },

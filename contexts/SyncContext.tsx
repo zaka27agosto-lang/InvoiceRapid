@@ -99,17 +99,20 @@ export function SyncProvider({ children }: { children: ReactNode }) {
         // Si falló (BD bloqueada, corrupta), NO actualizamos para que
         // en el próximo login se reintente la limpieza.
         if (!cleared) {
-          if (__DEV__) console.warn('[SyncContext] clearAllData falló — datos de la cuenta anterior podrían persistir');
-          return; // No seguir con el pull para no mezclar datos
+          // ⚠️ NO desactivar isSwitchingUserRef — mantener el auto-sync bloqueado
+          // para evitar subir datos del usuario anterior a la nube del nuevo.
+          if (__DEV__) console.warn('[SyncContext] clearAllData falló — auto-sync bloqueado');
+          return; // Salir SIN desactivar isSwitchingUserRef
         }
       }
       // Guardar last_user_id (primer login o mismo usuario)
       await AsyncStorage.setItem('last_user_id', user.id);
     } catch {
-      // Si getItem o setItem fallan, continuamos sin bloquear el login
-    } finally {
-      isSwitchingUserRef.current = false;
+      // Si AsyncStorage falla, continuar con precaución pero desbloquear
     }
+
+    // Solo desactivar el bloqueo si la limpieza tuvo éxito
+    isSwitchingUserRef.current = false;
     await pullCloudData();
   }
 

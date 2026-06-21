@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";    import {
     } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useRemoteConfig } from "../../hooks/useRemoteConfig";
 import { adsService } from "../../services/adsService";
 import { convertirAEurosParaGuardar } from "../../utils/currency";
 import * as Print from 'expo-print';
@@ -50,6 +51,7 @@ export default function NuevaFactura() {
   const { t } = useTranslation();
   const { isPremium, offerings, comprar, restaurar } = useSubscription();
   const { currentTheme } = useTheme();
+  const { referral_required_count } = useRemoteConfig();
   const esModoEdicion = !!facturaId;
 
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
@@ -923,7 +925,7 @@ export default function NuevaFactura() {
                   >
                     <Ionicons name="gift-outline" size={16} color={currentTheme.colors.primary} />
                     <Text style={{ fontSize: 12, color: currentTheme.colors.primary, fontWeight: '600' }}>
-                      {t('invitar_amigos_banner')}
+                      {t('invitar_amigos_banner', { n: referral_required_count })}
                     </Text>
                   </TouchableOpacity>
                 </View>

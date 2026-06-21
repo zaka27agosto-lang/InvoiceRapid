@@ -15,12 +15,14 @@ import {
 } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useRemoteConfig } from '../../hooks/useRemoteConfig';
 import { supabase } from '../../services/supabase';
 
 export default function ReferralCode() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
   const { user } = useAuth();
+  const { referral_required_count } = useRemoteConfig();
   const router = useRouter();
 
   const [code, setCode] = useState('');
@@ -241,7 +243,7 @@ export default function ReferralCode() {
           {t('introducir_codigo')}
         </Text>
         <Text style={[styles.subtitle, { color: currentTheme.colors.textSecondary }]}>
-          {t('invitar_amigos_sub')}
+          {t('invitar_amigos_sub', { n: referral_required_count })}
         </Text>
 
         {/* Tiempo restante */}

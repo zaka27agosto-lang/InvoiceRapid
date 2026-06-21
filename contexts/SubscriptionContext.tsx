@@ -1,5 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Alert } from 'react-native';
 import { createContext, ReactNode, useContext, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import { notifyPremiumChange } from '../utils/premiumEvents';
 import { setPlantillaPDF } from '../utils/settings';
@@ -17,7 +19,7 @@ interface SubscriptionContextType {
   isLoading: boolean;
   offerings: any;
   comprar: (packageToBuy: any) => Promise<{ success: boolean; error?: string; cancelled?: boolean }>;
-  restaurar: () => Promise<{ success: boolean; isPremium?: boolean; error?: string }>;
+  restaurar: () => Promise<{ success: boolean; isPremium?: boolean; error?: string; cancelled?: boolean }>;
   checkPremiumStatus: () => Promise<void>;
   aumentarLimiteFacturas: () => Promise<void>;
   onPremiumExpired: () => void;
@@ -27,6 +29,7 @@ const SubscriptionContext = createContext<SubscriptionContextType | undefined>(u
 
 export function SubscriptionProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const [isPremium, setIsPremium] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [offerings, setOfferings] = useState<any>(null);
@@ -58,12 +61,12 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
           rcUserIdRef.current = user.id;
           await checkPremiumStatus();
         } else {
-          // Fallback: cerrar sesión en RevenueCat y usar identidad anónima
-          // (getCustomerInfo devolverá entitlements del dispositivo, no ideal
-          // pero mejor que crashear)
-          try { await Purchases.logOut(); } catch {}
+          // Fallback: Purchases.logIn falló por una razón desconocida.
+          // NO hacer logOut() ni checkPremiumStatus() — eso devolvería
+          // los entitlements del dispositivo (cuenta anterior), causando
+          // fuga de suscripción entre cuentas. Forzar no-premium.
           rcUserIdRef.current = null;
-          await checkPremiumStatus();
+          setIsPremium(false);
         }
       }
     };
@@ -101,7 +104,10 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
         } catch (e: any) {
           // Error 24 = ya logueado (reconexión) — ignorar
           if (e.code !== 24 && !e.message?.toLowerCase().includes('already')) {
-            try { await Purchases.logOut(); } catch {}
+            // NO hacer logOut() ni checkPremiumStatus() — forzar no-premium
+            // para evitar fuga de entitlements del dispositivo
+            setIsPremium(false);
+            return; // Salir sin llamar a checkPremiumStatus()
           } else {
             rcUserIdRef.current = user.id;
           }
@@ -123,12 +129,78 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  /**
+   * Defensa contra cross-account premium transfer (Bug A).
+   *
+   * RevenueCat `logIn(newUserId)` TRANSFIERE automaticamente las suscripciones
+   * del App User ID anterior al nuevo, por diseño del SDK — no existe flag
+   * para desactivarlo. Esto significa que si la Cuenta A compra Pro y luego
+   * se hace `logIn(supabaseUserId-B)`, el entitlement de A acaba asociado a B.
+   *
+   * Este helper valida CADA resultado de RevenueCat contra el
+   * `purchaser_email` guardado localmente.
+   *
+   * Comportamiento por escenario:
+   *  - checkPremiumStatus / restaurar → modo estricto: bloqueamos premium
+   *    si RevenueCat dice premium pero el email guardado NO coincide con
+   *    el usuario actual.
+   *  - comprar (nueva suscripcion) → modo permisivo ({allowNewPurchaser:
+   *    true}): tras un cargo LEGÍTIMO en Google Play, sobrescribimos
+   *    purchaser_email con el email del comprador actual. Sin esto, un
+   *    comprador nuevo en un dispositivo compartido pagaba la suscripcion
+   *    pero quedaba bloqueado por la validacion contra el email antiguo.
+   */
+  async function validateAndApplyPremium(
+    customerInfo: any,
+    opts?: { allowNewPurchaser?: boolean }
+  ): Promise<boolean> {
+    const hasEntitlement =
+      customerInfo?.entitlements?.active?.[ENTITLEMENT_ID] !== undefined;
+
+    if (!hasEntitlement) {
+      if (isPremium) setIsPremium(false);
+      await AsyncStorage.setItem('is_premium', 'false').catch(() => {});
+      return false;
+    }
+
+    // RevenueCat devolvio premium. Validar contra el comprador local.
+    const purchaserEmail = await AsyncStorage.getItem('purchaser_email').catch(() => null);
+
+    if (
+      !opts?.allowNewPurchaser &&
+      purchaserEmail &&
+      user?.email &&
+      purchaserEmail !== user.email
+    ) {
+      // El device tiene un purchaser con OTRO email -> bloqueamos premium
+      // aunque RevenueCat haya acabado de transferir el entitlement.
+      if (__DEV__) {
+        console.warn(
+          '[Subscription] Cross-account premium transfer bloqueado:',
+          'purchaser=' + purchaserEmail,
+          'current=' + user.email
+        );
+      }
+      if (isPremium) setIsPremium(false);
+      await AsyncStorage.setItem('is_premium', 'false').catch(() => {});
+      return false;
+    }
+
+    // Premium valido para este usuario. Permitimos overwrite solo en
+    // compras nuevas (allowNewPurchaser); en check/restaurar, el email
+    // anterior se mantiene.
+    if (!isPremium) setIsPremium(true);
+    await AsyncStorage.setItem('is_premium', 'true').catch(() => {});
+    if (user?.email) {
+      await AsyncStorage.setItem('purchaser_email', user.email).catch(() => {});
+    }
+    return true;
+  }
+
   async function checkPremiumStatus() {
     try {
       const info = await Purchases.getCustomerInfo();
-      const premium = info.entitlements.active[ENTITLEMENT_ID] !== undefined;
-      setIsPremium(premium);
-      await AsyncStorage.setItem('is_premium', premium ? 'true' : 'false');
+      await validateAndApplyPremium(info);
     } catch {
       // No confiar en AsyncStorage — si RevenueCat falla, asumir no premium
       setIsPremium(false);
@@ -143,10 +215,13 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
       }
       
       const { customerInfo } = await Purchases.purchasePackage(packageToBuy);
-      const premium = customerInfo.entitlements.active[ENTITLEMENT_ID] !== undefined;
-      setIsPremium(premium);
-      await AsyncStorage.setItem('is_premium', premium ? 'true' : 'false');
-      return { success: true };
+      // En una compra nueva, el comprador actual ES legitimo: sobrescribimos
+      // purchaser_email con su email para que pueda restaurar Pro desde este
+      // dispositivo en sesiones futuras. Sin allowNewPurchaser=true, la
+      // validacion bloquearia al comprador nuevo si hubo otro purchaser_email
+      // previo guardado (caso dispositivo compartido).
+      const premium = await validateAndApplyPremium(customerInfo, { allowNewPurchaser: true });
+      return { success: premium };
     } catch (e: any) {
       
       if (e.userCancelled) {
@@ -168,16 +243,45 @@ export function SubscriptionProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function restaurar() {
-    try {
-      const info = await Purchases.restorePurchases();
-      const premium = info.entitlements.active[ENTITLEMENT_ID] !== undefined;
-      setIsPremium(premium);
-      await AsyncStorage.setItem('is_premium', premium ? 'true' : 'false');
-      return { success: true, isPremium: premium };
-    } catch (e: any) {
-      return { success: false, error: e.message };
-    }
+  function restaurar() {
+    return new Promise<{ success: boolean; isPremium?: boolean; error?: string; cancelled?: boolean }>((resolve) => {
+      // 🔐 Solo la cuenta que realizó la compra puede restaurar.
+      //    Usamos AsyncStorage en vez de hardcodear el email. La primera
+      //    compra guarda el email del comprador; si otro usuario intenta
+      //    restaurar, se bloquea con un mensaje claro.
+      AsyncStorage.getItem('purchaser_email').then((purchaserEmail) => {
+        // Si ya hay un comprador registrado y NO es este usuario, bloquear
+        if (purchaserEmail && user?.email !== purchaserEmail) {
+          Alert.alert(
+            t('restaurar_compras'),
+            t('restaurar_sin_compras'),
+            [{ text: t('cancelar'), style: 'cancel', onPress: () => resolve({ success: false, cancelled: true }) }]
+          );
+          return;
+        }
+
+        // Sin comprador previo, o el mismo usuario → permitir
+        Alert.alert(
+          t('restaurar_compras'),
+          t('restaurar_advertencia'),
+          [
+            { text: t('cancelar'), style: 'cancel', onPress: () => resolve({ success: false, cancelled: true }) },
+            {
+              text: t('continuar'),
+              onPress: async () => {
+                try {
+                  const info = await Purchases.restorePurchases();
+                  const premium = await validateAndApplyPremium(info);
+                  resolve({ success: premium, isPremium: premium });
+                } catch (e: any) {
+                  resolve({ success: false, error: e.message });
+                }
+              }
+            }
+          ]
+        );
+      });
+    });
   }
 
   async function aumentarLimiteFacturas() {

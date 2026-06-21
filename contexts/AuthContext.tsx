@@ -186,24 +186,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      // 🛑 2. Cerrar sesión en RevenueCat para evitar fuga de suscripción
-      //    entre cuentas (Account 1 Pro → Account 2 hereda Pro)
-      try {
-        const { default: Purchases } = await import('react-native-purchases');
-        await Purchases.logOut();
-      } catch {
-        // Purchases puede no estar inicializado si el usuario nunca
-        // llegó a los tabs — no es un error crítico
-      }
-
-      // 🔒 3. Cerrar sesión en Supabase SINCRÓNICAMENTE.
+      // 🔒 2. Cerrar sesión en Supabase SINCRÓNICAMENTE.
       //    Esto es crítico: si se difiere, el SDK mantiene la sesión
       //    antigua y al procesar un deep link de recuperación de
       //    contraseña (verifyOtp) se producen conflictos de sesión
       //    que causan login en la cuenta equivocada o pantalla colgada.
       await supabase.auth.signOut();
 
-      // 🧹 4. Limpiar AsyncStorage SINCRÓNICAMENTE, ANTES de setUser(null).
+      // 🧹 3. Limpiar AsyncStorage SINCRÓNICAMENTE, ANTES de setUser(null).
       //    Si la limpieza se difiere (InteractionManager.runAfterInteractions),
       //    se crea una ventana donde:
       //    a) setUser(null) → SyncContext lee last_user_id del AsyncStorage
@@ -213,7 +203,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await AsyncStorage.multiRemove([
         'is_premium',
         'sync_queue',
-        'last_user_id',
         'monthly_invoice_counter',
         'datos_empresa',
         'numeracion_config',
@@ -225,7 +214,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         'ha_creado_primera_factura',
       ]).catch(() => {});
 
-      // 🔥 5. Forzar estado a null para que el layout navegue a /auth/login
+      // 🔥 4. Forzar estado a null para que el layout navegue a /auth/login
       setUser(null);
       setSession(null);
     } catch {
@@ -247,7 +236,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (error) throw error;
       return { success: true };
     } catch (error: any) {
-      return { error: error.message || 'Error al enviar email de recuperación' };
+      let mensaje = error.message || 'Error al enviar email de recuperación';
+      if (
+        error.message?.toLowerCase().includes('rate limit') ||
+        error.message?.toLowerCase().includes('email rate limit exceeded') ||
+        error.status === 429
+      ) {
+        mensaje = 'Has solicitado demasiados emails seguidos. Espera unos minutos e inténtalo de nuevo.';
+      }
+      return { error: mensaje };
     }
   }
 

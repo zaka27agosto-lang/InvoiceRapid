@@ -44,9 +44,6 @@ export default function Cookies() {
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             {'\u2022'} <Text style={{ fontWeight: '600' }}>Preferencias:</Text> Guarda idioma, tema, moneda, formato de fecha, plantilla PDF y configuraciones en el almacenamiento local del dispositivo.
           </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            {'\u2022'} <Text style={{ fontWeight: '600' }}>App Lock:</Text> Preferencia de activación del bloqueo biométrico (no almacena datos biométricos).
-          </Text>
 
           <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.2. Cookies de Rendimiento</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>

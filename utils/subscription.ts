@@ -1,7 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from '../services/supabase';
-
-const LIMITE_FACTURAS_MENSUAL = 5;
+import { getRemoteConfigSync } from './remoteConfig';
 
 /** URL de la Edge Function para check + incremento atómico de facturas */
 const EDGE_FUNCTION_URL = `${
@@ -9,8 +8,18 @@ const EDGE_FUNCTION_URL = `${
 }/functions/v1/check-and-increment-invoice`;
 const MONTHLY_COUNTER_KEY = 'monthly_invoice_counter';
 const REWARDED_ADS_KEY = 'rewarded_ads_monthly';
-const APP_CONFIG_CACHE_KEY = 'app_config_cache';
-const MAX_REWARDED_ADS_PER_MONTH_HARDCODED = 1;
+
+/**
+ * NOTA: Los límites antes hardcoded en este archivo (límite de facturas,
+ * máximo rewarded ads al mes) ahora viven en la tabla `app_config` de
+ * Supabase (`monthly_free_invoice_limit`, `max_rewarded_ads_per_month`).
+ * El cliente los lee desde `utils/remoteConfig.ts` con caché tri-nivel
+ * (memoria → AsyncStorage → Supabase → defaults). Esto evita caches
+ * duplicados y permite que el admin los ajuste sin recompilar.
+ *
+ * Defaults en código coinciden con la migración SQL — la app funciona
+ * incluso si la migración todavía no se ha ejecutado.
+ */
 
 interface MonthlyCounter {
   month: string; // "YYYY-MM" format
@@ -38,7 +47,7 @@ async function getCurrentUserId(): Promise<string | null> {
   }
 }
 
-// ────── AsyncStorage helpers (fallback) ──────
+// ────── AsyncStorage helpers (fallback contador mensual) ──────
 
 async function getMonthlyCounter(): Promise<MonthlyCounter> {
   try {
@@ -119,56 +128,6 @@ async function callEdgeFunction(month: string, mode: 'check' | 'increment'): Pro
   }
 }
 
-// ────── Remote config helpers ──────
-
-const APP_CONFIG_KEY_MAX_REWARDED = 'max_rewarded_ads_per_month';
-
-/**
- * Obtiene max_rewarded_ads_per_month desde Supabase (app_config).
- * Hace caché en AsyncStorage. Fallback al valor hardcodeado si no hay conexión.
- */
-async function getMaxRewardedAdsPerMonth(): Promise<number> {
-  // 1. Intentar desde Supabase
-  if (supabase) {
-    try {
-      const { data } = await supabase
-        .from('app_config')
-        .select('value')
-        .eq('key', APP_CONFIG_KEY_MAX_REWARDED)
-        .maybeSingle();
-
-      if (data?.value) {
-        const parsed = parseInt(data.value, 10);
-        if (!isNaN(parsed) && parsed > 0) {
-          // Guardar en caché local
-          await AsyncStorage.setItem(APP_CONFIG_CACHE_KEY, JSON.stringify({
-            [APP_CONFIG_KEY_MAX_REWARDED]: parsed,
-          }));
-          return parsed;
-        }
-      }
-    } catch {
-      // Silencioso — usar caché o fallback
-    }
-  }
-
-  // 2. Intentar desde AsyncStorage (caché)
-  try {
-    const cached = await AsyncStorage.getItem(APP_CONFIG_CACHE_KEY);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (typeof parsed[APP_CONFIG_KEY_MAX_REWARDED] === 'number') {
-        return parsed[APP_CONFIG_KEY_MAX_REWARDED];
-      }
-    }
-  } catch {
-    // Silencioso
-  }
-
-  // 3. Fallback al valor hardcodeado
-  return MAX_REWARDED_ADS_PER_MONTH_HARDCODED;
-}
-
 // ────── Supabase helpers ──────
 
 /**
@@ -204,6 +163,15 @@ async function incrementRewardedInSupabase(_userId: string, month: string): Prom
   }
 }
 
+// ────── Wrappers thin sobre remoteConfig (mantienen API async) ──────
+
+/**
+ * Máximo de rewarded ads al mes. Lee del cache centralizado.
+ */
+async function getMaxRewardedAdsPerMonth(): Promise<number> {
+  return getRemoteConfigSync().max_rewarded_ads_per_month;
+}
+
 // ────── Funciones exportadas ──────
 
 /**
@@ -236,10 +204,13 @@ export async function checkInvoiceLimitAsync(isPremium?: boolean): Promise<{ can
     await setMonthlyCounter(counter);
   }
 
+  // Fallback dinámico desde app_config (si está cacheado) o default 5.
+  const fallbackLimit = getRemoteConfigSync().monthly_free_invoice_limit;
+
   return {
-    canCreate: counter.count < LIMITE_FACTURAS_MENSUAL,
+    canCreate: counter.count < fallbackLimit,
     currentCount: counter.count,
-    limit: LIMITE_FACTURAS_MENSUAL,
+    limit: fallbackLimit,
   };
 }
 
@@ -270,13 +241,14 @@ export async function incrementInvoiceCounter(): Promise<void> {
 /* ────────── REWARDED ADS — tracking mensual ────────── */
 
 /**
- * Devuelve cuántos rewarded ads quedan disponibles este mes (máx 1/mes).
+ * Devuelve cuántos rewarded ads quedan disponibles este mes.
+ * El límite (máx 1/mes) viene de `app_config.max_rewarded_ads_per_month`.
  * Fuente principal: Supabase. Fallback: AsyncStorage.
  */
 export async function getRemainingRewardedAds(): Promise<number> {
   const month = getCurrentMonth();
 
-  // 1. Obtener el límite remoto (con caché y fallback)
+  // 1. Obtener el límite remoto (ya cacheado por remoteConfig; con hot-reload)
   const maxAds = await getMaxRewardedAdsPerMonth();
 
   // 2. Intentar obtener contador desde Supabase

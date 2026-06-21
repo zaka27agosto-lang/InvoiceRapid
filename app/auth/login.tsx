@@ -11,10 +11,9 @@ import { adsService } from '../../services/adsService';
 export default function Login() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { currentTheme } = useTheme();    const { signInWithEmail, signInWithGoogle, signOut, resetPassword } = useAuth();
+  const { currentTheme } = useTheme();    const { signInWithEmail, signInWithGoogle, signOut } = useAuth();
   
   const [email, setEmail] = useState('');
-  const [resetEmail, setResetEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -155,40 +154,8 @@ export default function Login() {
     }
   }
 
-  async function handleForgotPassword() {
-    Alert.alert(
-      t('olvidaste_contraseña'),
-      '',
-      [
-        { text: t('cancelar'), style: 'cancel' },
-        {
-          text: t('enviar_email'),
-          onPress: async () => {
-            if (!resetEmail.trim()) {
-              // Usar el email del campo de login si está vacío
-              if (!email.trim()) {
-                Alert.alert(t('error'), t('email_requerido'));
-                return;
-              }
-              setResetEmail(email);
-            }
-            const targetEmail = resetEmail.trim() || email.trim();
-            if (!targetEmail) {
-              Alert.alert(t('error'), t('email_requerido'));
-              return;
-            }
-
-            const result = await resetPassword(targetEmail);
-            if (result.success) {
-              Alert.alert(t('email_enviado'), t('instrucciones_reset'));
-            } else {
-              Alert.alert(t('error'), result.error || t('error_reset'));
-            }
-          }
-        }
-      ]
-    );
-  }
+  // El enlace "Olvidaste contraseña" ahora navega a la pantalla dedicada
+  // con flujo OTP (sin deep links). Ver app/auth/forgot-password.tsx
 
   async function handleGoogleLogin() {
     setLoading(true);
@@ -295,7 +262,7 @@ export default function Login() {
                 secureTextEntry
               />
             </View>
-            <TouchableOpacity onPress={handleForgotPassword} style={styles.forgotPassword}>
+            <TouchableOpacity onPress={() => router.push('/auth/forgot-password')} style={styles.forgotPassword}>
               <Text style={[styles.forgotPasswordText, { color: currentTheme.colors.primary }]}>{t('olvidaste_contraseña')}</Text>
             </TouchableOpacity>
           </View>

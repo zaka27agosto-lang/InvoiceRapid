@@ -42,6 +42,10 @@ app-example
 # generated native folders
 /ios
 /android
+# Belt-and-braces: además de gitignorar el dir entero, aseguramos por nombre
+# que el fichero con credenciales del keystore NO se commitea aunque alguien
+# borre la línea `/android` arriba por error.
+android/gradle.properties
 nul
 
 # Generated code dumps (contain secrets)

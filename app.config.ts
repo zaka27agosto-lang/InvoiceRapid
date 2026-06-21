@@ -25,6 +25,27 @@ const config: ExpoConfig = {
   userInterfaceStyle: 'automatic',
   newArchEnabled: true,
 
+  // ─── URLs legales hospedadas (requeridas por Google Play Console) ───
+  // Si no se configuran como EAS secrets, caen a las páginas de GitHub Pages del proyecto.
+  // El usuario puede hostear las copias en su propio dominio (Netlify/Vercel/CDN) y sobreescribir.
+  extra: {
+    router: {},
+    eas: {
+      projectId: process.env.EAS_PROJECT_ID || '45ccc530-324d-40e6-8434-15dae44a992c',
+    },
+    legalUrls: {
+      privacy: process.env.LEGAL_PRIVACY_URL
+        || 'https://zaka27agosto-lang.github.io/InvoiceRapid/privacy-policy.html',
+      terms: process.env.LEGAL_TERMS_URL
+        || 'https://zaka27agosto-lang.github.io/InvoiceRapid/terms.html',
+      cookies: process.env.LEGAL_COOKIES_URL
+        || 'https://zaka27agosto-lang.github.io/InvoiceRapid/cookies.html',
+      accountDeletion: process.env.LEGAL_DELETION_URL
+        || 'https://zaka27agosto-lang.github.io/InvoiceRapid/account-deletion.html',
+      support: process.env.SUPPORT_EMAIL || 'zkrstudio.contact@gmail.com',
+    },
+  },
+
   ios: {
     supportsTablet: false, // Solo móviles, no tablets
     bundleIdentifier: process.env.BUNDLE_IDENTIFIER || '',
@@ -41,7 +62,7 @@ const config: ExpoConfig = {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
-    versionCode: 34,
+    versionCode: 42,
     package: process.env.BUNDLE_IDENTIFIER || 'com.zkrstudio.invoicerapidpro',
     googleServicesFile: './google-services.json',
   },
@@ -90,13 +111,6 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: true,
-  },
-
-  extra: {
-    router: {},
-    eas: {
-      projectId: process.env.EAS_PROJECT_ID || '45ccc530-324d-40e6-8434-15dae44a992c',
-    },
   },
 
   owner: 'zkr-studio',

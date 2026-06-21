@@ -1,5 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import {
+  loadRemoteConfigFromCache,
+  refreshRemoteConfig,
+  getRemoteConfigSync,
+} from '../utils/remoteConfig';
 
 // Solo importar Google Mobile Ads en plataformas nativas
 let mobileAds: any = null;
@@ -45,6 +50,8 @@ export class AdsService {
   private listeners: AdsListener[] = [];
   /** Último error del rewarded ad: 'no_fill', 'load_error', 'show_error', o null si no hay error */
   lastRewardedError: string | null = null;
+  /** Contador de acciones. El umbral viene de app_config.interstitial_every_n_actions (default 3). */
+  private actionCount = 0;
 
   addListener(listener: AdsListener) {
     this.listeners.push(listener);
@@ -66,6 +73,18 @@ export class AdsService {
 
   async initialize(): Promise<void> {
     try {
+      // 0. Cargar config remota en cache (offline-first). Si falla red,
+      //    usa defaults. Asegura que `getRemoteConfigSync()` funciona desde
+      //    el primer `incrementAction()`. Se hace ANTES de UMP para que
+      //    cualquier UI que dependa del umbral esté sincronizada.
+      try {
+        await loadRemoteConfigFromCache();
+      } catch { /* default */ }
+      try {
+        // Fire-and-forget: si falla red, mantenemos lo del cache local.
+        refreshRemoteConfig().catch(() => {});
+      } catch { /* default */ }
+
       // 1. Gather consent VÍA UMP DE GOOGLE (Google-rendered form) — ANTES de inicializar MobileAds.
       //    Google exige que el popup UMP aparezca en el primer arranque ANTES de mostrar anuncios.
       await this.gatherConsentUMP();
@@ -499,8 +518,10 @@ export class AdsService {
   }
 
   /**
-   * Muestra un anuncio intersticial en CADA acción del usuario.
-   * Se muestra en cada creación de factura, cliente o producto.
+   * Muestra un anuncio intersticial cada N acciones del usuario (N desde
+   * app_config.interstitial_every_n_actions, default 3). Una acción es:
+   * crear una factura, albarán, cliente o producto. Solo aplica a usuarios
+   * sin suscripción Premium y con consentimiento para anuncios.
    * @param isPremium Si el usuario es premium, no se muestra nada.
    * @returns true si se mostró un anuncio, false en caso contrario.
    */
@@ -508,6 +529,17 @@ export class AdsService {
     if (isPremium || !this.canShowAds) {
       return false;
     }
+
+    this.actionCount++;
+
+    // Lectura síncrona del cache módulo — si no está inicializado, devuelve defaults.
+    const everyNActions = getRemoteConfigSync().interstitial_every_n_actions;
+
+    if (this.actionCount < everyNActions) {
+      return false;
+    }
+
+    this.actionCount = 0;
 
     try {
       const shown = await this.showInterstitial();

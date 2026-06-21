@@ -13,9 +13,14 @@ interface EdgeResponse {
   limit: number
 }
 
+// Límite "ilimitado" para usuarios Pro (compatibilidad con UI legacy).
+// El real enforcement para free users ocurre en la RPC `check_and_increment_invoice`
+// que lee `monthly_free_invoice_limit` desde `app_config` (single source of truth).
+const PREMIUM_LIMIT = 999
+
 serve(async (req) => {
   try {
-    // 1. Autenticar al usuario mediante el JWT
+    // 1. Autenticar al usuario mediante el JWT del request.
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
       return new Response(
@@ -44,7 +49,7 @@ serve(async (req) => {
       )
     }
 
-    // 2. Verificar si el usuario es Pro (RevenueCat stripe_customer_id en subscriptions)
+    // 2. Verificar si el usuario es Pro (subscriptions.status === 'active')
     const { data: subscription } = await supabaseAdmin
       .from('subscriptions')
       .select('status')
@@ -58,7 +63,7 @@ serve(async (req) => {
         canCreate: true,
         isPro: true,
         currentCount: 0,
-        limit: 5,
+        limit: PREMIUM_LIMIT,
       }
       return new Response(
         JSON.stringify(result),
@@ -66,7 +71,12 @@ serve(async (req) => {
       )
     }
 
-    // 3. Para usuarios free: llamar al RPC atómico (SELECT ... FOR UPDATE)
+    // 3. Para usuarios free: delegar al RPC atómico que hace SELECT ... FOR UPDATE.
+    //    El RPC lee `monthly_free_invoice_limit` desde `app_config` en cada
+    //    llamada, así que si el admin cambia el límite desde la dashboard de
+    //    Supabase, el enforcing se actualiza sin recompilar la app ni esta
+    //    Edge Function. No leemos app_config aquí para evitar desincronización
+    //    cliente/servidor.
     const { data: rpcResult, error: rpcError } = await supabaseAdmin
       .rpc('check_and_increment_invoice', {
         p_user_id: userId,
@@ -81,8 +91,28 @@ serve(async (req) => {
       )
     }
 
+    // Defensa: si la RPC por algún motivo devolvió `limit` corrupto o null
+    // (futura migración mal escrita), no serializamos `undefined` a la app
+    // (eso haría que la UI muestre "NaN/N restantes"). Mejor 500 con
+    // mensaje claro que un retorno silenciosamente roto.
+    if (!Number.isFinite(rpcResult.limit)) {
+      return new Response(
+        JSON.stringify({ error: 'Límite de facturas inválido (configuración remota corrupta)' }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Pasar la respuesta del RPC tal cual: canCreate + limit vienen del
+    // enforcing real en SQL.
+    const result: EdgeResponse = {
+      canCreate: rpcResult.canCreate,
+      isPro: rpcResult.isPro,
+      currentCount: rpcResult.currentCount,
+      limit: rpcResult.limit,
+    }
+
     return new Response(
-      JSON.stringify(rpcResult),
+      JSON.stringify(result),
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     )
   } catch (error) {

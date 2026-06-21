@@ -83,12 +83,7 @@ export default function Privacy() {
             Publicidad personalizada: Google AdMob puede utilizar el ID de publicidad (AAID) para mostrar anuncios personalizados. El usuario puede desactivarlo desde Ajustes → Google → Anuncios → Desactivar personalización de anuncios.
           </Text>
 
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.3. Datos biométricos (App Lock)</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            La aplicación ofrece una función de bloqueo biométrico (App Lock) que utiliza huella dactilar, Face ID o reconocimiento de iris para proteger el acceso a la aplicación. Los datos biométricos son procesados exclusivamente por el sistema operativo del dispositivo (Android/iOS) y nunca son accesibles para InvoiceRapid PRO ni para ninguno de los servicios externos utilizados. La aplicación solo recibe una confirmación de éxito/fallo de la autenticación, sin acceder en ningún momento a los datos biométricos sin procesar.
-          </Text>
-
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.4. Servicios externos utilizados</Text>
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>2.3. Servicios externos utilizados</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             {'\u2022'} Supabase: autenticación y base de datos.
           </Text>
@@ -137,7 +132,7 @@ export default function Privacy() {
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>6. Seguridad</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Se aplican medidas técnicas razonables: transmisión cifrada (HTTPS), almacenamiento en servicios seguros, acceso restringido mediante autenticación, y bloqueo biométrico opcional (App Lock) para proteger el acceso local a la aplicación.
+            Se aplican medidas técnicas razonables: transmisión cifrada (HTTPS), almacenamiento en servicios seguros y acceso restringido mediante autenticación para proteger el acceso a la aplicación.
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>7. Eliminación de datos</Text>

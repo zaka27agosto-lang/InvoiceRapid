@@ -27,13 +27,9 @@ export default function BannerAdComponent({ isPremium }: BannerAdComponentProps)
   const [adKey, setAdKey] = useState(0);
   const wasPremiumRef = useRef(isPremium);
 
-  // Re-sincronizar con adsService y forzar remount cuando premium cambie
+  // Detectar transición: premium → free → forzar remount del BannerAd nativo
   useEffect(() => {
-    setCanShowAds(adsService.getCanShowAds());
-
-    // Detectar transición: premium → free → forzar remount del BannerAd nativo
     if (wasPremiumRef.current && !isPremium) {
-      // Incrementar key para que React monte un BannerAd nativo COMPLETAMENTE NUEVO
       setAdKey(k => k + 1);
     }
     wasPremiumRef.current = isPremium;
@@ -51,12 +47,9 @@ export default function BannerAdComponent({ isPremium }: BannerAdComponentProps)
     return () => { unsubscribe(); };
   }, []);
 
+  // Sincronizar estado inicial y suscribirse siempre al listener
   useEffect(() => {
-    if (adsService.getCanShowAds()) {
-      setCanShowAds(true);
-      return;
-    }
-    // Escuchar cambios cuando el consentimiento se obtenga
+    setCanShowAds(adsService.getCanShowAds());
     const unsubscribe = adsService.addListener(() => {
       setCanShowAds(adsService.getCanShowAds());
     });

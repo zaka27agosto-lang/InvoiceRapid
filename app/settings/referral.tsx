@@ -17,6 +17,7 @@ import {
 import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useRemoteConfig } from '../../hooks/useRemoteConfig';
 import { supabase } from '../../services/supabase';
 
 type ReferralEvent = {
@@ -32,6 +33,7 @@ export default function Referral() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
   const { user } = useAuth();
+  const { referral_required_count } = useRemoteConfig();
   const router = useRouter();
 
   const [referralCode, setReferralCode] = useState<string | null>(null);
@@ -195,7 +197,7 @@ export default function Referral() {
             </Text>
             <View style={[styles.counter, { backgroundColor: currentTheme.colors.primary + '15' }]}>
               <Text style={[styles.counterText, { color: currentTheme.colors.primary }]}>
-                {activatedCount}/3
+                {activatedCount}/{referral_required_count}
               </Text>
             </View>
           </View>
@@ -207,7 +209,7 @@ export default function Referral() {
                 {t('sin_invitados')}
               </Text>
               <Text style={[styles.emptySub, { color: currentTheme.colors.textSecondary }]}>
-                {t('sin_invitados_sub')}
+                {t('sin_invitados_sub', { n: referral_required_count })}
               </Text>
             </View>
           ) : (
@@ -283,7 +285,7 @@ export default function Referral() {
         >
           <Ionicons name="gift-outline" size={24} color={currentTheme.colors.primary} />
           <Text style={[styles.bannerText, { color: currentTheme.colors.primary }]}>
-            {t('invitar_amigos_banner')}
+            {t('invitar_amigos_banner', { n: referral_required_count })}
           </Text>
         </Animated.View>
 

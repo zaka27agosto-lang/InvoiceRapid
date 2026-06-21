@@ -19,34 +19,35 @@ if (Platform.OS !== 'web') {
  */
 export function clearAllData(): boolean {
   if (!db) return false;
-  try {
-    db.execSync(`
-      DELETE FROM factura_items;
-      DELETE FROM facturas;
-      DELETE FROM albaran_items;
-      DELETE FROM albaranes;
-      DELETE FROM clientes;
-      DELETE FROM productos;
-    `);
 
-    // 🔍 Verificar que todas las tablas quedaron vacías.
-    // Si clearAllData falla silenciosamente (BD bloqueada, corrupta),
-    // los datos de la cuenta anterior sobreviven y acaban subiéndose
-    // a la nube de la nueva cuenta en el siguiente auto-sync.
-    const remaining = db.getFirstSync(`
-      SELECT
-        (SELECT COUNT(*) FROM facturas) +
-        (SELECT COUNT(*) FROM factura_items) +
-        (SELECT COUNT(*) FROM clientes) +
-        (SELECT COUNT(*) FROM productos) +
-        (SELECT COUNT(*) FROM albaranes) +
-        (SELECT COUNT(*) FROM albaran_items) AS total
-    `) as { total: number } | null;
-
-    return (remaining?.total ?? 999) === 0;
-  } catch (error) {
-    return false;
+  // Cada tabla se vacia INDEPENDIENTEMENTE — si una falla (ej. tabla
+  // no existe en una BD antigua sin migrar), las demas se vacian igual.
+  // Antes esto se hacia en un unico execSync con TODAS las tablas; si
+  // una sola fallaba, NINGUNA se vaciaba y clearAllData devolvia false,
+  // dejando los productos de la cuenta anterior en SQLite que se mostraban
+  // al siguiente usuario (Bug B: productos de A aparecen en B).
+  const tables = ['factura_items', 'facturas', 'albaran_items', 'albaranes', 'clientes', 'productos'];
+  for (const table of tables) {
+    try {
+      db.runSync(`DELETE FROM ${table}`);
+    } catch {
+      // Tabla no existe o DELETE fallo — continuar con las demas.
+      // La verificacion posterior determinara si el estado es aceptable.
+    }
   }
+
+  // 🔍 Verificacion tolerante — soporta tablas faltantes (BD sin migrar).
+  const remaining = tables.reduce((sum, table) => {
+    try {
+      const r = db.getFirstSync(`SELECT COUNT(*) as n FROM ${table}`) as { n: number } | null;
+      return sum + (r?.n ?? 0);
+    } catch {
+      // Tabla no existe — no hay nada que contar.
+      return sum;
+    }
+  }, 0);
+
+  return remaining === 0;
 }
 
 export function initDB() {
