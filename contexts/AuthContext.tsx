@@ -13,7 +13,6 @@ interface AuthContextType {
   signUpWithEmail: (email: string, password: string, name: string) => Promise<{ error?: string; success?: boolean; userId?: string; hasSession?: boolean }>;
   signInWithGoogle: () => Promise<{ error?: string; success?: boolean }>;
   signOut: () => Promise<void>;
-  resetPassword: (email: string) => Promise<{ error?: string; success?: boolean }>;
   updateProfile: (data: { name?: string; avatar_url?: string }) => Promise<{ error?: string; success?: boolean }>;
 }
 
@@ -224,30 +223,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function resetPassword(email: string) {
-    if (!supabase) {
-      return { error: 'Supabase no está configurado' };
-    }
-    try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: 'invoicerapid://auth/callback',
-      });
-
-      if (error) throw error;
-      return { success: true };
-    } catch (error: any) {
-      let mensaje = error.message || 'Error al enviar email de recuperación';
-      if (
-        error.message?.toLowerCase().includes('rate limit') ||
-        error.message?.toLowerCase().includes('email rate limit exceeded') ||
-        error.status === 429
-      ) {
-        mensaje = 'Has solicitado demasiados emails seguidos. Espera unos minutos e inténtalo de nuevo.';
-      }
-      return { error: mensaje };
-    }
-  }
-
   async function updateProfile(data: { name?: string; avatar_url?: string }) {
     if (!supabase) {
       return { error: 'Supabase no está configurado' };
@@ -274,7 +249,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         signUpWithEmail,
         signInWithGoogle,
         signOut,
-        resetPassword,
         updateProfile,
       }}
     >

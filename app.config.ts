@@ -23,7 +23,7 @@ const config: ExpoConfig = {
   icon: './assets/icon.png',
   scheme: 'invoicerapid',
   userInterfaceStyle: 'automatic',
-  newArchEnabled: true,
+  newArchEnabled: false,
 
   // ─── URLs legales hospedadas (requeridas por Google Play Console) ───
   // Si no se configuran como EAS secrets, caen a las páginas de GitHub Pages del proyecto.
@@ -62,7 +62,7 @@ const config: ExpoConfig = {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
-    versionCode: 42,
+    versionCode: 46,
     package: process.env.BUNDLE_IDENTIFIER || 'com.zkrstudio.invoicerapidpro',
     googleServicesFile: './google-services.json',
   },

@@ -29,8 +29,10 @@ import {
  *
  * La protección de rutas se hace con useSegments + useEffect:
  *   - Si no hay usuario y NO estamos en auth/* → redirect a /auth/login
- *   - Si hay usuario y estamos en auth/login|register|forgot-password|callback → redirect a /(tabs)
- *   - auth/profile se permite con usuario logueado (NO se redirige)
+ *   - Si hay usuario y estamos en auth/login|register|callback → redirect a /(tabs)
+ *   - auth/profile y auth/forgot-password se permiten aunque haya usuario
+ *     (profile muestra perfil logueado; forgot-password necesita hacer
+ *     sign-in con Google inline para verificar EMAIL antes del reset)
  */
 function RootNavigator() {
   const { user, isLoading } = useAuth();
@@ -47,7 +49,15 @@ function RootNavigator() {
     const secondSegment = (segments as string[])[1];
     // auth/callback nunca debe ser interceptada por el guard — gestiona su propio flujo
     const isCallback = inAuthGroup && secondSegment === 'callback';
-    const isAuthOnlyScreen = inAuthGroup && secondSegment !== 'profile' && secondSegment !== 'callback';
+    // auth/callback gestiona su deep-link flow; auth/profile permite ver perfil
+    // estando logueado; auth/forgot-password permite hacer sign-in con Google
+    // inline sin que el guard nos expulse a /(tabs) antes de poder escribir
+    // la nueva contraseña.
+    const isAuthOnlyScreen =
+      inAuthGroup &&
+      secondSegment !== 'profile' &&
+      secondSegment !== 'callback' &&
+      secondSegment !== 'forgot-password';
 
     if (!user && !inAuthGroup && !isCallback) {
       router.replace('/auth/login');

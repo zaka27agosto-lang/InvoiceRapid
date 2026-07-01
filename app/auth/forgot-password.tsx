@@ -1,106 +1,177 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../services/supabase';
 
 /**
- * ForgotPassword — Flujo de recuperación basado en OTP (sin deep links).
+ * ForgotPassword — Recuperación de contraseña por OTP vía email.
  *
- * Paso 1: El usuario introduce su email y pulsa "Enviar código".
- *          Supabase envía un código de 6 dígitos por email.
- * Paso 2: El usuario introduce el código, su nueva contraseña y la confirma.
- *          Verificamos el OTP → actualizamos la contraseña → cerramos sesión → login.
+ * Paso 1 ('email'):  El usuario introduce su email y pulsa "Enviar código".
+ *                    Llamamos a `supabase.auth.signInWithOtp({ email,
+ *                    options: { shouldCreateUser: false } })`. Supabase envía
+ *                    un código de 6 dígitos al email (si existe).
+ * Paso 2 ('otp'):    El usuario introduce el código de 6 dígitos recibido y
+ *                    pulsa "Verificar código". Llamamos a
+ *                    `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
+ *                    Esto establece una sesión temporal del usuario.
+ * Paso 3 ('reset'):  Mostramos el email verificado y los campos de nueva
+ *                    contraseña + confirmación. Validamos (≥ 8 caracteres y
+ *                    coincidencia). Llamamos a
+ *                    `supabase.auth.updateUser({ password })`, que actualiza
+ *                    la contraseña del usuario actualmente firmado.
+ *                    Luego `signOut()` y redirect a /auth/login para que el
+ *                    usuario entre con email + NUEVA contraseña manualmente.
  *
- * Este enfoque evita los problemas de deep links en Android (fragmentos # que
- * expo-router no procesa correctamente) y garantiza un flujo 100 % fiable.
+ * Por qué OTP por email (no Google OAuth):
+ *   - El flujo Google OAuth necesitaba deep links `invoicerapid://` que
+ *     Android no procesa correctamente cuando el email de recovery llega
+ *     con fragmento `#…`.
+ *   - `signInWithOtp` + `verifyOtp` (tipo 'email') es 100 % viable en RN
+ *     bare sin necesidad de deep links: el usuario introduce el código a
+ *     mano en un campo de texto.
+ *
+ * Importante:
+ *   - RootNavigator excluye `auth/forgot-password` del redirect a /(tabs)
+ *     tras `verifyOtp`, porque `verifyOtp` deja una sesión temporal activa
+ *     que de otra forma enviaría al usuario a los tabs antes de poder
+ *     cambiar la contraseña.
+ *   - `signOut` se llama SINCRÓNICAMENTE tras `updateUser` para garantizar
+ *     que la próxima vez que el usuario entre lo haga por email+password
+ *     y no por la sesión OTP temporal.
  */
-
-/**
- * Cooldown en segundos del botón "Reenviar código".
- * Protege contra spam/abuso del endpoint de email (rate limit de Supabase
- * suele ser ~5 emails/hora por address, pero el cooldown del cliente da
- * feedback inmediato al usuario).
- */
-const RESEND_COOLDOWN_SECONDS = 60;
-
 export default function ForgotPassword() {
   const router = useRouter();
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
 
-  const [step, setStep] = useState<'email' | 'otp'>('email');
+  type Step = 'email' | 'otp' | 'reset';
+  const [step, setStep] = useState<Step>('email');
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Estado y ref del cooldown de reenvío. Usamos ref para el handle del
-  // setInterval para que cleanup no dependa del valor de resendCooldown en el
-  // closure (evita warnings de exhaustive-deps y comportamiento indeterminista).
-  const [resendCooldown, setResendCooldown] = useState(0);
-  const resendIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
+  /**
+   * Paso 1 → 2: enviar código de 6 dígitos al email.
+   * Con `shouldCreateUser: false`, Supabase no crea un usuario nuevo si
+   * el email no existe. Si por algún motivo aún así devuelve error de
+   * "user not found", mostramos un mensaje genérico sin revelar si el
+   * email existe (no enumeración de cuentas).
+   */
   async function handleSendCode() {
-    if (!email || !email.includes('@')) {
-      Alert.alert(t('error'), t('email_requerido'));
-      return;
-    }
-
     if (!supabase) {
       Alert.alert(t('error'), 'Supabase no está configurado');
+      return;
+    }
+    const trimmedEmail = email.trim();
+    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+      Alert.alert(t('error'), t('email_requerido'));
       return;
     }
 
     setLoading(true);
     try {
       const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
+        email: trimmedEmail,
         options: {
-          shouldCreateUser: false, // No crear cuenta si el email no existe
+          shouldCreateUser: false,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Rate-limit específico (Supabase cap de emails)
+        if (
+          error.message?.toLowerCase().includes('rate limit') ||
+          error.status === 429
+        ) {
+          Alert.alert(
+            t('error'),
+            t('excede_intentos_codigo')
+          );
+          return;
+        }
+        // Mensaje genérico: no revelar si el email existe o no
+        Alert.alert(t('error'), t('email_no_registrado'));
+        return;
+      }
+
       setStep('otp');
-      // Cooldown explícito de 60s al enviar exitosamente.
-      // El useEffect [step] también lo haría, pero dependiendo del estado
-      // previo podría no entrar en su condición. Forzar el reset aquí
-      // garantiza que cada envío (inicial o re-envío desde email) tenga
-      // siempre su ventana de 60s.
-      startResendCooldown();
     } catch (error: any) {
-      let mensaje = error.message || t('error_reset');
-      if (
-        error.message?.toLowerCase().includes('rate limit') ||
-        error.message?.toLowerCase().includes('email rate limit exceeded') ||
-        error.status === 429
-      ) {
-        mensaje = 'Has solicitado demasiados emails seguidos. Espera unos minutos e inténtalo de nuevo.';
-      }
-      // Si el email no existe, Supabase devuelve un error. Dar un mensaje genérico
-      // para no revelar qué emails existen en el sistema.
-      if (error.message?.toLowerCase().includes('user not found')) {
-        // No revelar si el email existe o no — avanzar igualmente por seguridad
-        setStep('otp');
-      } else {
-        Alert.alert(t('error'), mensaje);
-      }
+      const msg = error?.message?.toLowerCase().includes('rate limit')
+        ? t('excede_intentos_codigo')
+        : (error?.message || t('email_no_registrado'));
+      Alert.alert(t('error'), msg);
     } finally {
       setLoading(false);
     }
   }
 
-  async function handleResetPassword() {
-    if (!otp || otp.length < 6) {
-      Alert.alert(t('error'), t('codigo_invalido'));
+  /**
+   * Paso 2 → 3: verificar el código de 6 dígitos. Esto establece una sesión
+   * temporal (signInWithOtp + verifyOtp). El usuario ya está "logueado"
+   * para Supabase, aunque no hayamos navegado a /(tabs) gracias al guard
+   * de RootNavigator que excluye esta pantalla.
+   */
+  async function handleVerifyCode() {
+    if (!supabase) {
+      Alert.alert(t('error'), 'Supabase no está configurado');
       return;
     }
-    if (!newPassword || newPassword.length < 6) {
-      Alert.alert(t('error'), t('contraseña_min_6'));
+    const trimmedEmail = email.trim();
+    const trimmedOtp = otp.trim();
+    if (!trimmedOtp || trimmedOtp.length < 6) {
+      Alert.alert(t('error'), t('codigo_incompleto'));
+      return;
+    }
+    if (!/^\d{6}$/.test(trimmedOtp)) {
+      Alert.alert(t('error'), t('codigo_incompleto'));
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        email: trimmedEmail,
+        token: trimmedOtp,
+        type: 'email',
+      });
+
+      if (error) {
+        const msg = error.message?.toLowerCase() || '';
+        if (msg.includes('expired')) {
+          Alert.alert(t('error'), t('codigo_expirado'));
+        } else if (msg.includes('invalid') || msg.includes('token')) {
+          Alert.alert(t('error'), t('codigo_invalido'));
+        } else {
+          Alert.alert(t('error'), t('codigo_invalido'));
+        }
+        return;
+      }
+
+      setStep('reset');
+    } catch (error: any) {
+      Alert.alert(t('error'), error?.message || t('codigo_invalido'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  /**
+   * Paso 3 final: actualizar la contraseña del usuario firmado
+   * (la sesión que dejó `verifyOtp`). Luego cerrar sesión y volver a
+   * login para que el usuario entre con email + NUEVA contraseña.
+   */
+  async function handleSavePassword() {
+    if (!supabase) {
+      Alert.alert(t('error'), 'Supabase no está configurado');
+      return;
+    }
+    if (!newPassword || newPassword.length < 8) {
+      Alert.alert(t('error'), t('contraseña_min_8'));
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -108,33 +179,18 @@ export default function ForgotPassword() {
       return;
     }
 
-    if (!supabase) {
-      Alert.alert(t('error'), 'Supabase no está configurado');
-      return;
-    }
-
     setLoading(true);
     try {
-      // 1. Verificar el OTP — esto inicia sesión temporalmente
-      const { error: verifyError } = await supabase.auth.verifyOtp({
-        email: email.trim(),
-        token: otp.trim(),
-        type: 'email',
-      });
-
-      if (verifyError) throw verifyError;
-
-      // 2. Actualizar la contraseña
-      const { error: updateError } = await supabase.auth.updateUser({
+      const { error } = await supabase.auth.updateUser({
         password: newPassword,
       });
+      if (error) throw error;
 
-      if (updateError) throw updateError;
-
-      // 3. Cerrar la sesión temporal
+      // Cerrar la sesión temporal OTP: el objetivo es que el usuario entre
+      // por email+password normal con su nueva contraseña, no que quede
+      // logueado por la sesión OTP.
       await supabase.auth.signOut();
 
-      // 4. Redirigir al login con mensaje de éxito
       Alert.alert('✅', t('contraseña_actualizada'), [
         {
           text: t('aceptar'),
@@ -142,130 +198,70 @@ export default function ForgotPassword() {
         },
       ]);
     } catch (error: any) {
-      let mensaje = error.message || t('error_actualizar_perfil');
-
-      // Errores comunes de OTP
-      if (error.message?.toLowerCase().includes('token') && error.message?.toLowerCase().includes('expired')) {
-        mensaje = 'El código ha expirado. Solicita uno nuevo.';
-      } else if (error.message?.toLowerCase().includes('token') && error.message?.toLowerCase().includes('invalid')) {
-        mensaje = t('codigo_invalido');
-      }
-
-      Alert.alert(t('error'), mensaje);
+      Alert.alert(t('error'), error?.message || t('error_actualizar_perfil'));
     } finally {
       setLoading(false);
     }
   }
 
-  /**
-   * Inicia el cooldown de reenvío. Limpia cualquier interval previo antes de
-   * crear uno nuevo para evitar fugas. Usamos Date.now() como referencia en
-   * lugar de decrementar un contador, para que el countdown sea robusto frente
-   * a saltos del setInterval (background del dispositivo, throttling del SO).
-   */
-  function startResendCooldown() {
-    if (resendIntervalRef.current) {
-      clearInterval(resendIntervalRef.current);
-    }
-    setResendCooldown(RESEND_COOLDOWN_SECONDS);
-    const startedAt = Date.now();
-    resendIntervalRef.current = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - startedAt) / 1000);
-      const remaining = RESEND_COOLDOWN_SECONDS - elapsed;
-      if (remaining <= 0) {
-        if (resendIntervalRef.current) {
-          clearInterval(resendIntervalRef.current);
-          resendIntervalRef.current = null;
-        }
-        setResendCooldown(0);
-      } else {
-        setResendCooldown(remaining);
+  /** Volver al paso anterior reiniciando solo los campos de ese paso. */
+  function handleBack() {
+    if (step === 'otp') {
+      setOtp('');
+      setStep('email');
+    } else if (step === 'reset') {
+      // En reset el usuario está firmado vía OTP. Si quiere cambiar de email
+      // o cancelar, hacemos signOut para no dejar la sesión colgada y
+      // volvemos al paso 'email' para que pueda empezar de cero.
+      if (supabase) {
+        supabase.auth.signOut().catch(() => {});
       }
-    }, 1000);
+      setNewPassword('');
+      setConfirmPassword('');
+      setStep('email');
+    } else {
+      router.back();
+    }
   }
 
-  /**
-   * Reenvía el código de 6 dígitos al email del usuario. Solo disponible si
-   * NO estamos en loading Y NO estamos en cooldown (guard contra doble tap).
-   * signInWithOtp usa el mismo email para que Supabase invalide el código
-   * antiguo y emita uno nuevo.
-   */
+  /** Reenviar código: vuelve al flujo de envío OTP (mismo email). */
   async function handleResendCode() {
-    if (resendCooldown > 0 || loading) return;
-    if (!supabase) {
-      Alert.alert(t('error'), 'Supabase no está configurado');
-      return;
-    }
-    if (!email) return;
-
-    setLoading(true);
-    try {
-      const { error } = await supabase.auth.signInWithOtp({
-        email: email.trim(),
-        options: {
-          shouldCreateUser: false,
-        },
-      });
-      if (error) throw error;
-      Alert.alert('✅', t('codigo_reenviado'));
-      startResendCooldown();
-    } catch (error: any) {
-      let mensaje = error.message || t('error_reset');
-      if (
-        error.message?.toLowerCase().includes('rate limit') ||
-        error.message?.toLowerCase().includes('email rate limit exceeded') ||
-        error.status === 429
-      ) {
-        mensaje = 'Has solicitado demasiados emails seguidos. Espera unos minutos e inténtalo de nuevo.';
-      }
-      Alert.alert(t('error'), mensaje);
-    } finally {
-      setLoading(false);
-    }
+    setOtp('');
+    await handleSendCode();
   }
-
-  /**
-   * Limpia el interval al desmontar (evita fuga de memoria / warning de
-   * "state update on unmounted component").
-   */
-  useEffect(() => {
-    return () => {
-      if (resendIntervalRef.current) {
-        clearInterval(resendIntervalRef.current);
-        resendIntervalRef.current = null;
-      }
-    };
-  }, []);
-
-  /**
-   * Cada vez que entramos en el paso OTP arrancamos el cooldown — pero solo
-   * si NO está ya corriendo (así el usuario no puede "resetear" el cooldown
-   * navegando email + OTP repetidamente).
-   */
-  useEffect(() => {
-    if (step === 'otp' && resendCooldown === 0 && !resendIntervalRef.current) {
-      startResendCooldown();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
 
   return (
     <KeyboardAvoidingView
       style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
           <View style={[styles.iconContainer, { backgroundColor: currentTheme.colors.primaryLight }]}>
-            <Ionicons name="lock-open-outline" size={32} color={currentTheme.colors.primary} />
+            <Ionicons
+              name={step === 'reset' ? 'lock-open-outline' : 'mail-unread-outline'}
+              size={32}
+              color={currentTheme.colors.primary}
+            />
           </View>
-          <Text style={[styles.title, { color: currentTheme.colors.text }]}>{t('olvidaste_contraseña')}</Text>
-          <Text style={[styles.subtitle, { color: currentTheme.colors.textSecondary }]}>
-            {step === 'email' ? t('instrucciones_reset') : t('instrucciones_codigo')}
+          <Text style={[styles.title, { color: currentTheme.colors.text }]}>
+            {t('olvidaste_contraseña')}
           </Text>
+          <Text style={[styles.subtitle, { color: currentTheme.colors.textSecondary }]}>
+            {step === 'email' && t('instrucciones_email_paso')}
+            {step === 'otp' && t('instrucciones_codigo_paso')}
+            {step === 'reset' && t('instrucciones_password_paso')}
+          </Text>
+
+          {/* Indicador de paso discreto (3 puntitos) */}
+          <View style={styles.stepDots}>
+            <View style={[styles.dot, step === 'email' && { backgroundColor: currentTheme.colors.primary }]} />
+            <View style={[styles.dot, step === 'otp' && { backgroundColor: currentTheme.colors.primary }]} />
+            <View style={[styles.dot, step === 'reset' && { backgroundColor: currentTheme.colors.primary }]} />
+          </View>
         </View>
 
-        {step === 'email' ? (
+        {step === 'email' && (
           <View style={styles.form}>
             <View style={styles.inputGroup}>
               <Text style={[styles.label, { color: currentTheme.colors.text }]}>{t('email')}</Text>
@@ -279,26 +275,31 @@ export default function ForgotPassword() {
                   onChangeText={setEmail}
                   autoCapitalize="none"
                   keyboardType="email-address"
+                  autoCorrect={false}
                 />
               </View>
             </View>
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: currentTheme.colors.primary }]}
+              style={[styles.button, { backgroundColor: currentTheme.colors.primary, opacity: loading ? 0.6 : 1 }]}
               onPress={handleSendCode}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>{loading ? t('cargando') : t('enviar_codigo')}</Text>
+              <Text style={styles.buttonText}>
+                {loading ? t('cargando') : t('enviar_codigo_btn')}
+              </Text>
             </TouchableOpacity>
           </View>
-        ) : (
+        )}
+
+        {step === 'otp' && (
           <View style={styles.form}>
             <View style={styles.inputGroup}>
-              <Text style={[styles.label, { color: currentTheme.colors.text }]}>{t('codigo_6_digitos')}</Text>
+              <Text style={[styles.label, { color: currentTheme.colors.text }]}>{t('codigo_6_digitos_label')}</Text>
               <View style={[styles.inputWrapper, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border }]}>
                 <Ionicons name="key-outline" size={20} color={currentTheme.colors.textSecondary} />
                 <TextInput
-                  style={[styles.input, { color: currentTheme.colors.text }]}
+                  style={[styles.input, { color: currentTheme.colors.text, letterSpacing: 4 }]}
                   placeholder="123456"
                   placeholderTextColor={currentTheme.colors.textSecondary}
                   value={otp}
@@ -306,8 +307,50 @@ export default function ForgotPassword() {
                   keyboardType="number-pad"
                   maxLength={6}
                   autoCapitalize="none"
+                  autoCorrect={false}
                 />
               </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: currentTheme.colors.primary, opacity: loading ? 0.6 : 1 }]}
+              onPress={handleVerifyCode}
+              disabled={loading}
+            >
+              <Text style={styles.buttonText}>
+                {loading ? t('cargando') : t('verificar_codigo_btn')}
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.linkButton}
+              onPress={handleResendCode}
+              disabled={loading}
+            >
+              <Ionicons name="refresh-outline" size={16} color={currentTheme.colors.primary} />
+              <Text style={[styles.linkButtonText, { color: currentTheme.colors.primary }]}>
+                {t('reenviar_codigo')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {step === 'reset' && (
+          <View style={styles.form}>
+            {/* Carta informativa: el email que se va a actualizar */}
+            <View
+              style={[
+                styles.emailBanner,
+                {
+                  backgroundColor: currentTheme.colors.primaryLight,
+                  borderColor: currentTheme.colors.primary,
+                },
+              ]}
+            >
+              <Ionicons name="checkmark-circle" size={20} color={currentTheme.colors.primary} />
+              <Text style={[styles.emailBannerText, { color: currentTheme.colors.text }]}>
+                {email.trim()}
+              </Text>
             </View>
 
             <View style={styles.inputGroup}>
@@ -321,6 +364,7 @@ export default function ForgotPassword() {
                   value={newPassword}
                   onChangeText={setNewPassword}
                   secureTextEntry
+                  autoCapitalize="none"
                 />
               </View>
             </View>
@@ -336,69 +380,32 @@ export default function ForgotPassword() {
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry
+                  autoCapitalize="none"
                 />
               </View>
             </View>
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: currentTheme.colors.primary }]}
-              onPress={handleResetPassword}
+              style={[styles.button, { backgroundColor: currentTheme.colors.primary, opacity: loading ? 0.6 : 1 }]}
+              onPress={handleSavePassword}
               disabled={loading}
             >
-              <Text style={styles.buttonText}>{loading ? t('cargando') : t('restablecer_contraseña')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.linkButton, { borderColor: currentTheme.colors.primary }]}
-              onPress={() => setStep('email')}
-              disabled={loading}
-            >
-              <Text style={[styles.linkButtonText, { color: currentTheme.colors.primary }]}>
-                ← {t('enviar_codigo')}
+              <Text style={styles.buttonText}>
+                {loading ? t('cargando') : t('guardar_contraseña_btn')}
               </Text>
-            </TouchableOpacity>
-
-            {/*
-              Botón "Reenviar código" con cooldown visible.
-              - cooldown > 0 → disabled, muestra "Reenviar en Xs"
-              - cooldown == 0 && !loading → habilitado, muestra "Reenviar código"
-              - loading → disabled a través de opacity/disabled
-            */}
-            <TouchableOpacity
-              style={[
-                styles.resendButton,
-                {
-                  borderColor: currentTheme.colors.primary,
-                  opacity: resendCooldown > 0 || loading ? 0.5 : 1,
-                },
-              ]}
-              onPress={handleResendCode}
-              disabled={resendCooldown > 0 || loading}
-              accessibilityLabel={
-                resendCooldown > 0
-                  ? t('reenviar_en', { seconds: resendCooldown })
-                  : t('reenviar_codigo')
-              }
-            >
-              {resendCooldown > 0 ? (
-                <Text style={[styles.resendButtonText, { color: currentTheme.colors.primary }]}>
-                  {t('reenviar_en', { seconds: resendCooldown })}
-                </Text>
-              ) : (
-                <View style={styles.resendContent}>
-                  <Ionicons name="refresh-outline" size={16} color={currentTheme.colors.primary} />
-                  <Text style={[styles.resendButtonText, { color: currentTheme.colors.primary, marginLeft: 6 }]}>
-                    {t('reenviar_codigo')}
-                  </Text>
-                </View>
-              )}
             </TouchableOpacity>
           </View>
         )}
 
-        <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
-          <Text style={[styles.backButtonText, { color: currentTheme.colors.primary }]}>{t('volver_login')}</Text>
-        </TouchableOpacity>
+        {/* Botón "Atrás" en cada paso intermedio, y "Volver al login" en el primero */}
+        <View style={styles.footer}>
+          <TouchableOpacity style={styles.backButton} onPress={handleBack} disabled={loading}>
+            <Ionicons name="arrow-back" size={16} color={currentTheme.colors.primary} />
+            <Text style={[styles.backButtonText, { color: currentTheme.colors.primary }]}>
+              {step === 'email' ? t('volver_login') : t('volver')}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -407,10 +414,13 @@ export default function ForgotPassword() {
 const styles = StyleSheet.create({
   wrapper: { flex: 1 },
   scrollContent: { flexGrow: 1, padding: 24, justifyContent: 'center' },
-  header: { alignItems: 'center', marginBottom: 40 },
+  header: { alignItems: 'center', marginBottom: 32 },
   iconContainer: { width: 72, height: 72, borderRadius: 24, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 24, fontWeight: '800', marginBottom: 8, textAlign: 'center' },
-  subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20 },
+  title: { fontSize: 24, fontWeight: '800', marginBottom: 12, textAlign: 'center' },
+  subtitle: { fontSize: 14, textAlign: 'center', lineHeight: 20, maxWidth: 340, marginBottom: 16 },
+  // 3 puntitos que indican en qué paso del flujo estamos
+  stepDots: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#e0e0e0' },
   form: { gap: 20 },
   inputGroup: { gap: 8 },
   label: { fontSize: 14, fontWeight: '600', marginBottom: 4 },
@@ -418,11 +428,12 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15 },
   button: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  linkButton: { paddingVertical: 12, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
+  linkButton: { flexDirection: 'row', paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12, alignItems: 'center', justifyContent: 'center', gap: 8 },
   linkButtonText: { fontSize: 14, fontWeight: '600' },
-  backButton: { marginTop: 20, alignItems: 'center' },
+  // Banner que muestra el email verificado antes de pedir nueva contraseña
+  emailBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, padding: 12, borderRadius: 10, borderWidth: 1 },
+  emailBannerText: { flex: 1, fontSize: 14, fontWeight: '600' },
+  footer: { marginTop: 16, alignItems: 'center' },
+  backButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   backButtonText: { fontSize: 14, fontWeight: '600' },
-  resendButton: { marginTop: 16, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 12, alignItems: 'center', borderWidth: 1 },
-  resendContent: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
-  resendButtonText: { fontSize: 14, fontWeight: '600' },
 });
