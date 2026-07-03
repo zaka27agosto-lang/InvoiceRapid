@@ -174,11 +174,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       //    y se sincronizarán en el próximo login de este mismo usuario.
       if (userId) {
         try {
-          const NetInfo = await import('@react-native-community/netinfo');
-          const { isConnected } = await NetInfo.fetch();
+          // Dynamic import con try/catch anidado: si el módulo nativo
+          // netinfo no está disponible en el bundle de release,
+          // simplemente saltamos la sincronización sin crashear.
+          let isConnected = false;
+          try {
+            const NetInfo = await import('@react-native-community/netinfo');
+            const state = await NetInfo.fetch();
+            isConnected = state?.isConnected ?? false;
+          } catch {
+            // netinfo no disponible — asumimos offline
+          }
           if (isConnected) {
-            const { syncService } = await import('../services/syncService');
-            await syncService.syncAll(userId);
+            try {
+              const { syncService } = await import('../services/syncService');
+              await syncService.syncAll(userId);
+            } catch {
+              // syncService no disponible — silencioso
+            }
           }
         } catch {
           // Silencioso — los datos no se pierden
