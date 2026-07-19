@@ -25,7 +25,15 @@ interface BannerAdComponentProps {
 export default function BannerAdComponent({ isPremium }: BannerAdComponentProps) {
   const [canShowAds, setCanShowAds] = useState(() => adsService.getCanShowAds());
   const [adKey, setAdKey] = useState(0);
+  const [ready, setReady] = useState(false);
   const wasPremiumRef = useRef(isPremium);
+
+  // Esperar un pequeño delay para que el SDK de anuncios termine de inicializar
+  // (evita que el primer banner no aparezca)
+  useEffect(() => {
+    const timer = setTimeout(() => setReady(true), 1500);
+    return () => clearTimeout(timer);
+  }, []);
 
   // Detectar transición: premium → free → forzar remount del BannerAd nativo
   useEffect(() => {
@@ -56,8 +64,8 @@ export default function BannerAdComponent({ isPremium }: BannerAdComponentProps)
     return unsubscribe;
   }, []);
 
-  // No renderizar en web, si es premium, o si no hay anuncios disponibles
-  if (Platform.OS === 'web' || isPremium || !canShowAds || !BannerAd) {
+  // No renderizar en web, si es premium, si no está listo, o si no hay anuncios disponibles
+  if (Platform.OS === 'web' || isPremium || !ready || !canShowAds || !BannerAd) {
     return null;
   }
 

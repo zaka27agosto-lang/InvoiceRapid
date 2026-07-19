@@ -110,13 +110,8 @@ export default function Register() {
         // Silencioso: no bloquear el registro si falla el device_id
       }
 
-      // Guardar userId para que la pantalla de referidos pueda leer el código sin sesión confirmada
-      if (result.userId) {
-        await AsyncStorage.setItem('pending_user_id', result.userId);
-      }
-
       Alert.alert(t('registro_exitoso'), t('verifica_email'));
-      router.replace('/onboarding/referral-code' as any);
+      router.replace('/(tabs)');
     } else {
       Alert.alert(t('error'), result.error || t('error_registro'));
     }

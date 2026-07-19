@@ -474,10 +474,7 @@ export class AdsService {
 
     this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
       this.interstitialRetryCount = 0;
-      const delay = this.firstInterstitialShown ? 1000 : 5000;
-      setTimeout(() => {
-        this.isInterstitialLoaded = true;
-      }, delay);
+      this.isInterstitialLoaded = true;
     });
 
     this.interstitialAd.addAdEventListener(AdEventType.ERROR, () => {
@@ -505,8 +502,27 @@ export class AdsService {
   }
 
   async showInterstitial(): Promise<boolean> {
-    if (!this.canShowAds || !this.interstitialAd || !this.isInterstitialLoaded) {
+    if (!this.canShowAds || !this.interstitialAd) {
       return false;
+    }
+
+    // Si el anuncio no está cargado, intentar cargarlo y esperar hasta 8s
+    if (!this.isInterstitialLoaded) {
+      this.loadInterstitial();
+      const loaded = await new Promise<boolean>((resolve) => {
+        const startTime = Date.now();
+        const check = () => {
+          if (this.isInterstitialLoaded) {
+            resolve(true);
+          } else if (Date.now() - startTime > 8000) {
+            resolve(false);
+          } else {
+            setTimeout(check, 200);
+          }
+        };
+        check();
+      });
+      if (!loaded) return false;
     }
 
     try {

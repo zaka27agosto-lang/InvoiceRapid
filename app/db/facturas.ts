@@ -144,25 +144,25 @@ export function getNextNumeroFactura(config?: { prefijo: string; sufijo: string;
   const sufijo = config?.sufijo ?? '';
   const digitos = config?.digitos ?? 4;
   
-  // Obtener el número más alto existente (para evitar repeticiones al borrar la última)
+  // Obtener la factura más reciente (por id DESC) para determinar el siguiente número.
+  // Usamos id DESC en lugar de extraer el número del formato, para que funcione
+  // independientemente del prefijo/sufijo que se use.
   const lastFactura = db.getFirstSync(
-    `SELECT numero FROM facturas 
-     ORDER BY CAST(REPLACE(REPLACE(numero, ?, ''), ?, '') AS INTEGER) DESC 
-     LIMIT 1`,
-    [prefijo, sufijo]
+    `SELECT numero FROM facturas ORDER BY id DESC LIMIT 1`
   ) as { numero: string } | null;
   
   if (!lastFactura || !lastFactura.numero) {
     return `${prefijo}${String(1).padStart(digitos, '0')}${sufijo}`;
   }
   
-  // Extraer el número del formato (ej: F-0005 -> 5)
-  const match = lastFactura.numero.match(/(\d+)/);
-  if (!match) {
+  // Extraer el número más grande encontrado en el string (soporta cualquier formato)
+  const matches = lastFactura.numero.match(/\d+/g);
+  if (!matches || matches.length === 0) {
     return `${prefijo}${String(1).padStart(digitos, '0')}${sufijo}`;
   }
   
-  const lastNum = parseInt(match[1], 10);
+  // Usar el último grupo de dígitos (el número de factura suele estar al final)
+  const lastNum = parseInt(matches[matches.length - 1], 10);
   const nextNum = lastNum + 1;
   
   return `${prefijo}${String(nextNum).padStart(digitos, '0')}${sufijo}`;

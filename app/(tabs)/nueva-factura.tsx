@@ -18,7 +18,6 @@ import { useTranslation } from "react-i18next";    import {
     } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
-import { useRemoteConfig } from "../../hooks/useRemoteConfig";
 import { adsService } from "../../services/adsService";
 import { convertirAEurosParaGuardar } from "../../utils/currency";
 import * as Print from 'expo-print';
@@ -42,7 +41,7 @@ type Item = {
   descuentoTipo: 'porcentaje' | 'moneda';
 };
 
-const UNIDADES = ["ud", "kg", "g", "l", "ml", "m", "m²", "h", "día", "mes"];
+const UNIDADES_BASE = ["ud", "kg", "g", "l", "ml", "m", "m²", "h", "día", "mes"];
 
 export default function NuevaFactura() {
   const router = useRouter();
@@ -51,7 +50,6 @@ export default function NuevaFactura() {
   const { t } = useTranslation();
   const { isPremium, offerings, comprar, restaurar } = useSubscription();
   const { currentTheme } = useTheme();
-  const { referral_required_count } = useRemoteConfig();
   const esModoEdicion = !!facturaId;
 
   const [mostrarPaywall, setMostrarPaywall] = useState(false);
@@ -82,6 +80,9 @@ export default function NuevaFactura() {
   const [mostrarDatePickerEmision, setMostrarDatePickerEmision] = useState(false);
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
+  const [unidades, setUnidades] = useState<string[]>(UNIDADES_BASE);
+  const [unidadPersonalizada, setUnidadPersonalizada] = useState("");
+  const [mostrarCrearUnidad, setMostrarCrearUnidad] = useState(false);
 
   function getHoyDDMMYYYY() {
     const hoy = new Date();
@@ -120,6 +121,15 @@ export default function NuevaFactura() {
     });
     checkInvoiceLimitAsync(isPremium).then(setLimiteInfo);
     getNumeracionConfig().then(setNumeracionConfigState);
+    // Cargar unidades personalizadas
+    AsyncStorage.getItem('unidades_personalizadas').then(data => {
+      if (data) {
+        try {
+          const extra = JSON.parse(data);
+          if (Array.isArray(extra)) setUnidades([...UNIDADES_BASE, ...extra]);
+        } catch {}
+      }
+    });
     // Cargar IVA guardado
     AsyncStorage.getItem('ultimo_iva').then(iva => {
       if (iva) setIvaPorcentaje(parseFloat(iva));
@@ -151,6 +161,9 @@ export default function NuevaFactura() {
 
   useFocusEffect(
     useCallback(() => {
+      // Resetear el flag de guardado para permitir nuevas facturas
+      savingRef.current = false;
+
       // Scroll al inicio sin animación
       scrollRef.current?.scrollTo({ y: 0, animated: false });
 
@@ -255,7 +268,6 @@ export default function NuevaFactura() {
     setMetodoPago("efectivo");
     setFechaVencimiento("");
     setFechaEmision(getHoyDDMMYYYY());
-    setNumeroFactura(getNextNumeroFactura(numeracionConfig));
   }
 
   function cargarFactura(id: number) {
@@ -402,7 +414,7 @@ export default function NuevaFactura() {
 
     setGenerandoPDF(true);
     try {
-      const numero = numeroFactura || getNextNumeroFactura();
+      const numero = numeroFactura || getNextNumeroFactura(numeracionConfig);
       const subtotalEnEuros = await convertirAEurosParaGuardar(subtotalBruto, codigoMoneda);
       const ivaEnEuros = await convertirAEurosParaGuardar(ivaImporte, codigoMoneda);
       const irpfEnEuros = await convertirAEurosParaGuardar(irpfImporte, codigoMoneda);
@@ -475,7 +487,6 @@ export default function NuevaFactura() {
         });
         const yaTeniaPrimera = await AsyncStorage.getItem('ha_creado_primera_factura');
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
-        activarReferidoSiProcede();
         for (const item of itemsValidos) {
           const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
           const descuentoEnEuros = await convertirAEurosParaGuardar(parseFloat(item.descuento) || 0, codigoMoneda);
@@ -487,11 +498,6 @@ export default function NuevaFactura() {
           });
         }
         if (!isRewardedSave && !isPremium) await incrementInvoiceCounter();
-        if (yaTeniaPrimera !== 'true' && !(await esRealmentePremium())) {
-          savingRef.current = true;
-          router.replace('/settings/referral' as any);
-          return;
-        }
       }
 
       // 4. Anuncio y volver atrás
@@ -517,15 +523,14 @@ export default function NuevaFactura() {
     return Math.ceil((ultimoDia.getTime() - hoy.getTime()) / (1000 * 60 * 60 * 24));
   }
 
-  async function esRealmentePremium(): Promise<boolean> {
-    if (isPremium) return true;
-    const stored = await AsyncStorage.getItem('is_premium');
-    return stored === 'true';
-  }
-
   async function guardarFactura() {
+    // ── Anti-doble-click: evitar facturas duplicadas ──
+    if (savingRef.current) return;
+    savingRef.current = true;
+
     // ── Límite alcanzado: mostrar opciones ──
     if (!esModoEdicion && !isPremium && !limiteInfo.canCreate && !pendingRewardedSave) {
+      savingRef.current = false; // reset para permitir reintento tras anuncio
       const remaining = await getRemainingRewardedAds();
 
       const buttons: any[] = [
@@ -579,6 +584,7 @@ export default function NuevaFactura() {
 
     // Para usuarios gratuitos en modo edición, verificar límite antes de editar
     if (esModoEdicion && !isPremium && !limiteInfo.canCreate) {
+      savingRef.current = false;
       const diasRestE = getDiasRestantesMes();
       Alert.alert(
         t('limite_alcanzado'),
@@ -592,12 +598,14 @@ export default function NuevaFactura() {
     }
 
     if (!clienteSeleccionado) {
+      savingRef.current = false;
       Alert.alert(t('cliente_requerido'), t('selecciona_cliente'));
       return;
     }
 
     const itemsValidos = items.filter(i => i.descripcion.trim() && parseFloat(i.precio) > 0);
     if (itemsValidos.length === 0) {
+      savingRef.current = false;
       Alert.alert(t('sin_articulos'), t('anadir_articulo_valido'));
       return;
     }
@@ -680,7 +688,6 @@ export default function NuevaFactura() {
           
           // Guardar flag de primera factura creada
           await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
-          activarReferidoSiProcede();
 
           for (const item of itemsValidos) {
             const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
@@ -704,13 +711,7 @@ export default function NuevaFactura() {
           // Mostrar anuncio intersticial cada 3 acciones
           await adsService.incrementAction(isPremium);
 
-          // Si es la primera factura, redirigir a la pantalla de invitar amigos
-          savingRef.current = true;
-          if (yaTeniaPrimera !== 'true' && !(await esRealmentePremium())) {
-            router.replace('/settings/referral' as any);
-          } else {
-            router.back();
-          }
+          router.back();
           return;
         }
       } else {
@@ -737,7 +738,6 @@ export default function NuevaFactura() {
         
         // Guardar flag de primera factura creada
         await AsyncStorage.setItem('ha_creado_primera_factura', 'true');
-        activarReferidoSiProcede();
 
         for (const item of itemsValidos) {
           const precioEnEuros = await convertirAEurosParaGuardar(parseFloat(item.precio) || 0, codigoMoneda);
@@ -761,94 +761,18 @@ export default function NuevaFactura() {
         // Mostrar anuncio intersticial cada 3 acciones
         await adsService.incrementAction(isPremium);
 
-        // Si es la primera factura, redirigir a referidos
-        savingRef.current = true;
-        if (yaTeniaPrimera !== 'true' && !(await esRealmentePremium())) {
-          router.replace('/settings/referral' as any);
-        } else {
-          router.back();
-        }
+        router.back();
       }
     } catch (e: any) {
       savingRef.current = false;
       Alert.alert(t('error'), `${t('error_guardar')}: ${e?.message || ''}`);
+      return;
     }
   }
 
   const clientesFiltrados = clientes.filter(c =>
     c.nombre.toLowerCase().includes(busquedaCliente.toLowerCase())
   );
-
-  async function activarReferidoSiProcede() {
-    try {
-      const codigo = await AsyncStorage.getItem('pending_referral_code');
-      if (!codigo) return;
-
-      // Verificar si el deadline de 12h ha expirado
-      const deadline = await AsyncStorage.getItem('referral_code_deadline');
-      if (deadline && Date.now() > new Date(deadline).getTime()) {
-        // Deadline expirado, limpiar y no activar
-        await AsyncStorage.removeItem('pending_referral_code');
-        await AsyncStorage.removeItem('referral_code_deadline');
-        return;
-      }
-
-      const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL || '';
-      const supabaseModule = await import('../../services/supabase');
-      if (!supabaseModule.supabase) return;
-
-      const { data: { session } } = await supabaseModule.supabase.auth.getSession();
-      const userId = session?.user?.id;
-      const userEmail = session?.user?.email;
-      const accessToken = session?.access_token;
-      if (!userId) return;
-
-      // Buscar el dueño del código
-      const { data: codeData } = await supabaseModule.supabase
-        .from('referral_codes')
-        .select('user_id')
-        .eq('code', codigo)
-        .maybeSingle();
-
-      if (!codeData || codeData.user_id === userId) {
-        await AsyncStorage.removeItem('pending_referral_code');
-        return;
-      }
-
-      // Insertar evento pending con el email del usuario referido
-      await supabaseModule.supabase
-        .from('referral_events')
-        .insert({
-          referrer_id: codeData.user_id,
-          referred_id: userId,
-          referred_email: userEmail || null,
-          code_used: codigo,
-          status: 'pending',
-        });
-
-      // Llamar a la Edge Function para activar
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000);
-      const response = await fetch(`${supabaseUrl}/functions/v1/activate-referral`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ referred_user_id: userId }),
-        signal: controller.signal,
-      });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) return; // Si falla, mantener código para reintentar
-
-      // Solo eliminar si la Edge Function respondió OK
-      await AsyncStorage.removeItem('pending_referral_code');
-    } catch {
-      // Silencioso: no bloquear el flujo del usuario.
-      // Si falla, pending_referral_code se mantiene para reintentar en la siguiente factura.
-    }
-  }
 
   function hayCambiosSinGuardar() {
     if (notas.trim().length > 0) return true;
@@ -919,15 +843,6 @@ export default function NuevaFactura() {
                       {t('limite_alcanzado')} {'\u00b7'} {t('se_renueva_en', { dias: getDiasRestantesMes() })}
                     </Text>
                   </View>
-                  <TouchableOpacity
-                    style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, backgroundColor: currentTheme.colors.primary + '12', borderRadius: 10, paddingVertical: 10, paddingHorizontal: 14, borderWidth: 1, borderColor: currentTheme.colors.primary + '30' }}
-                    onPress={() => router.push('/settings/referral' as any)}
-                  >
-                    <Ionicons name="gift-outline" size={16} color={currentTheme.colors.primary} />
-                    <Text style={{ fontSize: 12, color: currentTheme.colors.primary, fontWeight: '600' }}>
-                      {t('invitar_amigos_banner', { n: referral_required_count })}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
               )}
             </View>
@@ -1107,23 +1022,25 @@ export default function NuevaFactura() {
                 </View>
                 <View style={styles.filaDescuento}>
                   <Text style={styles.campoLabel}>{t('descuento')}</Text>
-                  <View style={styles.descuentoInput}>
-                    <TextInput
-                      style={styles.inputDescuento}
-                      placeholder="0"
-                      placeholderTextColor="#ccc"
-                      keyboardType="decimal-pad"
-                      value={item.descuento}
-                      onChangeText={v => actualizarItem(item.id, "descuento", v)}
-                    />
-                    <TouchableOpacity
-                      style={styles.descuentoTipoBtn}
-                      onPress={() => cambiarTipoDescuento(item.id, item.descuentoTipo === 'porcentaje' ? 'moneda' : 'porcentaje')}
-                    >
-                      <Text style={[styles.descuentoSymbol, { color: currentTheme.colors.primary }]}>{item.descuentoTipo === 'porcentaje' ? '%' : simboloMoneda}</Text>
-                    </TouchableOpacity>
+                  <View style={styles.descuentoFila}>
+                    <View style={styles.descuentoInput}>
+                      <TextInput
+                        style={styles.inputDescuento}
+                        placeholder="0"
+                        placeholderTextColor="#ccc"
+                        keyboardType="decimal-pad"
+                        value={item.descuento}
+                        onChangeText={v => actualizarItem(item.id, "descuento", v)}
+                      />
+                      <TouchableOpacity
+                        style={styles.descuentoTipoBtn}
+                        onPress={() => cambiarTipoDescuento(item.id, item.descuentoTipo === 'porcentaje' ? 'moneda' : 'porcentaje')}
+                      >
+                        <Text style={[styles.descuentoSymbol, { color: currentTheme.colors.primary }]}>{item.descuentoTipo === 'porcentaje' ? '%' : simboloMoneda}</Text>
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={[styles.subtotalItem, { color: currentTheme.colors.primary }]}>= {calcularSubtotalItem(item).toFixed(2)} {simboloMoneda}</Text>
                   </View>
-                  <Text style={[styles.subtotalItem, { color: currentTheme.colors.primary }]}>= {calcularSubtotalItem(item).toFixed(2)} {simboloMoneda}</Text>
                 </View>
               </View>
             ))}
@@ -1326,15 +1243,68 @@ export default function NuevaFactura() {
                 <Ionicons name="close" size={26} color="#1a1a1a" />
               </TouchableOpacity>
             </View>
-            {UNIDADES.map(u => (
+            <ScrollView>
+              {unidades.map(u => (
+                <TouchableOpacity
+                  key={u}
+                  style={styles.unidadItem}
+                  onPress={() => { if (mostrarUnidades) actualizarItem(mostrarUnidades, "unidad", u); setMostrarUnidades(null); }}
+                >
+                  <Text style={styles.unidadTexto}>{u}</Text>
+                </TouchableOpacity>
+              ))}
               <TouchableOpacity
-                key={u}
-                style={styles.unidadItem}
-                onPress={() => { if (mostrarUnidades) actualizarItem(mostrarUnidades, "unidad", u); setMostrarUnidades(null); }}
+                style={[styles.unidadItem, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}
+                onPress={() => { setMostrarCrearUnidad(true); }}
               >
-                <Text style={styles.unidadTexto}>{u}</Text>
+                <Ionicons name="add-circle-outline" size={20} color={currentTheme.colors.primary} />
+                <Text style={[styles.unidadTexto, { color: currentTheme.colors.primary }]}>{t('unidad_personalizada')}</Text>
               </TouchableOpacity>
-            ))}
+            </ScrollView>
+
+            {/* Sub-modal para crear unidad personalizada */}
+            {mostrarCrearUnidad && (
+              <View style={styles.unidadCrearOverlay}>
+                <View style={[styles.unidadCrearCard, { backgroundColor: currentTheme.colors.card }]}>
+                  <Text style={[styles.unidadCrearTitulo, { color: currentTheme.colors.text }]}>{t('crear_unidad')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('unidad_placeholder')}
+                    placeholderTextColor="#bbb"
+                    value={unidadPersonalizada}
+                    onChangeText={setUnidadPersonalizada}
+                    autoFocus
+                  />
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <TouchableOpacity
+                      style={[styles.unidadCrearBtnCancel, { borderColor: currentTheme.colors.border || '#e8e8e8' }]}
+                      onPress={() => { setMostrarCrearUnidad(false); setUnidadPersonalizada(''); }}
+                    >
+                      <Text style={{ color: currentTheme.colors.textSecondary, fontWeight: '600' }}>{t('cancelar')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.unidadCrearBtnOk, { backgroundColor: currentTheme.colors.primary }]}
+                      onPress={async () => {
+                        const nueva = unidadPersonalizada.trim().toLowerCase();
+                        if (nueva && !unidades.includes(nueva)) {
+                          const nuevasUnidades = [...unidades, nueva];
+                          setUnidades(nuevasUnidades);
+                          // Guardar solo las personalizadas (no las base)
+                          const personalizadas = nuevasUnidades.filter(u => !UNIDADES_BASE.includes(u));
+                          await AsyncStorage.setItem('unidades_personalizadas', JSON.stringify(personalizadas));
+                          if (mostrarUnidades) actualizarItem(mostrarUnidades, "unidad", nueva);
+                        }
+                        setMostrarCrearUnidad(false);
+                        setUnidadPersonalizada('');
+                        setMostrarUnidades(null);
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '700' }}>{t('guardar')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </Modal>
 
@@ -1545,9 +1515,10 @@ const styles = StyleSheet.create({
   campoChico: { flex: 1 },
   campoLabel: { fontSize: 11, fontWeight: "600", color: "#888", marginBottom: 5, textTransform: "uppercase" },
   inputChico: { borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, padding: 10, fontSize: 15, color: "#1a1a1a", backgroundColor: "#fff", justifyContent: "center" },
-  filaDescuento: { flexDirection: "row", alignItems: "center", gap: 10 },
+  filaDescuento: { gap: 4 },
+  descuentoFila: { flexDirection: "row", alignItems: "center", gap: 10 },
   descuentoInput: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, backgroundColor: "#fff", paddingHorizontal: 10, flex: 1 },
-  inputDescuento: { flex: 1, fontSize: 15, color: "#1a1a1a", paddingVertical: 10 },
+  inputDescuento: { flex: 1, fontSize: 15, color: "#1a1a1a", paddingVertical: 14 },
   descuentoTipoBtn: { paddingHorizontal: 6, paddingVertical: 6, backgroundColor: "#f5f5f5", borderRadius: 6, marginLeft: 8 },
   descuentoSymbol: { fontSize: 15, fontWeight: "700" },
   subtotalItem: { fontSize: 14, fontWeight: "700", minWidth: 80, textAlign: "right" },
@@ -1618,4 +1589,9 @@ const styles = StyleSheet.create({
   previewCloseBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   previewTitle: { fontSize: 18, fontWeight: '800' },
   previewLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  unidadCrearOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  unidadCrearCard: { width: '100%', borderRadius: 16, padding: 24, gap: 16 },
+  unidadCrearTitulo: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  unidadCrearBtnCancel: { flex: 1, borderWidth: 1.5, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  unidadCrearBtnOk: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
 });

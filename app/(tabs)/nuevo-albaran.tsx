@@ -40,7 +40,7 @@ type Item = {
   sinPrecio: boolean;
 };
 
-const UNIDADES = ["ud", "kg", "g", "l", "ml", "m", "m²", "h", "día", "mes"];
+const UNIDADES_BASE = ["ud", "kg", "g", "l", "ml", "m", "m²", "h", "día", "mes"];
 
 export default function NuevoAlbaran() {
   const router = useRouter();
@@ -78,6 +78,9 @@ export default function NuevoAlbaran() {
   const [scrollEnabled, setScrollEnabled] = useState(true);
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
+  const [unidades, setUnidades] = useState<string[]>(UNIDADES_BASE);
+  const [unidadPersonalizada, setUnidadPersonalizada] = useState("");
+  const [mostrarCrearUnidad, setMostrarCrearUnidad] = useState(false);
 
   function getHoyDDMMYYYY() {
     const hoy = new Date();
@@ -117,6 +120,15 @@ export default function NuevoAlbaran() {
       // Para albaranes usamos prefijo 'A-' por defecto
       setNumeracionConfigState({ prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos });
     });
+    // Cargar unidades personalizadas
+    AsyncStorage.getItem('unidades_personalizadas').then(data => {
+      if (data) {
+        try {
+          const extra = JSON.parse(data);
+          if (Array.isArray(extra)) setUnidades([...UNIDADES_BASE, ...extra]);
+        } catch {}
+      }
+    });
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       if (savingRef.current || closingRef.current) return;
       if (mostrarClientes || mostrarProductos || mostrarUnidades || mostrarPaywall) return;
@@ -136,6 +148,7 @@ export default function NuevoAlbaran() {
 
   useFocusEffect(
     useCallback(() => {
+      savingRef.current = false;
       scrollRef.current?.scrollTo({ y: 0, animated: false });
       getMoneda().then(m => {
         setSimboloMoneda(m.simbolo);
@@ -210,7 +223,6 @@ export default function NuevoAlbaran() {
     setFechaEmision(getHoyDDMMYYYY());
     setDireccionEntrega("");
     setFirmaData(null);
-    setNumeroAlbaran(getNextNumeroAlbaran(numeracionConfig));
   }
 
   function cargarAlbaran(id: number) {
@@ -371,9 +383,13 @@ export default function NuevoAlbaran() {
   }
 
   async function guardarAlbaran() {
-    if (!clienteSeleccionado) { Alert.alert(t('cliente_requerido'), t('selecciona_cliente')); return; }
+    // ── Anti-doble-click: evitar albaranes duplicados ──
+    if (savingRef.current) return;
+    savingRef.current = true;
+
+    if (!clienteSeleccionado) { savingRef.current = false; Alert.alert(t('cliente_requerido'), t('selecciona_cliente')); return; }
     const itemsValidos = items.filter(i => i.descripcion.trim());
-    if (itemsValidos.length === 0) { Alert.alert(t('sin_articulos'), t('anadirArticuloValidoAlbaran')); return; }
+    if (itemsValidos.length === 0) { savingRef.current = false; Alert.alert(t('sin_articulos'), t('anadirArticuloValidoAlbaran')); return; }
 
     try {
       const numero = numeroAlbaran || getNextNumeroAlbaran(numeracionConfig);
@@ -399,7 +415,6 @@ export default function NuevoAlbaran() {
           });
         }
         await adsService.incrementAction(isPremium);
-        savingRef.current = true;
         router.back();
       } else {
         const newId = insertAlbaran({
@@ -421,7 +436,6 @@ export default function NuevoAlbaran() {
           });
         }
         await adsService.incrementAction(isPremium);
-        savingRef.current = true;
         router.back();
       }
     } catch (e: any) {
@@ -644,11 +658,13 @@ export default function NuevoAlbaran() {
                   {!item.sinPrecio ? (
                     <>
                       <Text style={styles.campoLabel}>{t('descuento')} (%)</Text>
-                      <View style={styles.descuentoInput}>
-                        <TextInput style={styles.inputDescuento} placeholder="0" placeholderTextColor="#ccc" keyboardType="decimal-pad"
-                          value={item.descuento} onChangeText={v => actualizarItem(item.id, "descuento", v)} />
+                      <View style={styles.descuentoFila}>
+                        <View style={styles.descuentoInput}>
+                          <TextInput style={styles.inputDescuento} placeholder="0" placeholderTextColor="#ccc" keyboardType="decimal-pad"
+                            value={item.descuento} onChangeText={v => actualizarItem(item.id, "descuento", v)} />
+                        </View>
+                        <Text style={[styles.subtotalItem, { color: currentTheme.colors.primary }]}>= {calcularSubtotalItem(item).toFixed(2)} {simboloMoneda}</Text>
                       </View>
-                      <Text style={[styles.subtotalItem, { color: currentTheme.colors.primary }]}>= {calcularSubtotalItem(item).toFixed(2)} {simboloMoneda}</Text>
                     </>
                   ) : (
                     <TouchableOpacity onPress={() => toggleSinPrecio(item.id)}>
@@ -759,13 +775,72 @@ export default function NuevoAlbaran() {
           <View style={styles.modalWrapper}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitulo}>{t('seleccionar_unidad')}</Text>
-              <TouchableOpacity onPress={() => setMostrarUnidades(null)}><Ionicons name="close" size={26} color="#1a1a1a" /></TouchableOpacity>
-            </View>
-            {UNIDADES.map(u => (
-              <TouchableOpacity key={u} style={styles.unidadItem} onPress={() => { if (mostrarUnidades) actualizarItem(mostrarUnidades, "unidad", u); setMostrarUnidades(null); }}>
-                <Text style={styles.unidadTexto}>{u}</Text>
+              <TouchableOpacity onPress={() => setMostrarUnidades(null)}>
+                <Ionicons name="close" size={26} color="#1a1a1a" />
               </TouchableOpacity>
-            ))}
+            </View>
+            <ScrollView>
+              {unidades.map(u => (
+                <TouchableOpacity
+                  key={u}
+                  style={styles.unidadItem}
+                  onPress={() => { if (mostrarUnidades) actualizarItem(mostrarUnidades, "unidad", u); setMostrarUnidades(null); }}
+                >
+                  <Text style={styles.unidadTexto}>{u}</Text>
+                </TouchableOpacity>
+              ))}
+              <TouchableOpacity
+                style={[styles.unidadItem, { flexDirection: 'row', alignItems: 'center', gap: 10 }]}
+                onPress={() => { setMostrarCrearUnidad(true); }}
+              >
+                <Ionicons name="add-circle-outline" size={20} color={currentTheme.colors.primary} />
+                <Text style={[styles.unidadTexto, { color: currentTheme.colors.primary }]}>{t('unidad_personalizada')}</Text>
+              </TouchableOpacity>
+            </ScrollView>
+
+            {/* Sub-modal para crear unidad personalizada */}
+            {mostrarCrearUnidad && (
+              <View style={styles.unidadCrearOverlay}>
+                <View style={[styles.unidadCrearCard, { backgroundColor: currentTheme.colors.card }]}>
+                  <Text style={[styles.unidadCrearTitulo, { color: currentTheme.colors.text }]}>{t('crear_unidad')}</Text>
+                  <TextInput
+                    style={styles.input}
+                    placeholder={t('unidad_placeholder')}
+                    placeholderTextColor="#bbb"
+                    value={unidadPersonalizada}
+                    onChangeText={setUnidadPersonalizada}
+                    autoFocus
+                  />
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <TouchableOpacity
+                      style={[styles.unidadCrearBtnCancel, { borderColor: currentTheme.colors.border || '#e8e8e8' }]}
+                      onPress={() => { setMostrarCrearUnidad(false); setUnidadPersonalizada(''); }}
+                    >
+                      <Text style={{ color: currentTheme.colors.textSecondary, fontWeight: '600' }}>{t('cancelar')}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.unidadCrearBtnOk, { backgroundColor: currentTheme.colors.primary }]}
+                      onPress={async () => {
+                        const nueva = unidadPersonalizada.trim().toLowerCase();
+                        if (nueva && !unidades.includes(nueva)) {
+                          const nuevasUnidades = [...unidades, nueva];
+                          setUnidades(nuevasUnidades);
+                          // Guardar solo las personalizadas (no las base)
+                          const personalizadas = nuevasUnidades.filter(u => !UNIDADES_BASE.includes(u));
+                          await AsyncStorage.setItem('unidades_personalizadas', JSON.stringify(personalizadas));
+                          if (mostrarUnidades) actualizarItem(mostrarUnidades, "unidad", nueva);
+                        }
+                        setMostrarCrearUnidad(false);
+                        setUnidadPersonalizada('');
+                        setMostrarUnidades(null);
+                      }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '700' }}>{t('guardar')}</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </Modal>
 
@@ -897,9 +972,10 @@ const styles = StyleSheet.create({
   campoChico: { flex: 1 },
   campoLabel: { fontSize: 11, fontWeight: "600", color: "#888", marginBottom: 5, textTransform: "uppercase" },
   inputChico: { borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, padding: 10, fontSize: 15, color: "#1a1a1a", backgroundColor: "#fff", justifyContent: "center" },
-  filaDescuento: { flexDirection: "row", alignItems: "center", gap: 10 },
+  filaDescuento: { gap: 4 },
+  descuentoFila: { flexDirection: "row", alignItems: "center", gap: 10 },
   descuentoInput: { flexDirection: "row", alignItems: "center", borderWidth: 1.5, borderColor: "#e8e8e8", borderRadius: 10, backgroundColor: "#fff", paddingHorizontal: 10, flex: 1 },
-  inputDescuento: { flex: 1, fontSize: 15, color: "#1a1a1a", paddingVertical: 10 },
+  inputDescuento: { flex: 1, fontSize: 15, color: "#1a1a1a", paddingVertical: 14 },
   subtotalItem: { fontSize: 14, fontWeight: "700", minWidth: 80, textAlign: "right" },
   addItemBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, borderWidth: 1.5, borderStyle: "dashed", borderRadius: 12, paddingVertical: 14, marginTop: 4 },
   addItemTexto: { fontWeight: "600", fontSize: 14 },
@@ -962,6 +1038,11 @@ const styles = StyleSheet.create({
   previewCloseBtn: { width: 36, height: 36, borderRadius: 10, justifyContent: 'center', alignItems: 'center' },
   previewTitle: { fontSize: 18, fontWeight: '800' },
   previewLoading: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  unidadCrearOverlay: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  unidadCrearCard: { width: '100%', borderRadius: 16, padding: 24, gap: 16 },
+  unidadCrearTitulo: { fontSize: 18, fontWeight: '700', textAlign: 'center' },
+  unidadCrearBtnCancel: { flex: 1, borderWidth: 1.5, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  unidadCrearBtnOk: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   // Firma
   firmaSeparador: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 16, marginBottom: 16, gap: 10 },
   firmaSeparadorLinea: { flex: 1, height: 1.5, borderRadius: 1 },

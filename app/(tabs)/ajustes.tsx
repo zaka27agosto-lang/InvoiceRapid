@@ -570,11 +570,6 @@ export default function Ajustes() {
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('mi_perfil')}</Text>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.opcionBoton} onPress={() => router.push('/settings/referral' as any)}>
-            <Ionicons name="gift-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('invitar_amigos')}</Text>
-            <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
-          </TouchableOpacity>
           <View style={styles.opcion}>
             <Ionicons name="information-circle-outline" size={20} color={currentTheme.colors.primary} />
             <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('version')}</Text>
@@ -1104,7 +1099,7 @@ const styles = StyleSheet.create({
   ivaOpciones: { flexDirection: 'row', gap: 12 },
   ivaBtn: { paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#e8e8e8', backgroundColor: '#fafafa', alignItems: 'center' },
   ivaBtnTexto: { fontSize: 16, fontWeight: '700', color: '#888' },
-  ivaBtnTextoActivo: { color: '#007AFF' },
+  ivaBtnTextoActivo: { color: '#fff' },
   plantillaItem: { flexDirection: 'row', alignItems: 'center', gap: 16, paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
   plantillaItemActivo: { backgroundColor: '#F8F7FF' },
   plantillaIcono: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#fafafa', justifyContent: 'center', alignItems: 'center' },
