@@ -474,7 +474,12 @@ export class AdsService {
 
     this.interstitialAd.addAdEventListener(AdEventType.LOADED, () => {
       this.interstitialRetryCount = 0;
-      this.isInterstitialLoaded = true;
+      // Delay progresivo para evitar pantalla negra: el primer interstitial
+      // necesita tiempo extra para inicializar el motor de renderizado nativo.
+      const delay = this.firstInterstitialShown ? 1000 : 5000;
+      setTimeout(() => {
+        this.isInterstitialLoaded = true;
+      }, delay);
     });
 
     this.interstitialAd.addAdEventListener(AdEventType.ERROR, () => {
