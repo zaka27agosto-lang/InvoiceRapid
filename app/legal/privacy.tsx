@@ -24,7 +24,7 @@ export default function Privacy() {
           <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>Política de Privacidad — InvoiceRapid PRO</Text>
 
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 18/06/2026
+            Última actualización: 20/07/2026
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. Introducción</Text>
@@ -52,9 +52,6 @@ export default function Privacy() {
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             {'\u2022'} Historial de compras (suscripciones o pagos).
-          </Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            {'\u2022'} Códigos de referido y relaciones de referidos (cuando se utilizan).
           </Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             {'\u2022'} Firmas manuscritas capturadas en albaranes (solo si el usuario utiliza esta función).
@@ -110,12 +107,7 @@ export default function Privacy() {
             El correo electrónico, contraseña, ID de usuario e historial de compras se utilizan para proporcionar y mantener las funciones de la aplicación, crear y autenticar la cuenta, sincronizar datos y prevenir fraudes.
           </Text>
 
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>3.2. Datos de referidos</Text>
-          <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
-            Los códigos de referido y las relaciones de referidos se utilizan exclusivamente para gestionar el programa de invitación de amigos, permitiendo a los usuarios compartir la aplicación y obtener beneficios. Estos datos se almacenan en Supabase y no se comparten con terceros.
-          </Text>
-
-          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>3.3. Datos automáticos</Text>
+          <Text style={[styles.subsectionTitle, { color: currentTheme.colors.text }]}>3.2. Datos automáticos</Text>
           <Text style={[styles.text, { color: currentTheme.colors.textSecondary }]}>
             Se utilizan para analizar rendimiento y estabilidad, detectar y corregir errores, mejorar la experiencia de uso y prevenir fraudes.
           </Text>
