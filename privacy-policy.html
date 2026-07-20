@@ -40,20 +40,29 @@
       font-size: 0.95rem;
       margin-bottom: 1.5em;
     }
-    ul {
+    ul, ol {
       margin-left: 1.2em;
     }
     strong {
       font-weight: 600;
     }
+    nav { background:#fff; border:1px solid #e0e0e0; border-radius:12px; padding:12px 20px; margin-bottom:24px; display:flex; gap:20px; flex-wrap:wrap; }
+    nav a { font-weight:500; }
   </style>
 </head>
 <body>
+  <nav>
+    <a href="index.html">Inicio</a>
+    <strong>Privacidad</strong>
+    <a href="terms.html">Términos</a>
+    <a href="cookies.html">Cookies</a>
+    <a href="account-deletion.html">Eliminar cuenta</a>
+  </nav>
+
   <h1>Política de Privacidad — InvoiceRapid PRO</h1>
   <p class="meta">
-    <strong>Última actualización:</strong> 02/05/2026<br />
+    <strong>Última actualización:</strong> 20/07/2026<br />
     <strong>Desarrollador:</strong> ZKR Studio<br />
-    <strong>Contacto:</strong> <a href="mailto:zkrstudios.contact@gmail.com">zkrstudios.contact@gmail.com</a>
   </p>
 
   <h2>1. Introducción</h2>
@@ -73,8 +82,9 @@
   <ul>
     <li>Dirección de correo electrónico.</li>
     <li>Contraseña.</li>
-    <li>Datos introducidos manualmente en la aplicación: clientes, productos, facturas y configuraciones.</li>
+    <li>Datos introducidos manualmente en la aplicación: clientes, productos, facturas, albaranes y configuraciones.</li>
     <li>Historial de compras (suscripciones o pagos realizados a través de la tienda).</li>
+    <li>Firmas manuscritas capturadas en albaranes (solo si el usuario utiliza esta función).</li>
   </ul>
 
   <h3>2.2. Datos recopilados automáticamente</h3>
@@ -88,8 +98,28 @@
     <li>IDs de dispositivo u otros identificadores (incluyendo el ID de publicidad, AAID, y otros identificadores internos de los SDKs).</li>
     <li>Información básica del dispositivo y sistema operativo.</li>
   </ul>
+  <p>
+    <strong>Consentimiento de anuncios (UMP):</strong> La aplicación utiliza el SDK UMP (User Messaging Platform)
+    de Google para solicitar el consentimiento de anuncios a usuarios en el Espacio Económico Europeo, cumpliendo
+    con los requisitos del RGPD. Al iniciar la aplicación por primera vez, se mostrará un diálogo de consentimiento.
+  </p>
+  <p>
+    <strong>Publicidad personalizada:</strong> Google AdMob puede utilizar el ID de publicidad (AAID) para mostrar
+    anuncios personalizados basados en los intereses del usuario. El usuario puede optar por no recibir anuncios
+    personalizados en cualquier momento desde los ajustes de su dispositivo:
+    <strong>Ajustes → Google → Anuncios → Desactivar personalización de anuncios</strong>.
+    También puede restablecer su identificador de publicidad desde esa misma pantalla.
+  </p>
 
-  <h3>2.3. Servicios externos utilizados</h3>
+  <h3>2.3. Datos biométricos</h3>
+  <p>
+    InvoiceRapid PRO <strong>no recopila, almacena ni procesa datos biométricos</strong> (huella dactilar, Face ID,
+    reconocimiento de iris ni similares). La aplicación no solicita al usuario autenticarse mediante estos mecanismos.
+    Los datos biométricos que el sistema operativo del dispositivo pueda tener almacenados
+    no son accesibles para InvoiceRapid PRO ni para ninguno de los servicios externos utilizados.
+  </p>
+
+  <h3>2.4. Servicios externos utilizados</h3>
   <p>La aplicación utiliza los siguientes servicios de terceros:</p>
   <ul>
     <li><strong>Supabase</strong>: autenticación y base de datos.</li>
@@ -97,6 +127,7 @@
     <li><strong>Google Play Billing</strong>: procesamiento de compras dentro de la tienda.</li>
     <li><strong>Google AdMob</strong>: publicación de anuncios.</li>
     <li><strong>Expo</strong>: framework que puede recopilar datos de rendimiento y fallos.</li>
+    <li><strong>Firebase Crashlytics</strong>: recopilación de registros de fallos y datos de diagnóstico.</li>
   </ul>
 
   <h2>3. Uso de los datos</h2>
@@ -132,13 +163,34 @@
     <li>Google Play Billing, para el procesamiento de pagos.</li>
     <li>Google AdMob, para la publicación de anuncios.</li>
     <li>Expo, para la recopilación de datos de rendimiento y fallos.</li>
+    <li>Firebase Crashlytics, para la recopilación de registros de fallos y diagnóstico.</li>
   </ul>
   <p>
     Los datos también podrán ser divulgados si así lo exige la ley o una autoridad competente, o si es necesario para proteger
     los derechos legales del desarrollador o de otros usuarios.
   </p>
 
-  <h2>5. Seguridad</h2>
+  <h2>5. Retención de datos</h2>
+  <p>
+    Los datos personales se conservan mientras la cuenta del usuario esté activa o mientras sean necesarios para
+    proporcionar los servicios de la aplicación. Los criterios utilizados para determinar los plazos de conservación
+    incluyen:
+  </p>
+  <ul>
+    <li><strong>Datos de cuenta (email, contraseña):</strong> se conservan mientras la cuenta esté activa. Al solicitar
+      la eliminación, la cuenta entra en un período de gracia de 30 días durante el cual el usuario puede restaurarla.
+      Transcurrido ese plazo sin restauración, los datos se eliminan permanentemente.</li>
+    <li><strong>Facturas, clientes, productos, albaranes y firmas:</strong> se conservan mientras la cuenta esté activa
+      y durante el período de gracia de 30 días tras la solicitud de eliminación. Se eliminan permanentemente al
+      finalizar dicho período.</li>
+    <li><strong>Historial de compras:</strong> se conserva por obligaciones fiscales (hasta 6 años según la legislación
+      española), incluso tras la eliminación permanente de la cuenta. Estos registros no contienen datos personales más
+      allá del identificador de transacción.</li>
+    <li><strong>Datos de diagnóstico y fallos:</strong> se conservan de forma anonimizada y agregada para mejorar la
+      aplicación. No se asocian a identidades personales una vez que la cuenta ha sido eliminada.</li>
+  </ul>
+
+  <h2>6. Seguridad</h2>
   <p>
     Se aplican medidas técnicas y organizativas razonables para proteger los datos personales, incluyendo:
   </p>
@@ -148,14 +200,30 @@
     <li>Acceso restringido a los datos mediante autenticación.</li>
   </ul>
 
-  <h2>6. Eliminación de datos</h2>
+  <h2>7. Eliminación de datos</h2>
   <p>
-    El usuario puede solicitar la eliminación de su cuenta y de los datos asociados. Al recibir una solicitud válida, se procederá
-    a eliminar los datos almacenados en los servicios utilizados, en la medida de lo técnicamente posible.
+    El usuario puede solicitar la eliminación de su cuenta en cualquier momento desde la aplicación
+    (Ajustes → Privacidad y Datos → Borrar cuenta) o mediante correo electrónico. El proceso de eliminación
+    sigue estos pasos:
+  </p>
+  <ol>
+    <li><strong>Solicitud de eliminación:</strong> Al confirmar la eliminación, la cuenta se marca como pendiente
+      y el usuario cierra sesión. Los datos permanecen intactos durante un período de gracia de 30 días.</li>
+    <li><strong>Período de gracia (30 días):</strong> Durante estos 30 días, el usuario puede restaurar su cuenta
+      y todos sus datos simplemente iniciando sesión de nuevo. Al hacerlo, se le preguntará si desea restaurar
+      la cuenta. Si acepta, recuperará el acceso completo a todos sus datos sin pérdida alguna.</li>
+    <li><strong>Eliminación permanente:</strong> Si transcurren los 30 días sin que el usuario haya restaurado
+      su cuenta, todos los datos se eliminan de forma permanente e irreversible. La cuenta de usuario se elimina
+      del sistema de autenticación y la dirección de correo electrónico queda bloqueada, impidiendo nuevos
+      registros con el mismo email.</li>
+  </ol>
+  <p>
+    <strong>Importante:</strong> Una vez completada la eliminación permanente, no es posible recuperar los datos
+    ni volver a registrarse con la misma dirección de correo electrónico.
   </p>
   <p>Para solicitar la eliminación de la cuenta y los datos, el usuario puede:</p>
   <ul>
-    <li>Enviar un correo electrónico a: <a href="mailto:zkrstudios.contact@gmail.com">zkrstudios.contact@gmail.com</a></li>
+    <li>Usar la opción "Borrar cuenta" dentro de la aplicación (Ajustes → Privacidad y Datos).</li>
     <li>Utilizar la página oficial de eliminación de cuenta:<br />
       <a href="https://zaka27agosto-lang.github.io/InvoiceRapid/account-deletion.html" target="_blank" rel="noopener noreferrer">
         https://zaka27agosto-lang.github.io/InvoiceRapid/account-deletion.html
@@ -163,16 +231,61 @@
     </li>
   </ul>
 
-  <h2>7. Derechos del usuario</h2>
+  <h2>8. Derechos del usuario</h2>
   <p>El usuario tiene derecho a:</p>
   <ul>
     <li>Acceder a sus datos personales.</li>
     <li>Solicitar la rectificación de datos inexactos o incompletos.</li>
     <li>Solicitar la eliminación de su cuenta y de los datos asociados.</li>
+    <li>Exportar sus datos en un formato legible (RGPD) desde Ajustes → Privacidad y Datos → Exportar datos.</li>
     <li>Usar la aplicación sin crear una cuenta, si así lo prefiere.</li>
+    <li>Oponerse al tratamiento de sus datos personales.</li>
+    <li>Solicitar la portabilidad de sus datos a otro proveedor de servicios.</li>
+    <li>Retirar el consentimiento en cualquier momento, sin que ello afecte a la licitud del tratamiento basado en el consentimiento previo a su retirada.</li>
   </ul>
 
-  <h2>8. Cambios en esta política</h2>
+  <h2>9. Cumplimiento normativo</h2>
+
+  <h3>9.1. Reglamento General de Protección de Datos (GDPR)</h3>
+  <p>
+    Para usuarios residentes en el Espacio Económico Europeo (EEE), InvoiceRapid PRO cumple con el Reglamento General
+    de Protección de Datos (RGPD / GDPR). La base legal para el tratamiento de datos personales es:
+  </p>
+  <ul>
+    <li><strong>Ejecución de un contrato:</strong> para proporcionar los servicios de la aplicación (sincronización en la nube, autenticación).</li>
+    <li><strong>Consentimiento:</strong> para fines específicos como el envío de comunicaciones comerciales (no aplicable actualmente).</li>
+    <li><strong>Interés legítimo:</strong> para análisis de rendimiento, prevención de fraudes y mejora del servicio.</li>
+    <li><strong>Obligación legal:</strong> para la conservación de registros de transacciones por requisitos fiscales.</li>
+  </ul>
+  <p>
+    Los usuarios del EEE tienen derecho a presentar una reclamación ante su autoridad de protección de datos local
+    si consideran que el tratamiento de sus datos infringe el RGPD.
+  </p>
+
+  <h3>9.2. Ley de Protección de Datos de California (CCPA)</h3>
+  <p>
+    Para residentes de California (EE.UU.), InvoiceRapid PRO cumple con la Ley de Privacidad del Consumidor de California
+    (CCPA). Bajo la CCPA, los residentes de California tienen derecho a:
+  </p>
+  <ul>
+    <li>Saber qué datos personales se recopilan, utilizan, comparten o venden.</li>
+    <li>Eliminar los datos personales recopilados.</li>
+    <li>No ser discriminados por ejercer sus derechos de privacidad.</li>
+  </ul>
+  <p>
+    <strong>InvoiceRapid PRO no vende datos personales</strong> a terceros, tal como se define en la CCPA.
+    Para ejercer cualquiera de estos derechos, utiliza las opciones disponibles en Ajustes → Privacidad y Datos dentro de la aplicación.
+  </p>
+
+  <h2>10. Privacidad de menores</h2>
+  <p>
+    InvoiceRapid PRO no está dirigido a menores de 13 años. No recopilamos conscientemente datos personales de menores
+    de 13 años. Si tenemos conocimiento de que un menor de 13 años nos ha proporcionado datos personales, eliminaremos
+    dicha información de inmediato. Si eres padre, madre o tutor y crees que tu hijo nos ha proporcionado datos
+    personales, utiliza las opciones de contacto disponibles en la aplicación.
+  </p>
+
+  <h2>11. Cambios en esta política</h2>
   <p>
     Esta Política de Privacidad puede actualizarse ocasionalmente. La versión más reciente estará siempre disponible en:
   </p>
@@ -182,12 +295,12 @@
     </a>
   </p>
 
-  <h2>9. Contacto</h2>
+  <h2>12. Contacto</h2>
   <p>
-    Para cualquier duda o consulta relacionada con esta Política de Privacidad, el usuario puede contactar a:
+    Para ejercer sus derechos de privacidad, utilice las opciones disponibles en Ajustes → Privacidad y Datos dentro de la aplicación InvoiceRapid PRO.
   </p>
-  <p>
-    📧 <a href="mailto:zkrstudios.contact@gmail.com">zkrstudios.contact@gmail.com</a>
+  <p style="font-size:0.75rem;color:#999;margin-top:24px;">
+    zkrstudio.contact@gmail.com
   </p>
 </body>
 </html>
