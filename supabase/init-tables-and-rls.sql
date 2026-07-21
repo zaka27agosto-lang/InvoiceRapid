@@ -134,31 +134,6 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   UNIQUE(user_id)
 );
 
--- 6. CLIENTES STRIPE (mapping user ↔ stripe customer)
-CREATE TABLE IF NOT EXISTS customers (
-  id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  stripe_customer_id TEXT NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id)
-);
-
--- customers RLS: usuarios solo ven su propio stripe_customer_id
-ALTER TABLE customers ENABLE ROW LEVEL SECURITY;
-
-CREATE POLICY "customers_select_own"
-  ON customers FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "customers_insert_service"
-  ON customers FOR INSERT
-  WITH CHECK (false);
-
-CREATE POLICY "customers_update_service"
-  ON customers FOR UPDATE
-  USING (false);
-
-
 -- ============================================================
 -- POLÍTICAS RLS
 -- ============================================================

@@ -56,7 +56,6 @@ serve(async (req) => {
           'clientes',
           'productos',
           'subscriptions',
-          'customers',
         ]
 
         for (const table of tables) {
@@ -70,26 +69,6 @@ serve(async (req) => {
           }
         }
 
-        // 1b. referral_events: usa referrer_id y referred_id (no tiene user_id)
-        //     Sin ON DELETE CASCADE — hay que borrar manualmente antes del auth delete
-        const { error: refEventsErr } = await supabaseAdmin
-          .from('referral_events')
-          .delete()
-          .or(`referrer_id.eq.${userId},referred_id.eq.${userId}`)
-
-        if (refEventsErr) {
-          console.error(`[finalize-deletion] Error borrando referral_events de ${userId}:`, refEventsErr.message)
-        }
-
-        // 1c. referral_codes: tiene user_id, pero también ON DELETE CASCADE
-        const { error: refCodesErr } = await supabaseAdmin
-          .from('referral_codes')
-          .delete()
-          .eq('user_id', userId)
-
-        if (refCodesErr) {
-          console.error(`[finalize-deletion] Error borrando referral_codes de ${userId}:`, refCodesErr.message)
-        }
 
         // Nota: profiles se borra automáticamente por ON DELETE CASCADE al borrar el auth user
 
