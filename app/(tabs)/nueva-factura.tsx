@@ -24,7 +24,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { generarPDFPreview } from "../../utils/pdf";
 import Pdf from 'react-native-pdf';
-import { getMoneda, getNumeracionConfig, getPlantillaPDF } from "../../utils/settings";
+import { getMoneda, getNumeracionConfig, getPlantillaPDF, setNumeracionConfig, extraerPatron } from "../../utils/settings";
 import { checkInvoiceLimitAsync, incrementInvoiceCounter, getRemainingRewardedAds, incrementRewardedAdCount } from "../../utils/subscription";
 import { getClientes } from "../db/clientes";
 import { deleteFacturaItems, getFactura, getFacturaItems, getNextNumeroFactura, insertFactura, insertFacturaItem, updateFactura } from "../db/facturas";
@@ -660,6 +660,13 @@ export default function NuevaFactura() {
           // Mostrar anuncio intersticial cada 3 acciones
           await adsService.incrementAction(isPremium);
 
+          // Guardar el patrón de numeración para la siguiente factura
+          const patron = extraerPatron(numero);
+          if (patron) {
+            setNumeracionConfig(patron).catch(() => {});
+            setNumeracionConfigState(patron);
+          }
+
           savingRef.current = true;
           router.back();
           return;
@@ -711,6 +718,13 @@ export default function NuevaFactura() {
           // Mostrar anuncio intersticial cada 3 acciones
           await adsService.incrementAction(isPremium);
 
+          // Guardar el patrón de numeración para la siguiente factura
+          const patron2 = extraerPatron(nuevoNumero);
+          if (patron2) {
+            setNumeracionConfig(patron2).catch(() => {});
+            setNumeracionConfigState(patron2);
+          }
+
           router.back();
           return;
         }
@@ -760,6 +774,13 @@ export default function NuevaFactura() {
 
         // Mostrar anuncio intersticial cada 3 acciones
         await adsService.incrementAction(isPremium);
+
+        // Guardar el patrón de numeración para la siguiente factura
+        const patron3 = extraerPatron(numero);
+        if (patron3) {
+          setNumeracionConfig(patron3).catch(() => {});
+          setNumeracionConfigState(patron3);
+        }
 
         router.back();
       }

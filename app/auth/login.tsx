@@ -7,11 +7,13 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../services/supabase';
 import { adsService } from '../../services/adsService';
+import { useScale } from '../../hooks/useScale';
 
 export default function Login() {
   const router = useRouter();
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { currentTheme } = useTheme();    const { signInWithEmail, signInWithGoogle, signOut } = useAuth();
+  const { s, fs } = useScale();
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -296,9 +298,25 @@ export default function Login() {
             style={[styles.registerButton, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.primary }]}
             onPress={() => router.push('/auth/register')}
           >
-            <Ionicons name="person-add-outline" size={20} color={currentTheme.colors.primary} />
+            <Ionicons name="person-add-outline" size={s(20)} color={currentTheme.colors.primary} />
             <Text style={[styles.registerButtonText, { color: currentTheme.colors.primary }]}>{t('registrarse')}</Text>
           </TouchableOpacity>
+
+          {/* Toggle de idioma ES/EN */}
+          <View style={styles.langToggle}>
+            <TouchableOpacity
+              style={[styles.langBtn, i18n.language === 'es' && { backgroundColor: currentTheme.colors.primary }]}
+              onPress={() => i18n.changeLanguage('es')}
+            >
+              <Text style={[styles.langBtnText, i18n.language === 'es' && { color: '#fff', fontWeight: '700' }]}>ES</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.langBtn, i18n.language === 'en' && { backgroundColor: currentTheme.colors.primary }]}
+              onPress={() => i18n.changeLanguage('en')}
+            >
+              <Text style={[styles.langBtnText, i18n.language === 'en' && { color: '#fff', fontWeight: '700' }]}>EN</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -335,4 +353,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   registerButtonText: { fontSize: 16, fontWeight: '700' },
+  langToggle: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 8 },
+  langBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, borderColor: '#e0e0e0' },
+  langBtnText: { fontSize: 13, fontWeight: '600', color: '#888' },
 });

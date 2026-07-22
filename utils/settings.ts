@@ -59,6 +59,23 @@ export async function setNumeracionConfig(config: NumeracionConfig): Promise<voi
   } catch {}
 }
 
+/**
+ * Extrae prefijo, sufijo y número de dígitos de un número de documento.
+ * Ej: "Factura-0001" → { prefijo: "Factura-", sufijo: "", digitos: 4 }
+ * Ej: "A-005-bis"     → { prefijo: "A-", sufijo: "-bis", digitos: 3 }
+ * Devuelve null si no encuentra dígitos.
+ */
+export function extraerPatron(numero: string): NumeracionConfig | null {
+  const digitosMatch = numero.match(/\d+/);
+  if (!digitosMatch || digitosMatch.index === undefined) return null;
+
+  const prefijo = numero.substring(0, digitosMatch.index);
+  const digitosStr = digitosMatch[0];
+  const sufijo = numero.substring(digitosMatch.index + digitosStr.length);
+
+  return { prefijo, sufijo, digitos: digitosStr.length };
+}
+
 export const LIMITE_FACTURAS_GRATIS = 15;
 
 export async function getMoneda(): Promise<Moneda> {

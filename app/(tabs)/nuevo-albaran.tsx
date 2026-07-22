@@ -24,7 +24,7 @@ import { convertirAEurosParaGuardar } from "../../utils/currency";
 import { generarYCompartirPDFAlbaran, generarPDFPreviewAlbaran } from "../../utils/pdf";
 import Pdf from 'react-native-pdf';
 import { SignaturePad } from "../../components/SignaturePad";
-import { getMoneda, getNumeracionConfig, getPlantillaPDF } from "../../utils/settings";
+import { getMoneda, getNumeracionConfig, getPlantillaPDF, extraerPatron } from "../../utils/settings";
 
 import { getClientes } from "../db/clientes";
 import { deleteAlbaranItems, getAlbaran, getAlbaranItems, getNextNumeroAlbaran, insertAlbaran, insertAlbaranItem, updateAlbaran } from "../db/albaranes";
@@ -415,6 +415,13 @@ export default function NuevoAlbaran() {
           });
         }
         await adsService.incrementAction(isPremium);
+
+        // Guardar el patrón de numeración para el siguiente albarán (solo local, no global)
+        const patronAlb = extraerPatron(numero);
+        if (patronAlb) {
+          setNumeracionConfigState({ prefijo: patronAlb.prefijo, sufijo: patronAlb.sufijo, digitos: patronAlb.digitos });
+        }
+
         router.back();
       } else {
         const newId = insertAlbaran({
@@ -436,6 +443,13 @@ export default function NuevoAlbaran() {
           });
         }
         await adsService.incrementAction(isPremium);
+
+        // Guardar el patrón de numeración para el siguiente albarán (solo local, no global)
+        const patronAlb2 = extraerPatron(numero);
+        if (patronAlb2) {
+          setNumeracionConfigState({ prefijo: patronAlb2.prefijo, sufijo: patronAlb2.sufijo, digitos: patronAlb2.digitos });
+        }
+
         router.back();
       }
     } catch (e: any) {
