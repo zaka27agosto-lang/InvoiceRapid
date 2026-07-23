@@ -1,12 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
-import { Tabs, usePathname } from "expo-router";
+import { Tabs } from "expo-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import BannerAdComponent from "../../components/BannerAdComponent";
 import { SubscriptionProvider, useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
-import { useSwipeNavigation } from "../../hooks/useSwipeNavigation";
 import { getExchangeRates } from "../../utils/currency";
 
 /** Banner persistente que sobrevive a cambios de pestaña.
@@ -20,10 +19,6 @@ function PersistentBanner() {
 function TabsContent() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
-  const pathname = usePathname();
-  // Normalizar: /(tabs) → /(tabs)/index para que coincida con el tabOrder del hook
-  const currentPath = pathname === '/(tabs)' ? '/(tabs)/index' : pathname;
-  const { handleGesture, PanGestureHandler: PanHandler } = useSwipeNavigation(currentPath);
 
   useEffect(() => {
     // Actualizar tipos de cambio al abrir la app
@@ -31,12 +26,6 @@ function TabsContent() {
   }, []);
 
   return (
-    <PanHandler
-      onGestureEvent={handleGesture}
-      activeOffsetX={[-40, 40]}
-      failOffsetY={[-10, 10]}
-      minDist={10}
-    >
     <View style={{ flex: 1 }}>
       <PersistentBanner />
       <Tabs
@@ -84,7 +73,6 @@ function TabsContent() {
         <Tabs.Screen name="facturas" options={{ href: null }} />
       </Tabs>
     </View>
-    </PanHandler>
   );
 }
 

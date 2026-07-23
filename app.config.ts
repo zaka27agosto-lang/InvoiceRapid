@@ -62,7 +62,7 @@ const config: ExpoConfig = {
     },
     edgeToEdgeEnabled: true,
     predictiveBackGestureEnabled: false,
-    versionCode: 59,
+    versionCode: 60,
     package: process.env.BUNDLE_IDENTIFIER || 'com.zkrstudio.invoicerapidpro',
     googleServicesFile: './google-services.json',
   },

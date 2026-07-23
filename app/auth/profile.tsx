@@ -14,7 +14,6 @@ export default function Profile() {
   const { user, signOut, signInWithGoogle } = useAuth();
 
   const [loading, setLoading] = useState(false);
-  const [loggingOut, setLoggingOut] = useState(false);
   const [mostrarCambiarNombre, setMostrarCambiarNombre] = useState(false);
   const [mostrarEstablecerPassword, setMostrarEstablecerPassword] = useState(false);
   const [nuevoNombre, setNuevoNombre] = useState(user?.user_metadata?.name || '');
@@ -31,23 +30,13 @@ export default function Profile() {
           text: t('cerrar_sesion'),
           style: 'destructive',
           onPress: async () => {
-            setLoggingOut(true);
+            setLoading(true);
             await signOut();
-            // La redirección a /auth/login la maneja el auth guard en _layout.tsx
-            // al detectar user=null desde auth/profile.
+            setLoading(false);
+            router.replace('/auth/login');
           }
         }
       ]
-    );
-  }
-
-  // Si se está cerrando sesión, mostrar spinner breve (el auth guard redirigirá a login)
-  if (loggingOut || (!user && loading)) {
-    return (
-      <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background, justifyContent: 'center', alignItems: 'center' }]}>
-        <Ionicons name="log-out-outline" size={48} color={currentTheme.colors.primary} />
-        <Text style={[styles.name, { color: currentTheme.colors.text, marginTop: 16 }]}>{t('cerrando_sesion')}</Text>
-      </View>
     );
   }
 
