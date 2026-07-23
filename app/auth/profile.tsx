@@ -32,8 +32,13 @@ export default function Profile() {
           onPress: async () => {
             setLoading(true);
             await signOut();
+            // La redirección a /auth/login la maneja el auth guard
+            // en _layout.tsx al detectar user=null en auth/profile.
+            // setTimeout como red de seguridad (200ms).
+            setTimeout(() => {
+              router.replace('/auth/login');
+            }, 200);
             setLoading(false);
-            router.replace('/auth/login');
           }
         }
       ]
