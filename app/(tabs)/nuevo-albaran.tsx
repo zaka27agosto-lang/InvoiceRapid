@@ -24,7 +24,7 @@ import { convertirAEurosParaGuardar } from "../../utils/currency";
 import { generarYCompartirPDFAlbaran, generarPDFPreviewAlbaran } from "../../utils/pdf";
 import Pdf from 'react-native-pdf';
 import { SignaturePad } from "../../components/SignaturePad";
-import { getMoneda, getNumeracionConfig, getPlantillaPDF, extraerPatron } from "../../utils/settings";
+import { getMoneda, getNumeracionConfig, getPlantillaPDF, extraerPatron, getNumeracionAlbaranConfig, setNumeracionAlbaranConfig } from "../../utils/settings";
 
 import { getClientes } from "../db/clientes";
 import { deleteAlbaranItems, getAlbaran, getAlbaranItems, getNextNumeroAlbaran, insertAlbaran, insertAlbaranItem, updateAlbaran } from "../db/albaranes";
@@ -116,9 +116,15 @@ export default function NuevoAlbaran() {
       setSimboloMoneda(m.simbolo);
       setCodigoMoneda(m.codigo);
     });
-    getNumeracionConfig().then(cfg => {
-      // Para albaranes usamos prefijo 'A-' por defecto
-      setNumeracionConfigState({ prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos });
+    // Cargar config de albaranes (independiente de facturas)
+    getNumeracionAlbaranConfig().then(cfgAlb => {
+      if (cfgAlb) {
+        setNumeracionConfigState(cfgAlb);
+      } else {
+        getNumeracionConfig().then(cfg => {
+          setNumeracionConfigState({ prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos });
+        });
+      }
     });
     // Cargar unidades personalizadas
     AsyncStorage.getItem('unidades_personalizadas').then(data => {
@@ -154,13 +160,27 @@ export default function NuevoAlbaran() {
         setSimboloMoneda(m.simbolo);
         setCodigoMoneda(m.codigo);
       });
-      getNumeracionConfig().then(cfg => {
-        setNumeracionConfigState({ prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos });
-        if (albaranId) {
-          cargarAlbaran(parseInt(albaranId));
+      // Cargar config de albaranes (independiente de facturas)
+      getNumeracionAlbaranConfig().then(cfgAlb => {
+        if (cfgAlb) {
+          setNumeracionConfigState(cfgAlb);
+          if (!albaranId) {
+            setNumeroAlbaran(getNextNumeroAlbaran(cfgAlb));
+            reiniciarFormulario();
+          } else {
+            cargarAlbaran(parseInt(albaranId));
+          }
         } else {
-          setNumeroAlbaran(getNextNumeroAlbaran({ prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos }));
-          reiniciarFormulario();
+          getNumeracionConfig().then(cfg => {
+            const albCfg = { prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos };
+            setNumeracionConfigState(albCfg);
+            if (!albaranId) {
+              setNumeroAlbaran(getNextNumeroAlbaran(albCfg));
+              reiniciarFormulario();
+            } else {
+              cargarAlbaran(parseInt(albaranId));
+            }
+          });
         }
       });
     }, [albaranId, isPremium])
@@ -416,10 +436,11 @@ export default function NuevoAlbaran() {
         }
         await adsService.incrementAction(isPremium);
 
-        // Guardar el patrón de numeración para el siguiente albarán (solo local, no global)
+        // Guardar el patrón de numeración para el siguiente albarán (persistente)
         const patronAlb = extraerPatron(numero);
         if (patronAlb) {
-          setNumeracionConfigState({ prefijo: patronAlb.prefijo, sufijo: patronAlb.sufijo, digitos: patronAlb.digitos });
+          setNumeracionConfigState(patronAlb);
+          setNumeracionAlbaranConfig(patronAlb);
         }
 
         router.back();
@@ -444,10 +465,11 @@ export default function NuevoAlbaran() {
         }
         await adsService.incrementAction(isPremium);
 
-        // Guardar el patrón de numeración para el siguiente albarán (solo local, no global)
+        // Guardar el patrón de numeración para el siguiente albarán (persistente)
         const patronAlb2 = extraerPatron(numero);
         if (patronAlb2) {
-          setNumeracionConfigState({ prefijo: patronAlb2.prefijo, sufijo: patronAlb2.sufijo, digitos: patronAlb2.digitos });
+          setNumeracionConfigState(patronAlb2);
+          setNumeracionAlbaranConfig(patronAlb2);
         }
 
         router.back();

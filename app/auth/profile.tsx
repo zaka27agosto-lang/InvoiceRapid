@@ -111,9 +111,12 @@ export default function Profile() {
     );
   }
 
-  // Detectar si el usuario se registró con Google (no tiene email/password identity)
+
+
+  // Para cuentas Google: detecta si YA tiene contraseña establecida
   const esCuentaGoogle = user?.app_metadata?.provider === 'google' || 
     !user?.identities?.some((i: any) => i.provider === 'email');
+  const [hasPassword, setHasPassword] = useState(!esCuentaGoogle);
 
   async function handleCambiarNombre() {
     if (!nuevoNombre.trim()) {
@@ -151,6 +154,7 @@ export default function Profile() {
       });
       if (error) throw error;
       Alert.alert('✅', t('password_establecida'));
+      setHasPassword(true); // Ya tiene contraseña → mostrar "Cambiar contraseña"
       setMostrarEstablecerPassword(false);
       setNuevaPassword('');
       setNuevaPasswordConfirm('');
@@ -234,10 +238,10 @@ export default function Profile() {
             <Ionicons name="lock-closed-outline" size={20} color={currentTheme.colors.primary} />
             <View style={styles.infoContent}>
               <Text style={[styles.infoLabel, { color: currentTheme.colors.textSecondary }]}>
-                {esCuentaGoogle ? t('establecer_password') : t('cambiar_password')}
+                {hasPassword ? t('cambiar_password') : t('establecer_password')}
               </Text>
               <Text style={[styles.infoValue, { color: currentTheme.colors.text }]}>
-                {esCuentaGoogle ? t('sin_password') : '••••••••'}
+                {hasPassword ? '••••••••' : t('sin_password')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
@@ -290,7 +294,7 @@ export default function Profile() {
               <Ionicons name="close" size={26} color="#1a1a1a" />
             </TouchableOpacity>
             <Text style={styles.modalTitulo}>
-              {esCuentaGoogle ? t('establecer_password') : t('cambiar_password')}
+              {hasPassword ? t('cambiar_password') : t('establecer_password')}
             </Text>
             <TouchableOpacity onPress={handleEstablecerPassword} disabled={loading}>
               <Text style={styles.modalGuardar}>{t('guardar')}</Text>

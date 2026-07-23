@@ -59,6 +59,22 @@ export async function setNumeracionConfig(config: NumeracionConfig): Promise<voi
   } catch {}
 }
 
+// ── Numeración específica para albaranes (independiente de facturas) ──
+
+export async function getNumeracionAlbaranConfig(): Promise<NumeracionConfig | null> {
+  try {
+    const guardada = await AsyncStorage.getItem('numeracion_albaran_config');
+    if (guardada) return JSON.parse(guardada);
+  } catch {}
+  return null;
+}
+
+export async function setNumeracionAlbaranConfig(config: NumeracionConfig): Promise<void> {
+  try {
+    await AsyncStorage.setItem('numeracion_albaran_config', JSON.stringify(config));
+  } catch {}
+}
+
 /**
  * Extrae prefijo, sufijo y número de dígitos de un número de documento.
  * Ej: "Factura-0001" → { prefijo: "Factura-", sufijo: "", digitos: 4 }
