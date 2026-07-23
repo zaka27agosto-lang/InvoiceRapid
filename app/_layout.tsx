@@ -59,8 +59,15 @@ function RootNavigator() {
       secondSegment !== 'callback' &&
       secondSegment !== 'forgot-password';
 
-    if (!user && !inAuthGroup && !isCallback) {
-      router.replace('/auth/login');
+    // Redirigir a login cuando no hay usuario:
+    //   - Desde cualquier pantalla fuera del grupo auth (tabs, etc.)
+    //   - Desde auth/profile (el usuario acaba de cerrar sesión)
+    // Se excluyen: callback (deep links), forgot-password (recuperación),
+    // login y register (ya están en la pantalla correcta).
+    if (!user && !isCallback && secondSegment !== 'forgot-password') {
+      if (!inAuthGroup || secondSegment === 'profile') {
+        router.replace('/auth/login');
+      }
     } else if (user && isAuthOnlyScreen) {
       router.replace('/(tabs)');
     }
