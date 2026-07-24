@@ -121,6 +121,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         options: {
           redirectTo: redirectUrl,
           skipBrowserRedirect: true,
+          queryParams: {
+            prompt: 'select_account',
+          },
         },
       });
 
@@ -166,52 +169,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   async function signOut() {
     if (!supabase) return;
 
+    // 🔒 1. Cerrar sesión en Supabase primero.
     try {
-      const userId = user?.id;
-
-      // 🔄 1. Sincronizar datos locales a la nube ANTES de cerrar sesión.
-      //    Solo si hay conexión — si no, los datos se quedan en la BD local
-      //    y se sincronizarán en el próximo login de este mismo usuario.
-      if (userId) {
-        try {
-          // Dynamic import con try/catch anidado: si el módulo nativo
-          // netinfo no está disponible en el bundle de release,
-          // simplemente saltamos la sincronización sin crashear.
-          let isConnected = false;
-          try {
-            const NetInfo = await import('@react-native-community/netinfo');
-            const state = await NetInfo.fetch();
-            isConnected = state?.isConnected ?? false;
-          } catch {
-            // netinfo no disponible — asumimos offline
-          }
-          if (isConnected) {
-            try {
-              const { syncService } = await import('../services/syncService');
-              await syncService.syncAll(userId);
-            } catch {
-              // syncService no disponible — silencioso
-            }
-          }
-        } catch {
-          // Silencioso — los datos no se pierden
-        }
-      }
-
-      // 🔒 2. Cerrar sesión en Supabase SINCRÓNICAMENTE.
-      //    Esto es crítico: si se difiere, el SDK mantiene la sesión
-      //    antigua y al procesar un deep link de recuperación de
-      //    contraseña (verifyOtp) se producen conflictos de sesión
-      //    que causan login en la cuenta equivocada o pantalla colgada.
       await supabase.auth.signOut();
+    } catch {
+      // Continuar aunque falle — limpiamos estado local igualmente
+    }
 
-      // 🧹 3. Limpiar AsyncStorage SINCRÓNICAMENTE, ANTES de setUser(null).
-      //    Si la limpieza se difiere (InteractionManager.runAfterInteractions),
-      //    se crea una ventana donde:
-      //    a) setUser(null) → SyncContext lee last_user_id del AsyncStorage
-      //       aún sin limpiar, y puede tomar decisiones incorrectas.
-      //    b) El auto-sync (60s) podría leer preferencias de la cuenta anterior.
-      //    Al limpiar ANTES de notificar a React, eliminamos esa ventana.
+    // 🧹 2. Limpiar AsyncStorage (best-effort).
+    try {
       await AsyncStorage.multiRemove([
         'is_premium',
         'sync_queue',
@@ -225,15 +191,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         'ultimo_iva',
         'ha_creado_primera_factura',
       ]).catch(() => {});
+    } catch {}
 
-      // 🔥 4. Forzar estado a null para que el layout navegue a /auth/login
-      setUser(null);
-      setSession(null);
-    } catch {
-      // Si algo falla, al menos limpiamos el estado de React
-      setUser(null);
-      setSession(null);
-    }
+    // 🔥 3. Forzar estado a null para que el layout reaccione
+    setUser(null);
+    setSession(null);
   }
 
   async function updateProfile(data: { name?: string; avatar_url?: string }) {

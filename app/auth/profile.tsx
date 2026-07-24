@@ -30,14 +30,11 @@ export default function Profile() {
           text: t('cerrar_sesion'),
           style: 'destructive',
           onPress: async () => {
+            // Navegar ANTES de cerrar sesión para evitar la condición de carrera:
+            // Alert dismiss + React re-render (setUser null) + Nav = crash nativo en Android
+            router.replace('/auth/login');
             setLoading(true);
             await signOut();
-            // La redirección a /auth/login la maneja el auth guard
-            // en _layout.tsx al detectar user=null en auth/profile.
-            // setTimeout como red de seguridad (200ms).
-            setTimeout(() => {
-              router.replace('/auth/login');
-            }, 200);
             setLoading(false);
           }
         }

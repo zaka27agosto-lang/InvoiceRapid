@@ -59,14 +59,8 @@ function RootNavigator() {
       secondSegment !== 'callback' &&
       secondSegment !== 'forgot-password';
 
-    // Si no hay usuario, redirigir a login desde cualquier pantalla
-    // excepto las de auth (login, register, forgot-password, callback).
-    // auth/profile es especial: al cerrar sesión desde el perfil,
-    // el usuario pasa a null y debe redirigirse a login.
-    if (!user && !isCallback) {
-      if (!inAuthGroup || secondSegment === 'profile') {
-        router.replace('/auth/login');
-      }
+    if (!user && !inAuthGroup && !isCallback) {
+      router.replace('/auth/login');
     } else if (user && isAuthOnlyScreen) {
       router.replace('/(tabs)');
     }
