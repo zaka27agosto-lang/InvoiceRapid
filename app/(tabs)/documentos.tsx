@@ -26,6 +26,7 @@ import { deleteFactura, getFacturaItems, getFacturas, getNextNumeroFactura, inse
 import { deleteAlbaran, getAlbaranItems, getAlbaranes, getNextNumeroAlbaran, insertAlbaran, insertAlbaranItem, updateEstadoAlbaran } from "../db/albaranes";
 import { syncService } from "../../services/syncService";
 import { useSync } from "../../hooks/useSync";
+import { incrementInvoiceCounter } from "../../utils/subscription";
 
 const ESTADOS_FACTURAS = ['todas', 'no_enviada', 'pendiente', 'pagada', 'impagada'];
 const ESTADOS_ALBARANES = ['todas', 'pendiente', 'entregado'];
@@ -345,7 +346,7 @@ export default function Documentos() {
     ]);
   }
 
-  function handleConvertirAFactura() {
+  async function handleConvertirAFactura() {
     if (!albaranDetalle) return;
     const nuevoNumero = getNextNumeroFactura();
     const itemsOriginales = getAlbaranItems(albaranDetalle.id);
@@ -360,6 +361,13 @@ export default function Documentos() {
       factura_id: newId as number, descripcion: item.descripcion, cantidad: item.cantidad,
       unidad: item.unidad, precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
     }));
+    // Contar como factura del mes (convertir albarán a factura cuenta)
+    try {
+      if (!isPremium) await incrementInvoiceCounter();
+    } catch (e: any) {
+      // El documento ya está creado; mostramos error pero seguimos
+      Alert.alert(t('error'), e?.message || t('error_guardar'));
+    }
     setMostrarDetalleAlbaran(false);
     setModo('facturas');
     setFacturas(getFacturas());

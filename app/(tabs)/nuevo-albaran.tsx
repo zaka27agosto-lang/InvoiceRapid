@@ -29,6 +29,7 @@ import { getMoneda, getNumeracionConfig, getPlantillaPDF, extraerPatron, getNume
 import { getClientes } from "../db/clientes";
 import { deleteAlbaranItems, getAlbaran, getAlbaranItems, getNextNumeroAlbaran, insertAlbaran, insertAlbaranItem, updateAlbaran } from "../db/albaranes";
 import { getProductos } from "../db/productos";
+import { incrementInvoiceCounter } from "../../utils/subscription";
 
 type Item = {
   id: string;
@@ -392,6 +393,8 @@ export default function NuevoAlbaran() {
       const plantilla = await getPlantillaPDF();
       await generarYCompartirPDFAlbaran(albaranGuardado, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary, firmaData);
       await adsService.incrementAction(isPremium);
+      // Contar como factura del mes (exportar PDF también cuenta)
+      if (!isPremium) await incrementInvoiceCounter();
       savingRef.current = true;
       router.back();
     } catch (e: any) {
@@ -435,6 +438,8 @@ export default function NuevoAlbaran() {
           });
         }
         await adsService.incrementAction(isPremium);
+        // Contar como factura del mes (editar también cuenta)
+        if (!isPremium) await incrementInvoiceCounter();
 
         // Guardar el patrón de numeración para el siguiente albarán (persistente)
         const patronAlb = extraerPatron(numero);
@@ -464,6 +469,8 @@ export default function NuevoAlbaran() {
           });
         }
         await adsService.incrementAction(isPremium);
+        // Contar como factura del mes (crear nuevo albarán cuenta)
+        if (!isPremium) await incrementInvoiceCounter();
 
         // Guardar el patrón de numeración para el siguiente albarán (persistente)
         const patronAlb2 = extraerPatron(numero);
