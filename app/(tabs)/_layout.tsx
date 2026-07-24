@@ -3,6 +3,7 @@ import { Tabs } from "expo-router";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BannerAdComponent from "../../components/BannerAdComponent";
 import { SubscriptionProvider, useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -19,6 +20,7 @@ function PersistentBanner() {
 function TabsContent() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     // Actualizar tipos de cambio al abrir la app
@@ -37,8 +39,8 @@ function TabsContent() {
             backgroundColor: currentTheme.colors.card,
             borderTopWidth: 1,
             borderTopColor: currentTheme.colors.border,
-            height: 80,
-            paddingBottom: 20,
+            height: 70 + insets.bottom,
+            paddingBottom: insets.bottom > 0 ? insets.bottom : 20,
             paddingTop: 10,
           },
           tabBarLabelStyle: { fontSize: 11, fontWeight: "600" },

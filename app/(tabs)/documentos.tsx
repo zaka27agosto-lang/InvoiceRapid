@@ -43,7 +43,7 @@ export default function Documentos() {
     'pendiente': t('pendiente'), 'entregado': t('entregado'), 'todas': t('todas'),
   };
 
-  const { filtro: filtroParam, facturaId: facturaIdParam, tipo } = useLocalSearchParams<{ filtro?: string; facturaId?: string; tipo?: string }>();
+  const { filtro: filtroParam, facturaId: facturaIdParam, tipo, filtroMes } = useLocalSearchParams<{ filtro?: string; facturaId?: string; tipo?: string; filtroMes?: string }>();
   const [modo, setModo] = useState<'facturas' | 'albaranes'>('facturas');
   const [facturas, setFacturas] = useState<any[]>([]);
   const [albaranes, setAlbaranes] = useState<any[]>([]);
@@ -72,6 +72,8 @@ export default function Documentos() {
   const [seleccionados, setSeleccionados] = useState<Set<number>>(new Set());
   const [importeMinimo, setImporteMinimo] = useState('');
   const [importeMaximo, setImporteMaximo] = useState('');
+  const [fechaDesde, setFechaDesde] = useState<string | null>(null);
+  const [fechaHasta, setFechaHasta] = useState<string | null>(null);
   const [formatoFecha, setFormatoFecha] = useState<FormatoFecha>('DD/MM/YYYY');
   const [simboloMoneda, setSimboloMoneda] = useState('€');
   const [codigoMoneda, setCodigoMoneda] = useState('EUR');
@@ -154,7 +156,18 @@ export default function Documentos() {
     else if (tipo === 'albaranes' && modo !== 'albaranes') setModo('albaranes');
     // Limpiar tipo del URL despues de leerlo
     if (tipo) router.setParams({ tipo: undefined });
-  }, [filtroParam, facturaIdParam, tipo, mostrarDetalle, mostrarDetalleAlbaran, modo]));
+    // Si viene con filtroMes=actual, filtrar por el mes actual
+    if (filtroMes === 'actual') {
+      const ahora = new Date();
+      const primerDia = new Date(ahora.getFullYear(), ahora.getMonth(), 1);
+      const ultimoDia = new Date(ahora.getFullYear(), ahora.getMonth() + 1, 0);
+      const fmt = (d: Date) => `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`;
+      setFechaDesde(fmt(primerDia));
+      setFechaHasta(fmt(ultimoDia));
+      setFiltrosSeleccionados(['todas']);
+      router.setParams({ filtroMes: undefined });
+    }
+  }, [filtroParam, facturaIdParam, tipo, filtroMes, mostrarDetalle, mostrarDetalleAlbaran, modo]));
 
   const lastSyncRef = useRef(lastSync);
   useEffect(() => {
@@ -172,6 +185,7 @@ export default function Documentos() {
     setFiltrosSeleccionados(['todas']);
     setBusqueda('');
     setImporteMinimo(''); setImporteMaximo('');
+    setFechaDesde(null); setFechaHasta(null);
     setMostrarDetalle(false);
     setMostrarDetalleAlbaran(false);
     desactivarModoSeleccion();
@@ -459,6 +473,27 @@ export default function Documentos() {
     }
     if (importeMinimo) { const min = parseFloat(importeMinimo); filtradas = filtradas.filter((f: any) => f.total >= min); }
     if (importeMaximo) { const max = parseFloat(importeMaximo); filtradas = filtradas.filter((f: any) => f.total <= max); }
+    if (fechaDesde || fechaHasta) {
+      filtradas = filtradas.filter((f: any) => {
+        if (!f.fecha) return false;
+        const fechaDoc = new Date(f.fecha);
+        if (isNaN(fechaDoc.getTime())) return false;
+        fechaDoc.setHours(0, 0, 0, 0);
+        if (fechaDesde) {
+          const [dd, mm, yyyy] = fechaDesde.split('/').map(Number);
+          const desde = new Date(yyyy, mm - 1, dd);
+          desde.setHours(0, 0, 0, 0);
+          if (fechaDoc < desde) return false;
+        }
+        if (fechaHasta) {
+          const [dd, mm, yyyy] = fechaHasta.split('/').map(Number);
+          const hasta = new Date(yyyy, mm - 1, dd);
+          hasta.setHours(23, 59, 59, 999);
+          if (fechaDoc > hasta) return false;
+        }
+        return true;
+      });
+    }
     return filtradas;
   })();
 
@@ -558,6 +593,24 @@ export default function Documentos() {
               </View>
             )}
           </View>
+
+          {(fechaDesde || fechaHasta) && (
+            <View style={[styles.filtroFechaChipContainer]}>
+              <View style={[styles.filtroFechaChip, { backgroundColor: currentTheme.colors.primary + '15', borderColor: currentTheme.colors.primary }]}>
+                <Ionicons name="calendar-outline" size={14} color={currentTheme.colors.primary} />
+                <Text style={[styles.filtroFechaChipTexto, { color: currentTheme.colors.primary }]}>
+                  {fechaDesde && fechaHasta
+                    ? `${fechaDesde} — ${fechaHasta}`
+                    : fechaDesde
+                      ? `${t('desde')} ${fechaDesde}`
+                      : `${t('hasta')} ${fechaHasta}`}
+                </Text>
+                <TouchableOpacity onPress={() => { setFechaDesde(null); setFechaHasta(null); }}>
+                  <Ionicons name="close-circle" size={16} color={currentTheme.colors.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           <View style={[styles.filtroImporteContainer]}>
             <TouchableOpacity style={[styles.filtroImporteBtn, { backgroundColor: currentTheme.colors.card }]} onPress={() => setMostrarFiltroImporte(!mostrarFiltroImporte)}>
@@ -963,6 +1016,9 @@ const styles = StyleSheet.create({
   filtroImporteContainer: { marginBottom: 16, borderRadius: 12, overflow: "hidden" },
   filtroImporteBtn: { flexDirection: "row", alignItems: "center", borderRadius: 12, paddingHorizontal: 16, paddingVertical: 12, borderWidth: 1.5, borderColor: "#e8e8e8" },
   filtroImporteLabel: { flex: 1, fontSize: 15, fontWeight: "600", marginLeft: 8 },
+  filtroFechaChipContainer: { marginBottom: 12 },
+  filtroFechaChip: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, alignSelf: 'flex-start' },
+  filtroFechaChipTexto: { fontSize: 13, fontWeight: '600' },
   filtroImporteMenu: { marginTop: 8, borderWidth: 1.5, borderColor: "#e8e8e8", padding: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   filtroImporteRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   filtroImporteInputLabel: { fontSize: 14, fontWeight: "600", width: 70 },

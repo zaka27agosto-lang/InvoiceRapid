@@ -237,11 +237,15 @@ export default function Informes() {
 
         {/* KPIs */}
         <View style={styles.kpiGrid}>
-          <View style={[styles.kpiCard, { backgroundColor: currentTheme.colors.primary }]}>
+          <TouchableOpacity
+            style={[styles.kpiCard, { backgroundColor: currentTheme.colors.primary }]}
+            activeOpacity={0.85}
+            onPress={() => router.push({ pathname: '/(tabs)/documentos', params: { tipo: 'facturas', filtroMes: 'actual' } } as any)}
+          >
             <Ionicons name="trending-up-outline" size={22} color="rgba(255,255,255,0.8)" />
             <Text style={styles.kpiValor}>{totalMesConvertido.toFixed(2)} {simboloMoneda}</Text>
             <Text style={styles.kpiLabel}>{t('ingresos_mes')}</Text>
-          </View>
+          </TouchableOpacity>
           <View style={[styles.kpiCard, { backgroundColor: '#1a1a2e' }]}>
             <Ionicons name="stats-chart-outline" size={22} color="rgba(255,255,255,0.8)" />
             <Text style={styles.kpiValor}>{totalGeneralConvertido.toFixed(2)} {simboloMoneda}</Text>
@@ -276,11 +280,14 @@ export default function Informes() {
             <View style={styles.graficoContainer}>
               {/* Eje Y */}
               <View style={styles.ejeY}>
-                {[100, 75, 50, 25, 0].map(pct => (
-                  <Text key={pct} style={styles.ejeYLabel}>
-                    {maxValorGrafico > 0 ? `${(maxValorGrafico * pct / 100).toFixed(0)}` : '0'}
-                  </Text>
-                ))}
+                {[100, 75, 50, 25, 0].map(pct => {
+                  const val = maxValorGrafico > 0 ? maxValorGrafico * pct / 100 : 0;
+                  return (
+                    <Text key={pct} style={styles.ejeYLabel}>
+                      {maxValorGrafico > 0 ? `${val.toFixed(val >= 100 ? 0 : val >= 10 ? 0 : 0)}` : '0'}
+                    </Text>
+                  );
+                })}
               </View>
               {/* Barras */}
               <View style={styles.barrasContainer}>
@@ -290,18 +297,20 @@ export default function Informes() {
                   ))}
                 </View>
                 {ultimos6Convertidos.map((mes, i) => {
-                  const altura = maxValorGrafico > 0 ? (mes.total / maxValorGrafico) * 100 : 0;
+                  const alturaPct = maxValorGrafico > 0 ? (mes.total / maxValorGrafico) * 100 : 0;
+                  // Mostrar valor exacto (sin decimales si es entero, con 2 decimales si no)
+                  const valorTexto = mes.total > 0 ? (Number.isInteger(mes.total) ? mes.total.toFixed(0) : mes.total.toFixed(2)) : '';
                   return (
                     <View key={i} style={styles.barraCol}>
-                      <Text style={styles.barraValor}>
-                        {mes.total > 0 ? `${(mes.total).toFixed(0)}` : ''}
+                      <Text style={[styles.barraValor, { color: currentTheme.colors.primary }]}>
+                        {valorTexto}
                       </Text>
                       <View style={styles.barraWrapper}>
                         <View
                           style={[
                             styles.barra,
                             {
-                              height: `${Math.max(altura, mes.total > 0 ? 2 : 0)}%` as any,
+                              height: `${Math.max(alturaPct, mes.total > 0 ? 2 : 0)}%` as any,
                               backgroundColor: i === 5 ? currentTheme.colors.primary : currentTheme.colors.primary + '40',
                               borderTopLeftRadius: 6,
                               borderTopRightRadius: 6,
@@ -419,7 +428,7 @@ const styles = StyleSheet.create({
   grafico: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 160 },
   barraCol: { flex: 1, alignItems: 'center', gap: 6 },
   barraValor: { fontSize: 9, color: '#007AFF', fontWeight: '700', textAlign: 'center' },
-  barraWrapper: { height: 120, justifyContent: 'flex-end', width: '70%' },
+  barraWrapper: { flex: 1, justifyContent: 'flex-end', width: '70%' },
   barra: { borderRadius: 6, width: '100%' },
   barraLabel: { fontSize: 11, color: '#888', fontWeight: '500' },
   exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginBottom: 16, borderRadius: 12, paddingVertical: 14, borderWidth: 1.5 },
