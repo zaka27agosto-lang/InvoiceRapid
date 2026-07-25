@@ -24,7 +24,7 @@ export default function Privacy() {
           <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>Política de Privacidad — InvoiceRapid PRO</Text>
 
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 20/07/2026
+            Última actualización: 25/07/2026
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. Introducción</Text>

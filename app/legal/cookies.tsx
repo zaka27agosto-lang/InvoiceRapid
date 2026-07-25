@@ -24,7 +24,7 @@ export default function Cookies() {
           <Text style={[styles.headerTitle, { color: currentTheme.colors.text }]}>Política de Cookies — InvoiceRapid PRO</Text>
 
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 18/06/2026
+            Última actualización: 25/07/2026
           </Text>
 
           <Text style={[styles.sectionTitle, { color: currentTheme.colors.text }]}>1. ¿Qué son las Cookies e Identificadores?</Text>

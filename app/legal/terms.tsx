@@ -145,7 +145,7 @@ export default function Terms() {
           </Text>
 
           <Text style={[styles.updateDate, { color: currentTheme.colors.textSecondary }]}>
-            Última actualización: 18/06/2026
+            Última actualización: 25/07/2026
           </Text>
         </View>
 
