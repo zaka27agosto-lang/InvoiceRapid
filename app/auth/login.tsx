@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModernAlert } from "../../components/ModernAlert";
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../services/supabase';
 import { adsService } from '../../services/adsService';
@@ -12,6 +13,7 @@ import { useScale } from '../../hooks/useScale';
 export default function Login() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
+  const modernAlert = useModernAlert();
   const { currentTheme } = useTheme();    const { signInWithEmail, signInWithGoogle, signOut } = useAuth();
   const { s, fs } = useScale();
   
@@ -51,7 +53,7 @@ export default function Login() {
 
   async function handleLogin() {
     if (!email || !password) {
-      Alert.alert(t('error'), t('campos_requeridos'));
+      modernAlert.showError(t('error'), t('campos_requeridos'))
       return;
     }
 
@@ -63,21 +65,21 @@ export default function Login() {
 
     if (status === 'permanently_deleted') {
       setLoading(false);
-      Alert.alert(
-        t('cuenta_eliminada_permanentemente'),
-        t('cuenta_eliminada_permanente_desc'),
-        [{ text: t('volver') }]
-      );
+      modernAlert.showAlert({
+        title: t('cuenta_eliminada_permanentemente'),
+        message: t('cuenta_eliminada_permanente_desc'),
+        buttons: [{ text: t('volver') }]
+      });
       return;
     }
 
     if (status === 'pending_deletion') {
       setLoading(false);
       // Mostrar alerta en la pantalla de login, SIN navegar a tabs
-      Alert.alert(
-        t('cuenta_pendiente_eliminacion'),
-        t('restaurar_cuenta_pregunta'),
-        [
+      modernAlert.showAlert({
+        title: t('cuenta_pendiente_eliminacion'),
+        message: t('restaurar_cuenta_pregunta'),
+        buttons: [
           {
             text: t('salir_sin_restaurar'),
             style: 'cancel',
@@ -92,12 +94,12 @@ export default function Login() {
                 await restaurarCuenta();
               } else {
                 setLoading(false);
-                Alert.alert(t('error'), loginResult.error || t('error_login'));
+                modernAlert.showError(t('error'), loginResult.error || t('error_login'))
               }
             }
           },
         ]
-      );
+      });
       return;
     }
 
@@ -106,7 +108,7 @@ export default function Login() {
     setLoading(false);
 
     if (!result.success) {
-      Alert.alert(t('error'), result.error || t('error_login'));
+      modernAlert.showError(t('error'), result.error || t('error_login'))
       return;
     }
 
@@ -139,7 +141,7 @@ export default function Login() {
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        Alert.alert(t('cuenta_restaurada'), t('cuenta_restaurada_desc'));
+        modernAlert.showError(t('cuenta_restaurada'), t('cuenta_restaurada_desc'));
         router.replace('/(tabs)');
         // Forzar recarga de anuncios después de restaurar
         try {
@@ -148,11 +150,11 @@ export default function Login() {
         } catch {}
       } else {
         setLoading(false);
-        Alert.alert(t('error'), t('error_eliminar_cuenta'));
+        modernAlert.showError(t('error'), t('error_eliminar_cuenta'))
       }
     } catch {
       setLoading(false);
-      Alert.alert(t('error'), t('error_eliminar_cuenta'));
+      modernAlert.showError(t('error'), t('error_eliminar_cuenta'))
     }
   }
 
@@ -178,21 +180,21 @@ export default function Login() {
             if (status === 'permanently_deleted') {
               await signOut();
               setLoading(false);
-              Alert.alert(
-                t('cuenta_eliminada_permanentemente'),
-                t('cuenta_eliminada_permanente_desc'),
-                [{ text: t('volver') }]
-              );
+              modernAlert.showAlert({
+                title: t('cuenta_eliminada_permanentemente'),
+                message: t('cuenta_eliminada_permanente_desc'),
+                buttons: [{ text: t('volver') }]
+              });
               return;
             }
 
             if (status === 'pending_deletion') {
               await signOut(); // Cerrar sesión temporalmente
               setLoading(false);
-              Alert.alert(
-                t('cuenta_pendiente_eliminacion'),
-                t('restaurar_cuenta_pregunta'),
-                [
+              modernAlert.showAlert({
+                title: t('cuenta_pendiente_eliminacion'),
+                message: t('restaurar_cuenta_pregunta'),
+                buttons: [
                   {
                     text: t('salir_sin_restaurar'),
                     style: 'cancel',
@@ -209,7 +211,7 @@ export default function Login() {
                     }
                   }
                 ]
-              );
+              });
               return;
             }
           }
@@ -219,7 +221,7 @@ export default function Login() {
       router.replace('/(tabs)');
     } else {
       setLoading(false);
-      Alert.alert(t('error'), result.error || t('error_google_login'));
+      modernAlert.showError(t('error'), result.error || t('error_google_login'))
     }
   }
 

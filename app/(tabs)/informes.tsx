@@ -6,6 +6,7 @@ import { Alert, ScrollView, Share, StyleSheet, Text, TouchableOpacity, View } fr
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import { useTheme } from "../../contexts/ThemeContext";
+import { useModernAlert } from "../../components/ModernAlert";
 import SwipeNavigation from "../../components/SwipeNavigation";
 import { getMoneda } from "../../utils/settings";
 import { getFacturas } from "../db/facturas";
@@ -17,6 +18,7 @@ const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 's
 
 export default function Informes() {
   const { t } = useTranslation();
+  const modernAlert = useModernAlert();
   const { currentTheme } = useTheme();
   const { lastSync } = useSync();
   const router = useRouter();
@@ -126,7 +128,7 @@ export default function Informes() {
       await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
       if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'InvoiceRapid Export - ' + new Date().toLocaleDateString('es-ES') });
       else await Share.share({ message: csv });
-    } catch { Alert.alert(t('error'), t('error_exportar_csv')); }
+    } catch { modernAlert.showError(t('error'), t('error_exportar_csv')) }
     finally { setExportando(false); }
   }
 

@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { AuthModal } from "../../components/AuthModal";
 import { useAuth } from "../../contexts/AuthContext";
+import { useModernAlert } from "../../components/ModernAlert";
 import { useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { useAuthGuard } from "../../hooks/useAuthGuard";
@@ -46,6 +47,7 @@ import { PrimaryColor, primaryColors } from "../../utils/themes";
 export default function Ajustes() {
   const { t, i18n } = useTranslation();
   const { isPremium, offerings, comprar, restaurar } = useSubscription();
+  const modernAlert = useModernAlert();
   const { currentTheme, primaryColor, mode, setPrimaryColor, setMode } = useTheme();
   const router = useRouter();
   const params = useLocalSearchParams();
@@ -112,9 +114,9 @@ export default function Ajustes() {
     setComprando(false);
     if (result.success) {
       setMostrarPaywall(false);
-      Alert.alert('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
+      modernAlert.showSuccess('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
     } else if (!result.cancelled) {
-      Alert.alert(t('error'), result.error || 'Error al procesar la compra');
+      modernAlert.showError(t('error'), result.error || 'Error al procesar la compra')
     }
   }
 
@@ -123,35 +125,35 @@ export default function Ajustes() {
     const haVistoInfo = await AsyncStorage.getItem('ha_visto_restore_info');
     if (haVistoInfo !== 'true') {
       await AsyncStorage.setItem('ha_visto_restore_info', 'true');
-      Alert.alert(
-        t('restaurar_compras'),
-        t('restaurar_compras_info'),
-        [
+      modernAlert.showAlert({
+        title: t('restaurar_compras'),
+        message: t('restaurar_compras_info'),
+        buttons: [
           { text: t('cancelar'), style: 'cancel' },
           { text: t('confirmar'), onPress: async () => {
             const result = await restaurar();
             if (result.isPremium) {
-              Alert.alert('✅', t('compra_restaurada'));
+              modernAlert.showSuccess('✅', t('compra_restaurada'));
             } else {
-              Alert.alert(t('info'), t('no_compras_previas'));
+              modernAlert.showError(t('info'), t('no_compras_previas'));
             }
           }}
         ]
-      );
+      });
       return;
     }
     // Usuario ya sabe: restaurar directamente
     const result = await restaurar();
     if (result.isPremium) {
-      Alert.alert('✅', t('compra_restaurada'));
+      modernAlert.showSuccess('✅', t('compra_restaurada'))
     } else {
-      Alert.alert(t('info'), t('no_compras_previas'));
+      modernAlert.showError(t('info'), t('no_compras_previas'));
     }
   }
 
   async function handleGuardarDatos() {
     await setDatosEmpresa(datos);
-    Alert.alert('✅', t('datos_guardados'));
+    modernAlert.showSuccess('✅', t('datos_guardados'))
     setMostrarDatos(false);
   }
 
@@ -199,7 +201,7 @@ export default function Ajustes() {
         setMostrarPreviewPdf(true);
       }
     } catch {
-      Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
+      modernAlert.showError(t('error'), t('no_se_pudo_generar_pdf'))
     }
   }
 
@@ -308,29 +310,29 @@ export default function Ajustes() {
         }
       }
       if (compartido) {
-        Alert.alert('✅', t('datos_exportados'));
+        modernAlert.showSuccess('✅', t('datos_exportados'))
       }
     } catch {
-      Alert.alert(t('error'), t('error_exportar_datos'));
+      modernAlert.showError(t('error'), t('error_exportar_datos'))
     }
   }
 
   async function handleDeleteAccount() {
     // Step 1: Explicación del proceso con período de gracia de 30 días
-    Alert.alert(
-      t('confirmar_eliminar_titulo'),
-      t('confirmar_eliminar_desc') + '\n\n' + t('plazo_30_dias'),
-      [
+    modernAlert.showAlert({
+      title: t('confirmar_eliminar_titulo'),
+      message: t('confirmar_eliminar_desc') + '\n\n' + t('plazo_30_dias'),
+      buttons: [
         { text: t('cancelar'), style: 'cancel' },
         {
           text: t('borrar'),
           style: 'destructive',
           onPress: () => {
             // Step 2: Doble confirmación
-            Alert.alert(
-              t('confirmar_eliminar_titulo'),
-              t('confirmar_eliminar_final'),
-              [
+            modernAlert.showAlert({
+              title: t('confirmar_eliminar_titulo'),
+              message: t('confirmar_eliminar_final'),
+              buttons: [
                 { text: t('cancelar'), style: 'cancel' },
                 {
                   text: t('borrar_definitivamente'),
@@ -338,7 +340,7 @@ export default function Ajustes() {
                   onPress: async () => {
                     try {
                       if (!supabase) {
-                        Alert.alert(t('error'), t('aviso_sin_conexion'));
+                        modernAlert.showError(t('error'), t('aviso_sin_conexion'));
                         return;
                       }
 
@@ -346,7 +348,7 @@ export default function Ajustes() {
                       const accessToken = session?.access_token;
 
                       if (!accessToken) {
-                        Alert.alert(t('error'), t('aviso_sesion_expirada'));
+                        modernAlert.showError(t('error'), t('aviso_sesion_expirada'));
                         return;
                       }
 
@@ -372,51 +374,55 @@ export default function Ajustes() {
                       }
 
                       // Mostrar confirmación ANTES de cerrar sesión — título CORTO
-                      Alert.alert(t('cuenta_eliminada_titulo'), t('cuenta_marcada_eliminacion'), [
-                        {
-                          text: t('volver'),
-                          onPress: async () => {
-                            // Cerrar sesión sin borrar datos locales (período de gracia)
-                            await signOut();
+                      modernAlert.showAlert({
+                        title: t('cuenta_eliminada_titulo'),
+                        message: t('cuenta_marcada_eliminacion'),
+                        buttons: [
+                          {
+                            text: t('volver'),
+                            onPress: async () => {
+                              // Cerrar sesión sin borrar datos locales (período de gracia)
+                              await signOut();
+                            }
                           }
-                        }
-                      ]);
+                        ]
+                      });
                     } catch (error: any) {
-                      Alert.alert(t('error'), t('error_eliminar_cuenta') + ': ' + (error.message || ''));
+                      modernAlert.showError(t('error'), t('error_eliminar_cuenta') + ': ' + (error.message || ''));
                     }
                   }
                 }
               ]
-            );
+            });
           }
         }
       ]
-    );
+    });
   }
 
   async function handleChangeConsent() {
     // 1. Intentar con el formulario UMP de Google (disponible en EEE)
     const umpOk = await adsService.showPrivacyOptions();
     if (umpOk) {
-      Alert.alert('✅', t('consentimiento_actualizado'));
+      modernAlert.showSuccess('✅', t('consentimiento_actualizado'));
       return;
     }
 
     // 2. Si UMP no está disponible (fuera de EEE), ofrecer elección manual
-    Alert.alert(
-      t('consentimiento_anuncios'),
-      t('consentimiento_pregunta') + '\n\n' + t('consentimiento_pregunta_sub'),
-      [
+    modernAlert.showAlert({
+      title: t('consentimiento_anuncios'),
+      message: t('consentimiento_pregunta') + '\n\n' + t('consentimiento_pregunta_sub'),
+      buttons: [
         { text: t('consentimiento_no'), style: 'cancel', onPress: async () => {
           await adsService.setConsentManually(false);
-          Alert.alert('✅', t('consentimiento_actualizado'));
+          modernAlert.showSuccess('✅', t('consentimiento_actualizado'));
         }},
         { text: t('consentimiento_si'), onPress: async () => {
           await adsService.setConsentManually(true);
-          Alert.alert('✅', t('consentimiento_actualizado'));
+          modernAlert.showSuccess('✅', t('consentimiento_actualizado'));
         }},
       ]
-    );
+    });
   }
 
   const idiomaActual = i18n.language;
@@ -506,7 +512,7 @@ export default function Ajustes() {
             const nuevoFormato = formatoFechaActual === 'DD/MM/YYYY' ? 'YYYY-MM-DD' : 'DD/MM/YYYY';
             setFormatoFecha(nuevoFormato);
             setFormatoFechaActual(nuevoFormato);
-            Alert.alert('✅', t('formato_fecha_actualizado'));
+            modernAlert.showSuccess('✅', t('formato_fecha_actualizado'))
           }}>
             <Ionicons name="calendar-outline" size={20} color={currentTheme.colors.primary} />
             <View style={{ flexDirection: 'row', flex: 1 }}>
@@ -639,7 +645,7 @@ export default function Ajustes() {
             <Text style={styles.modalTitulo}>{t('numeracion')}</Text>
             <TouchableOpacity onPress={async () => {
               await setNumeracionConfig(numeracionConfig);
-              Alert.alert('✅', t('numeracion_guardada'));
+              modernAlert.showSuccess('✅', t('numeracion_guardada'))
               setMostrarNumeracion(false);
             }}>
               <Text style={styles.modalGuardar}>{t('guardar')}</Text>

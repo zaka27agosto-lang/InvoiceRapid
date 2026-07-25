@@ -5,12 +5,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModernAlert } from "../../components/ModernAlert";
 import { useTheme } from '../../contexts/ThemeContext';
 import { getDeviceId } from '../../utils/deviceId';
 
 export default function Register() {
   const router = useRouter();
   const { t } = useTranslation();
+  const modernAlert = useModernAlert();
   const { currentTheme } = useTheme();
   const { signUpWithEmail } = useAuth();
   
@@ -44,17 +46,17 @@ export default function Register() {
       const data = await response.json();
 
       if (data.status === 'permanently_deleted') {
-        Alert.alert(t('email_no_disponible'), t('email_eliminado_permanente'));
+        modernAlert.showError(t('email_no_disponible'), t('email_eliminado_permanente'));
         return false;
       }
 
       if (data.status === 'pending_deletion') {
-        Alert.alert(t('email_no_disponible'), t('email_pendiente_eliminacion'));
+        modernAlert.showError(t('email_no_disponible'), t('email_pendiente_eliminacion'));
         return false;
       }
 
       if (data.status === 'grace_period_expired') {
-        Alert.alert(t('email_no_disponible'), t('periodo_restauracion_expirado'));
+        modernAlert.showAlert({ title: t('email_no_disponible'), message: t('periodo_restauracion_expirado') })
         return false;
       }
 
@@ -67,17 +69,17 @@ export default function Register() {
 
   async function handleRegister() {
     if (!name || !email || !password || !confirmPassword) {
-      Alert.alert(t('error'), t('campos_requeridos'));
+      modernAlert.showError(t('error'), t('campos_requeridos'))
       return;
     }
 
     if (password !== confirmPassword) {
-      Alert.alert(t('error'), t('contraseñas_no_coinciden'));
+      modernAlert.showError(t('error'), t('contraseñas_no_coinciden'))
       return;
     }
 
     if (password.length < 6) {
-      Alert.alert(t('error'), t('contraseña_minima'));
+      modernAlert.showError(t('error'), t('contraseña_minima'))
       return;
     }
 
@@ -110,10 +112,10 @@ export default function Register() {
         // Silencioso: no bloquear el registro si falla el device_id
       }
 
-      Alert.alert(t('registro_exitoso'), t('verifica_email'));
+      modernAlert.showError(t('registro_exitoso'), t('verifica_email'));
       router.replace('/(tabs)');
     } else {
-      Alert.alert(t('error'), result.error || t('error_registro'));
+      modernAlert.showError(t('error'), result.error || t('error_registro'))
     }
   }
 

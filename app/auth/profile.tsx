@@ -4,12 +4,14 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useModernAlert } from "../../components/ModernAlert";
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../services/supabase';
 
 export default function Profile() {
   const router = useRouter();
   const { t } = useTranslation();
+  const modernAlert = useModernAlert();
   const { currentTheme } = useTheme();
   const { user, signOut, signInWithGoogle } = useAuth();
 
@@ -21,10 +23,10 @@ export default function Profile() {
   const [nuevaPasswordConfirm, setNuevaPasswordConfirm] = useState('');
 
   async function handleSignOut() {
-    Alert.alert(
-      t('cerrar_sesion'),
-      t('confirmar_cerrar_sesion'),
-      [
+    modernAlert.showAlert({
+      title: t('cerrar_sesion'),
+      message: t('confirmar_cerrar_sesion'),
+      buttons: [
         { text: t('cancelar'), style: 'cancel' },
         {
           text: t('cerrar_sesion'),
@@ -39,7 +41,7 @@ export default function Profile() {
           }
         }
       ]
-    );
+    });
   }
 
   // Si no hay usuario autenticado, mostrar opciones de login/registro
@@ -122,7 +124,7 @@ export default function Profile() {
 
   async function handleCambiarNombre() {
     if (!nuevoNombre.trim()) {
-      Alert.alert(t('error'), t('nombre_requerido'));
+      modernAlert.showError(t('error'), t('nombre_requerido'))
       return;
     }
     setLoading(true);
@@ -131,10 +133,10 @@ export default function Profile() {
         data: { name: nuevoNombre.trim() }
       });
       if (error) throw error;
-      Alert.alert('✅', t('nombre_actualizado'));
+      modernAlert.showSuccess('✅', t('nombre_actualizado'))
       setMostrarCambiarNombre(false);
     } catch (err: any) {
-      Alert.alert(t('error'), err.message || t('error_actualizar_perfil'));
+      modernAlert.showError(t('error'), err.message || t('error_actualizar_perfil'))
     } finally {
       setLoading(false);
     }
@@ -142,11 +144,11 @@ export default function Profile() {
 
   async function handleEstablecerPassword() {
     if (!nuevaPassword || nuevaPassword.length < 6) {
-      Alert.alert(t('error'), t('password_minimo'));
+      modernAlert.showError(t('error'), t('password_minimo'))
       return;
     }
     if (nuevaPassword !== nuevaPasswordConfirm) {
-      Alert.alert(t('error'), t('password_no_coinciden'));
+      modernAlert.showError(t('error'), t('password_no_coinciden'))
       return;
     }
     setLoading(true);
@@ -155,13 +157,13 @@ export default function Profile() {
         password: nuevaPassword
       });
       if (error) throw error;
-      Alert.alert('✅', t('password_establecida'));
+      modernAlert.showSuccess('✅', t('password_establecida'))
       setHasPassword(true); // Ya tiene contraseña → mostrar "Cambiar contraseña"
       setMostrarEstablecerPassword(false);
       setNuevaPassword('');
       setNuevaPasswordConfirm('');
     } catch (err: any) {
-      Alert.alert(t('error'), err.message || t('error_establecer_password'));
+      modernAlert.showError(t('error'), err.message || t('error_establecer_password'))
     } finally {
       setLoading(false);
     }

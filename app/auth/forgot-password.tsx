@@ -2,8 +2,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useModernAlert } from '../../components/ModernAlert';
 import { supabase } from '../../services/supabase';
 
 /**
@@ -46,6 +47,7 @@ export default function ForgotPassword() {
   const router = useRouter();
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
+  const modernAlert = useModernAlert();
 
   type Step = 'email' | 'otp' | 'reset';
   const [step, setStep] = useState<Step>('email');
@@ -64,12 +66,12 @@ export default function ForgotPassword() {
    */
   async function handleSendCode() {
     if (!supabase) {
-      Alert.alert(t('error'), 'Supabase no está configurado');
+      modernAlert.showError(t('error'), 'Supabase no está configurado')
       return;
     }
     const trimmedEmail = email.trim();
     if (!trimmedEmail || !trimmedEmail.includes('@')) {
-      Alert.alert(t('error'), t('email_requerido'));
+      modernAlert.showError(t('error'), t('email_requerido'))
       return;
     }
 
@@ -88,14 +90,14 @@ export default function ForgotPassword() {
           error.message?.toLowerCase().includes('rate limit') ||
           error.status === 429
         ) {
-          Alert.alert(
+          modernAlert.showError(
             t('error'),
             t('excede_intentos_codigo')
           );
           return;
         }
         // Mensaje genérico: no revelar si el email existe o no
-        Alert.alert(t('error'), t('email_no_registrado'));
+        modernAlert.showError(t('error'), t('email_no_registrado'))
         return;
       }
 
@@ -104,7 +106,7 @@ export default function ForgotPassword() {
       const msg = error?.message?.toLowerCase().includes('rate limit')
         ? t('excede_intentos_codigo')
         : (error?.message || t('email_no_registrado'));
-      Alert.alert(t('error'), msg);
+      modernAlert.showError(t('error'), msg)
     } finally {
       setLoading(false);
     }
@@ -118,17 +120,17 @@ export default function ForgotPassword() {
    */
   async function handleVerifyCode() {
     if (!supabase) {
-      Alert.alert(t('error'), 'Supabase no está configurado');
+      modernAlert.showError(t('error'), 'Supabase no está configurado')
       return;
     }
     const trimmedEmail = email.trim();
     const trimmedOtp = otp.trim();
     if (!trimmedOtp || trimmedOtp.length < 6) {
-      Alert.alert(t('error'), t('codigo_incompleto'));
+      modernAlert.showError(t('error'), t('codigo_incompleto'))
       return;
     }
     if (!/^\d{6}$/.test(trimmedOtp)) {
-      Alert.alert(t('error'), t('codigo_incompleto'));
+      modernAlert.showError(t('error'), t('codigo_incompleto'))
       return;
     }
 
@@ -143,18 +145,18 @@ export default function ForgotPassword() {
       if (error) {
         const msg = error.message?.toLowerCase() || '';
         if (msg.includes('expired')) {
-          Alert.alert(t('error'), t('codigo_expirado'));
+          modernAlert.showError(t('error'), t('codigo_expirado'))
         } else if (msg.includes('invalid') || msg.includes('token')) {
-          Alert.alert(t('error'), t('codigo_invalido'));
+          modernAlert.showError(t('error'), t('codigo_invalido'))
         } else {
-          Alert.alert(t('error'), t('codigo_invalido'));
+          modernAlert.showError(t('error'), t('codigo_invalido'))
         }
         return;
       }
 
       setStep('reset');
     } catch (error: any) {
-      Alert.alert(t('error'), error?.message || t('codigo_invalido'));
+      modernAlert.showError(t('error'), error?.message || t('codigo_invalido'))
     } finally {
       setLoading(false);
     }
@@ -167,15 +169,15 @@ export default function ForgotPassword() {
    */
   async function handleSavePassword() {
     if (!supabase) {
-      Alert.alert(t('error'), 'Supabase no está configurado');
+      modernAlert.showError(t('error'), 'Supabase no está configurado')
       return;
     }
     if (!newPassword || newPassword.length < 8) {
-      Alert.alert(t('error'), t('contraseña_min_8'));
+      modernAlert.showError(t('error'), t('contraseña_min_8'))
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(t('error'), t('contraseñas_no_coinciden'));
+      modernAlert.showError(t('error'), t('contraseñas_no_coinciden'))
       return;
     }
 
@@ -191,14 +193,18 @@ export default function ForgotPassword() {
       // logueado por la sesión OTP.
       await supabase.auth.signOut();
 
-      Alert.alert('✅', t('contraseña_actualizada'), [
-        {
-          text: t('aceptar'),
-          onPress: () => router.replace('/auth/login'),
-        },
-      ]);
+      modernAlert.showAlert({
+        title: '✅',
+        message: t('contraseña_actualizada'),
+        buttons: [
+          {
+            text: t('aceptar'),
+            onPress: () => router.replace('/auth/login'),
+          },
+        ]
+      });
     } catch (error: any) {
-      Alert.alert(t('error'), error?.message || t('error_actualizar_perfil'));
+      modernAlert.showError(t('error'), error?.message || t('error_actualizar_perfil'))
     } finally {
       setLoading(false);
     }

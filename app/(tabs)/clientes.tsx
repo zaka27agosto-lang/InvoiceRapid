@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, FlatList, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { useModernAlert } from "../../components/ModernAlert";
 import { useTheme } from "../../contexts/ThemeContext";
 import { adsService } from "../../services/adsService";
 import { syncService } from "../../services/syncService";
@@ -32,6 +33,7 @@ export default function Clientes() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
   const { isPremium } = useSubscription();
+  const modernAlert = useModernAlert();
   const { lastSync } = useSync();
   const router = useRouter();
   const [clientes, setClientes] = useState<Cliente[]>([]);
@@ -147,7 +149,7 @@ export default function Clientes() {
 
   async function guardarCliente() {
     if (!formulario.nombre.trim()) {
-      Alert.alert(t('error'), t('nombre') + ' ' + t('es obligatorio'));
+      modernAlert.showError(t('error'), t('nombre') + ' ' + t('es obligatorio'))
       return;
     }
 
@@ -179,14 +181,15 @@ export default function Clientes() {
       setMostrarFormulario(false);
       resetFormulario();
     } catch (error) {
-      Alert.alert(t('error'), t('no_se_pudo_guardar_el_cliente'));
+      modernAlert.showError(t('error'), t('no_se_pudo_guardar_el_cliente'))
     }
   }
 
   function eliminarCliente(cliente: Cliente) {
-    Alert.alert(t('eliminar_cliente'),
-      t('confirmar_eliminar_cliente', { nombre: cliente.nombre }),
-      [
+    modernAlert.showAlert({
+      title: t('eliminar_cliente'),
+      message: t('confirmar_eliminar_cliente', { nombre: cliente.nombre }),
+      buttons: [
         { text: t('cancelar'), style: "cancel" },
         {
           text: t('eliminar'),
@@ -198,12 +201,12 @@ export default function Clientes() {
               syncService.deleteClientFromCloud(cliente.id).catch(() => {});
               setClientes(getClientes() as Cliente[]);
             } catch (error) {
-              Alert.alert(t('error'), t('no_se_pudo_eliminar_el_cliente'));
+              modernAlert.showError(t('error'), t('no_se_pudo_eliminar_el_cliente'))
             }
           }
         }
       ]
-    );
+    });
   }
 
   if (mostrarFormulario) {

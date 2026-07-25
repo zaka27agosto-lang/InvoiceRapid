@@ -3,6 +3,7 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, Alert, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import * as Linking from 'expo-linking';
+import { useModernAlert } from "../../components/ModernAlert";
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../services/supabase';
 
@@ -38,6 +39,7 @@ export default function AuthCallback() {
   const router = useRouter();
   const { t } = useTranslation();
   const params = useLocalSearchParams<{ token_hash?: string; type?: string }>();
+  const modernAlert = useModernAlert();
   const { currentTheme } = useTheme();
 
   const [status, setStatus] = useState<'processing' | 'success' | 'error' | 'reset_form'>('processing');
@@ -203,11 +205,11 @@ export default function AuthCallback() {
   async function handleSetNewPassword() {
     if (!supabase) return;
     if (!newPassword || newPassword.length < 6) {
-      Alert.alert(t('error'), t('contraseña_min_6'));
+      modernAlert.showError(t('error'), t('contraseña_min_6'))
       return;
     }
     if (newPassword !== confirmPassword) {
-      Alert.alert(t('error'), t('contraseñas_no_coinciden'));
+      modernAlert.showError(t('error'), t('contraseñas_no_coinciden'))
       return;
     }
 
@@ -223,7 +225,7 @@ export default function AuthCallback() {
         router.replace('/auth/login');
       }, 1800);
     } catch (error: any) {
-      Alert.alert(t('error'), error.message || t('error_actualizar_perfil'));
+      modernAlert.showError(t('error'), error.message || t('error_actualizar_perfil'))
     } finally {
       setSaving(false);
     }

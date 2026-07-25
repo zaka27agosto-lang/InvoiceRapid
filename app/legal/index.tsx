@@ -5,10 +5,12 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useModernAlert } from "../../components/ModernAlert";
 
 export default function Legal() {
   const router = useRouter();
   const { t } = useTranslation();
+  const modernAlert = useModernAlert();
   const { currentTheme } = useTheme();
 
   // Las URLs legales vienen de app.config.ts → extra.legalUrls (env-driven).
@@ -21,18 +23,18 @@ export default function Legal() {
 
   async function openExternal(url: string, label: string) {
     if (!url) {
-      Alert.alert(t('error'), 'URL no configurada todavía');
+      modernAlert.showError(t('error'), 'URL no configurada todavía')
       return;
     }
     try {
       const supported = await Linking.canOpenURL(url);
       if (!supported) {
-        Alert.alert(t('error'), `No se puede abrir ${label} en este dispositivo`);
+        modernAlert.showError(t('error'), `No se puede abrir ${label} en este dispositivo`)
         return;
       }
       await Linking.openURL(url);
     } catch (err: any) {
-      Alert.alert(t('error'), err?.message ?? `Error abriendo ${label}`);
+      modernAlert.showError(t('error'), err?.message ?? `Error abriendo ${label}`)
     }
   }
 
