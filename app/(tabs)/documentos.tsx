@@ -74,6 +74,8 @@ export default function Documentos() {
   const [importeMaximo, setImporteMaximo] = useState('');
   const [fechaDesde, setFechaDesde] = useState<string | null>(null);
   const [fechaHasta, setFechaHasta] = useState<string | null>(null);
+  const [modoRangoFecha, setModoRangoFecha] = useState<'ninguno' | 'desde' | 'hasta'>('ninguno');
+  const [mostrarFiltroFecha, setMostrarFiltroFecha] = useState(false);
   const [formatoFecha, setFormatoFecha] = useState<FormatoFecha>('DD/MM/YYYY');
   const [simboloMoneda, setSimboloMoneda] = useState('€');
   const [codigoMoneda, setCodigoMoneda] = useState('EUR');
@@ -186,6 +188,7 @@ export default function Documentos() {
     setBusqueda('');
     setImporteMinimo(''); setImporteMaximo('');
     setFechaDesde(null); setFechaHasta(null);
+    setModoRangoFecha('ninguno');
     setMostrarDetalle(false);
     setMostrarDetalleAlbaran(false);
     desactivarModoSeleccion();
@@ -560,10 +563,44 @@ export default function Documentos() {
                 <Ionicons name="close-circle" size={18} color={currentTheme.colors.textSecondary} />
               </TouchableOpacity>
             )}
-            <TouchableOpacity onPress={() => setMostrarDatePicker(true)} style={styles.fechaBtn}>
-              <Ionicons name="calendar-outline" size={18} color={currentTheme.colors.primary} />
+            <TouchableOpacity onPress={() => { setMostrarFiltroFecha(!mostrarFiltroFecha); setMostrarFiltro(false); setMostrarFiltroImporte(false); }} style={styles.fechaBtn}>
+              <Ionicons name="calendar-outline" size={18} color={(fechaDesde || fechaHasta) ? '#FF9F43' : currentTheme.colors.primary} />
             </TouchableOpacity>
           </View>
+          {/* ── Filtro por fecha ── */}
+          {mostrarFiltroFecha && (
+            <View style={[styles.filtroFechaPanel, { backgroundColor: currentTheme.colors.card, borderColor: currentTheme.colors.border || '#e8e8e8' }]}>
+              <Text style={[styles.filtroFechaPanelTitulo, { color: currentTheme.colors.textSecondary }]}>{t('filtro_fecha')}</Text>
+              <View style={styles.filtroFechaPresets}>
+                {[
+                  { key: 'hoy', action: () => { const d = new Date(); const f = `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; setFechaDesde(f); setFechaHasta(f); } },
+                  { key: 'esta_semana', action: () => { const d = new Date(); const dia = d.getDay() || 7; const lun = new Date(d); lun.setDate(d.getDate() - dia + 1); const dom = new Date(lun); dom.setDate(lun.getDate() + 6); const fmt = (x: Date) => `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}`; setFechaDesde(fmt(lun)); setFechaHasta(fmt(dom)); } },
+                  { key: 'este_mes', action: () => { const a = new Date(); const p = new Date(a.getFullYear(), a.getMonth(), 1); const u = new Date(a.getFullYear(), a.getMonth()+1, 0); const fmt = (x: Date) => `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}`; setFechaDesde(fmt(p)); setFechaHasta(fmt(u)); } },
+                  { key: 'mes_pasado', action: () => { const a = new Date(); const p = new Date(a.getFullYear(), a.getMonth()-1, 1); const u = new Date(a.getFullYear(), a.getMonth(), 0); const fmt = (x: Date) => `${String(x.getDate()).padStart(2,'0')}/${String(x.getMonth()+1).padStart(2,'0')}/${x.getFullYear()}`; setFechaDesde(fmt(p)); setFechaHasta(fmt(u)); } },
+                ].map(p => (
+                  <TouchableOpacity key={p.key} style={[styles.filtroFechaPreset, { borderColor: currentTheme.colors.border || '#e8e8e8' }]} onPress={() => { p.action(); setMostrarFiltroFecha(false); }}>
+                    <Text style={[styles.filtroFechaPresetText, { color: currentTheme.colors.text }]}>{t(p.key)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={styles.filtroFechaRango}>
+                <TouchableOpacity style={[styles.filtroFechaInput, { borderColor: currentTheme.colors.border || '#e8e8e8' }]} onPress={() => { setModoRangoFecha('desde'); setMostrarDatePicker(true); setMostrarFiltroFecha(false); }}>
+                  <Ionicons name="calendar-outline" size={14} color={currentTheme.colors.textSecondary} />
+                  <Text style={[styles.filtroFechaInputText, { color: fechaDesde ? currentTheme.colors.text : currentTheme.colors.textSecondary }]}>
+                    {fechaDesde || t('desde')}
+                  </Text>
+                </TouchableOpacity>
+                <Text style={[styles.filtroFechaSeparador, { color: currentTheme.colors.textSecondary }]}>—</Text>
+                <TouchableOpacity style={[styles.filtroFechaInput, { borderColor: currentTheme.colors.border || '#e8e8e8' }]} onPress={() => { setModoRangoFecha('hasta'); setMostrarDatePicker(true); setMostrarFiltroFecha(false); }}>
+                  <Ionicons name="calendar-outline" size={14} color={currentTheme.colors.textSecondary} />
+                  <Text style={[styles.filtroFechaInputText, { color: fechaHasta ? currentTheme.colors.text : currentTheme.colors.textSecondary }]}>
+                    {fechaHasta || t('hasta')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+
           <View style={[styles.filtroDropdownContainer]}>
             <TouchableOpacity style={[styles.filtroDropdownBtn, { backgroundColor: currentTheme.colors.card }]} onPress={() => setMostrarFiltro(!mostrarFiltro)}>
               <Text style={[styles.filtroDropdownLabel, { color: currentTheme.colors.textSecondary }]}>{t('filtro_label')}:</Text>
@@ -961,9 +998,18 @@ export default function Documentos() {
       <Modal visible={mostrarDatePicker} animationType="slide" presentationStyle="pageSheet">
         <View style={styles.datePickerWrapper}>
           <View style={styles.datePickerHeader}>
-            <TouchableOpacity onPress={() => setMostrarDatePicker(false)}><Ionicons name="close" size={24} color="#1a1a1a" /></TouchableOpacity>
-            <Text style={styles.datePickerTitulo}>{t('seleccionar_fecha')}</Text>
-            <TouchableOpacity onPress={() => { setBusqueda(formatearFechaSync(new Date(añoSeleccionado, mesSeleccionado - 1, diaSeleccionado))); setMostrarDatePicker(false); }}><Text style={styles.datePickerConfirmar}>Confirmar</Text></TouchableOpacity>
+            <TouchableOpacity onPress={() => { setMostrarDatePicker(false); setModoRangoFecha('ninguno'); }}><Ionicons name="close" size={24} color="#1a1a1a" /></TouchableOpacity>
+            <Text style={styles.datePickerTitulo}>
+              {modoRangoFecha === 'desde' ? t('desde') : modoRangoFecha === 'hasta' ? t('hasta') : t('seleccionar_fecha')}
+            </Text>
+            <TouchableOpacity onPress={() => {
+              const fechaSel = `${String(diaSeleccionado).padStart(2,'0')}/${String(mesSeleccionado).padStart(2,'0')}/${añoSeleccionado}`;
+              if (modoRangoFecha === 'desde') setFechaDesde(fechaSel);
+              else if (modoRangoFecha === 'hasta') setFechaHasta(fechaSel);
+              else setBusqueda(formatearFechaSync(new Date(añoSeleccionado, mesSeleccionado - 1, diaSeleccionado)));
+              setMostrarDatePicker(false);
+              setModoRangoFecha('ninguno');
+            }}><Text style={styles.datePickerConfirmar}>Confirmar</Text></TouchableOpacity>
           </View>
           <View style={styles.datePickerContent}>
             <View style={styles.datePickerMonthYear}>
@@ -1019,6 +1065,15 @@ const styles = StyleSheet.create({
   filtroFechaChipContainer: { marginBottom: 12 },
   filtroFechaChip: { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10, borderWidth: 1.5, alignSelf: 'flex-start' },
   filtroFechaChipTexto: { fontSize: 13, fontWeight: '600' },
+  filtroFechaPanel: { borderRadius: 12, borderWidth: 1.5, padding: 14, marginBottom: 14 },
+  filtroFechaPanelTitulo: { fontSize: 12, fontWeight: '700', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 0.5 },
+  filtroFechaPresets: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 },
+  filtroFechaPreset: { borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1 },
+  filtroFechaPresetText: { fontSize: 12, fontWeight: '600' },
+  filtroFechaRango: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  filtroFechaInput: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, borderRadius: 10, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10 },
+  filtroFechaInputText: { fontSize: 13, fontWeight: '500' },
+  filtroFechaSeparador: { fontSize: 13, fontWeight: '600' },
   filtroImporteMenu: { marginTop: 8, borderWidth: 1.5, borderColor: "#e8e8e8", padding: 16, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
   filtroImporteRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   filtroImporteInputLabel: { fontSize: 14, fontWeight: "600", width: 70 },
