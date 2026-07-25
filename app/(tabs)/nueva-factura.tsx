@@ -318,7 +318,7 @@ export default function NuevaFactura() {
     setComprando(false);
     if (result.success) {
       setMostrarPaywall(false);
-      modernAlert.showSuccess('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
+      modernAlert.showSuccess(t('bienvenida_premium'), t('acceso_premium'));
     } else if (!result.cancelled) {
       modernAlert.showError(t('error'), result.error || t('error_procesar_compra'));
     }
@@ -327,7 +327,7 @@ export default function NuevaFactura() {
   async function handleRestaurar() {
     const result = await restaurar();
     if (result.isPremium) {
-      modernAlert.showSuccess('✅', t('compra_restaurada'));
+      modernAlert.showSuccess('', t('compra_restaurada'));
     } else {
       modernAlert.showError(t('info'), t('no_compras_previas'));
     }

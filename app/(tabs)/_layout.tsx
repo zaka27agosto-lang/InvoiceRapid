@@ -29,7 +29,6 @@ function TabsContent() {
 
   return (
     <View style={{ flex: 1 }}>
-      <PersistentBanner />
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -74,6 +73,7 @@ function TabsContent() {
         <Tabs.Screen name="nuevo-albaran" options={{ href: null }} />
         <Tabs.Screen name="facturas" options={{ href: null }} />
       </Tabs>
+      <PersistentBanner />
     </View>
   );
 }

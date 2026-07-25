@@ -61,6 +61,7 @@ export default function Ajustes() {
   const [mostrarTemas, setMostrarTemas] = useState(false);
   const [mostrarIdiomas, setMostrarIdiomas] = useState(false);
   const [mostrarNumeracion, setMostrarNumeracion] = useState(false);
+  const [mostrarFormatoFecha, setMostrarFormatoFecha] = useState(false);
   const [numeracionConfig, setNumeracionConfigState] = useState<NumeracionConfig>(DEFAULT_NUMERACION);
   const [comprando, setComprando] = useState(false);
   const [monedaActual, setMonedaActual] = useState<Moneda>(MONEDAS[0]);
@@ -114,7 +115,7 @@ export default function Ajustes() {
     setComprando(false);
     if (result.success) {
       setMostrarPaywall(false);
-      modernAlert.showSuccess('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
+      modernAlert.showSuccess(t('bienvenida_premium'), t('acceso_premium'));
     } else if (!result.cancelled) {
       modernAlert.showError(t('error'), result.error || 'Error al procesar la compra')
     }
@@ -133,7 +134,7 @@ export default function Ajustes() {
           { text: t('confirmar'), onPress: async () => {
             const result = await restaurar();
             if (result.isPremium) {
-              modernAlert.showSuccess('✅', t('compra_restaurada'));
+              modernAlert.showSuccess('', t('compra_restaurada'));
             } else {
               modernAlert.showError(t('info'), t('no_compras_previas'));
             }
@@ -145,7 +146,7 @@ export default function Ajustes() {
     // Usuario ya sabe: restaurar directamente
     const result = await restaurar();
     if (result.isPremium) {
-      modernAlert.showSuccess('✅', t('compra_restaurada'))
+      modernAlert.showSuccess('', t('compra_restaurada'))
     } else {
       modernAlert.showError(t('info'), t('no_compras_previas'));
     }
@@ -153,7 +154,7 @@ export default function Ajustes() {
 
   async function handleGuardarDatos() {
     await setDatosEmpresa(datos);
-    modernAlert.showSuccess('✅', t('datos_guardados'))
+    modernAlert.showSuccess('', t('datos_guardados'))
     setMostrarDatos(false);
   }
 
@@ -310,7 +311,7 @@ export default function Ajustes() {
         }
       }
       if (compartido) {
-        modernAlert.showSuccess('✅', t('datos_exportados'))
+        modernAlert.showSuccess('', t('datos_exportados'))
       }
     } catch {
       modernAlert.showError(t('error'), t('error_exportar_datos'))
@@ -404,7 +405,7 @@ export default function Ajustes() {
     // 1. Intentar con el formulario UMP de Google (disponible en EEE)
     const umpOk = await adsService.showPrivacyOptions();
     if (umpOk) {
-      modernAlert.showSuccess('✅', t('consentimiento_actualizado'));
+      modernAlert.showSuccess('', t('consentimiento_actualizado'));
       return;
     }
 
@@ -415,11 +416,11 @@ export default function Ajustes() {
       buttons: [
         { text: t('consentimiento_no'), style: 'cancel', onPress: async () => {
           await adsService.setConsentManually(false);
-          modernAlert.showSuccess('✅', t('consentimiento_actualizado'));
+          modernAlert.showSuccess('', t('consentimiento_actualizado'));
         }},
         { text: t('consentimiento_si'), onPress: async () => {
           await adsService.setConsentManually(true);
-          modernAlert.showSuccess('✅', t('consentimiento_actualizado'));
+          modernAlert.showSuccess('', t('consentimiento_actualizado'));
         }},
       ]
     });
@@ -512,7 +513,7 @@ export default function Ajustes() {
             const nuevoFormato = formatoFechaActual === 'DD/MM/YYYY' ? 'YYYY-MM-DD' : 'DD/MM/YYYY';
             setFormatoFecha(nuevoFormato);
             setFormatoFechaActual(nuevoFormato);
-            modernAlert.showSuccess('✅', t('formato_fecha_actualizado'))
+            modernAlert.showSuccess('', t('formato_fecha_actualizado'))
           }}>
             <Ionicons name="calendar-outline" size={20} color={currentTheme.colors.primary} />
             <View style={{ flexDirection: 'row', flex: 1 }}>
@@ -645,7 +646,7 @@ export default function Ajustes() {
             <Text style={styles.modalTitulo}>{t('numeracion')}</Text>
             <TouchableOpacity onPress={async () => {
               await setNumeracionConfig(numeracionConfig);
-              modernAlert.showSuccess('✅', t('numeracion_guardada'))
+              modernAlert.showSuccess('', t('numeracion_guardada'))
               setMostrarNumeracion(false);
             }}>
               <Text style={styles.modalGuardar}>{t('guardar')}</Text>
@@ -693,6 +694,56 @@ export default function Ajustes() {
             </View>
             <View style={{ height: 60 }} />
           </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Modal Formato de Fecha */}
+      <Modal visible={mostrarFormatoFecha} animationType="slide" presentationStyle="pageSheet">
+        <View style={styles.modalWrapper}>
+          <View style={styles.modalHeader}>
+            <TouchableOpacity onPress={() => setMostrarFormatoFecha(false)}>
+              <Ionicons name="close" size={26} color="#1a1a1a" />
+            </TouchableOpacity>
+            <Text style={styles.modalTitulo}>{t('formato_fecha')}</Text>
+            <View style={{ width: 40 }} />
+          </View>
+          <View style={{ padding: 20, gap: 12 }}>
+            <Text style={{ fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 8 }}>
+              {t('formato_fecha_desc')}
+            </Text>
+            {(['DD/MM/YYYY', 'YYYY-MM-DD'] as FormatoFecha[]).map((fmt) => {
+              const hoy = new Date();
+              const dia = String(hoy.getDate()).padStart(2, '0');
+              const mes = String(hoy.getMonth() + 1).padStart(2, '0');
+              const ano = hoy.getFullYear();
+              const ejemplo = fmt === 'DD/MM/YYYY' ? dia + '/' + mes + '/' + ano : ano + '-' + mes + '-' + dia;
+              const activo = formatoFechaActual === fmt;
+              return (
+                <TouchableOpacity
+                  key={fmt}
+                  style={[
+                    styles.plantillaItem,
+                    activo && styles.plantillaItemActivo
+                  ]}
+                  onPress={async () => {
+                    await setFormatoFecha(fmt);
+                    setFormatoFechaActual(fmt);
+                    setMostrarFormatoFecha(false);
+                    modernAlert.showSuccess('', t('formato_fecha_actualizado'));
+                  }}
+                >
+                  <View style={styles.plantillaIcono}>
+                    <Ionicons name="calendar-outline" size={22} color={activo ? currentTheme.colors.primary : '#999'} />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.plantillaNombre, activo && styles.plantillaNombreActivo]}>{fmt}</Text>
+                    <Text style={styles.plantillaDescripcion}>{t('ejemplo') + ': ' + ejemplo}</Text>
+                  </View>
+                  {activo && <Ionicons name="checkmark-circle" size={22} color={currentTheme.colors.primary} />}
+                </TouchableOpacity>
+              );
+            })}
+          </View>
         </View>
       </Modal>
 

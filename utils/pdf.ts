@@ -50,11 +50,11 @@ async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean
     <div style="
       position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%) rotate(-35deg);
-      font-size: 72px; font-weight: 900;
+      font-size: 42px; font-weight: 700;
       color: ${color}14;
       white-space: nowrap; pointer-events: none;
-      z-index: 1000; letter-spacing: 8px;
-    ">VERSIÓN GRATUITA</div>
+      z-index: 1000; letter-spacing: 4px;
+    ">InvoiceRapid</div>
   ` : '';
 
   const tienePrecios = items.some((item: any) => Number(item.precio_unitario) > 0);
@@ -235,11 +235,11 @@ async function generarHTMLFactura(factura: any, items: any[], isPremium: boolean
     <div style="
       position: fixed; top: 50%; left: 50%;
       transform: translate(-50%, -50%) rotate(-35deg);
-      font-size: 72px; font-weight: 900;
+      font-size: 42px; font-weight: 700;
       color: ${color}14;
       white-space: nowrap; pointer-events: none;
-      z-index: 1000; letter-spacing: 8px;
-    ">VERSIÓN GRATUITA</div>
+      z-index: 1000; letter-spacing: 4px;
+    ">InvoiceRapid</div>
   ` : '';
 
   const itemsHTML = items.map(item => `

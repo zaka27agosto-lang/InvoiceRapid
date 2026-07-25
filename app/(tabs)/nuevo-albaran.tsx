@@ -281,14 +281,14 @@ export default function NuevoAlbaran() {
   async function handleComprar(pkg: any) {
     setComprando(true);
     const result = await comprar(pkg);
-    setComprando(false);    if (result.success) { setMostrarPaywall(false); modernAlert.showSuccess('✨ ' + t('bienvenida_premium'), t('acceso_premium')); } else if (!result.cancelled) {
+    setComprando(false);    if (result.success) { setMostrarPaywall(false); modernAlert.showSuccess(t('bienvenida_premium'), t('acceso_premium')); } else if (!result.cancelled) {
       Alert.alert(t('error'), result.error || t('error_procesar_compra'));
     }
   }
 
   async function handleRestaurar() {
     const result = await restaurar();
-    if (result.isPremium) modernAlert.showSuccess('✅', t('compra_restaurada'));
+    if (result.isPremium) modernAlert.showSuccess('', t('compra_restaurada'));
     else modernAlert.showError(t('info'), t('no_compras_previas'));
   }
 

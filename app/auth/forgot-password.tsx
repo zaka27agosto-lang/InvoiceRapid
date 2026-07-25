@@ -194,7 +194,7 @@ export default function ForgotPassword() {
       await supabase.auth.signOut();
 
       modernAlert.showAlert({
-        title: '✅',
+        title: '',
         message: t('contraseña_actualizada'),
         buttons: [
           {

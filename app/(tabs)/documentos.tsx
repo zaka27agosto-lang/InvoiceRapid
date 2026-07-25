@@ -121,13 +121,13 @@ export default function Documentos() {
     setComprando(true);
     const result = await comprar(pkg);
     setComprando(false);
-    if (result.success) { setMostrarPaywall(false); modernAlert.showSuccess('✨ ' + t('bienvenida_premium'), t('acceso_premium')); }
+    if (result.success) { setMostrarPaywall(false); modernAlert.showSuccess(t('bienvenida_premium'), t('acceso_premium')); }
     else if (!result.cancelled) { modernAlert.showError(t('error'), result.error || 'Error al procesar la compra'); }
   }
 
   async function handleRestaurar() {
     const result = await restaurar();
-    if (result.isPremium) modernAlert.showSuccess('✅', t('compra_restaurada'));
+    if (result.isPremium) modernAlert.showSuccess('', t('compra_restaurada'));
     else modernAlert.showError(t('info'), t('no_compras_previas'));
   }
 
@@ -259,7 +259,7 @@ export default function Documentos() {
       unidad: item.unidad, precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
     }));
     setMostrarDetalle(false); cargarDatos();
-    modernAlert.showSuccess('✅', t('factura_duplicada'));
+    modernAlert.showSuccess('', t('factura_duplicada'));
   }
 
   function handleEliminarFactura() {
@@ -360,7 +360,7 @@ export default function Documentos() {
       unidad: item.unidad, precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
     }));
     setMostrarDetalleAlbaran(false); cargarDatos();
-    modernAlert.showSuccess('✅', t('albaran_duplicado'));
+    modernAlert.showSuccess('', t('albaran_duplicado'));
   }
 
   function handleEliminarAlbaran() {
@@ -402,7 +402,7 @@ export default function Documentos() {
     setMostrarDetalleAlbaran(false);
     setModo('facturas');
     setFacturas(getFacturas());
-    modernAlert.showSuccess('✅', t('albaran_convertido_factura'));
+    modernAlert.showSuccess('', t('albaran_convertido_factura'));
   }
 
   function estadoLabelAlbaran(estado: string) { return ESTADOS_ALBARANES_LABELS[estado] || estado; }

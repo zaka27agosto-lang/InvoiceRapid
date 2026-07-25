@@ -133,7 +133,7 @@ export default function Profile() {
         data: { name: nuevoNombre.trim() }
       });
       if (error) throw error;
-      modernAlert.showSuccess('✅', t('nombre_actualizado'))
+      modernAlert.showSuccess('', t('nombre_actualizado'))
       setMostrarCambiarNombre(false);
     } catch (err: any) {
       modernAlert.showError(t('error'), err.message || t('error_actualizar_perfil'))
@@ -157,7 +157,7 @@ export default function Profile() {
         password: nuevaPassword
       });
       if (error) throw error;
-      modernAlert.showSuccess('✅', t('password_establecida'))
+      modernAlert.showSuccess('', t('password_establecida'))
       setHasPassword(true); // Ya tiene contraseña → mostrar "Cambiar contraseña"
       setMostrarEstablecerPassword(false);
       setNuevaPassword('');
