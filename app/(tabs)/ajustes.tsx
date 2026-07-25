@@ -509,12 +509,7 @@ export default function Ajustes() {
           </TouchableOpacity>
 
           {/* Formato de fecha */}
-          <TouchableOpacity style={styles.opcionBoton} onPress={() => {
-            const nuevoFormato = formatoFechaActual === 'DD/MM/YYYY' ? 'YYYY-MM-DD' : 'DD/MM/YYYY';
-            setFormatoFecha(nuevoFormato);
-            setFormatoFechaActual(nuevoFormato);
-            modernAlert.showSuccess('', t('formato_fecha_actualizado'))
-          }}>
+          <TouchableOpacity style={styles.opcionBoton} onPress={() => setMostrarFormatoFecha(true)}>
             <Ionicons name="calendar-outline" size={20} color={currentTheme.colors.primary} />
             <View style={{ flexDirection: 'row', flex: 1 }}>
               <Text style={[styles.opcionTexto, { color: currentTheme.colors.text }]}>{t('formato_fecha')}</Text>
@@ -983,7 +978,6 @@ export default function Ajustes() {
             {[
               { icon: 'infinite-outline', texto: t('facturas_ilimitadas') },
               { icon: 'document-text-outline', texto: t('pdf_sin_marca') },
-              { icon: 'image-outline', texto: t('logo_personalizado') },
               { icon: 'color-palette-outline', texto: t('plantillas_premium') },
               { icon: 'ban-outline', texto: t('sin_anuncios') },
             ].map((f, i) => (

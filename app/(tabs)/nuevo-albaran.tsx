@@ -924,7 +924,7 @@ export default function NuevoAlbaran() {
                 <Text style={styles.paywallSub}>{t('premium_sub')}</Text>
               </View>
               <View style={styles.paywallCaracteristicas}>
-                {[t('facturas_ilimitadas'), t('pdf_sin_marca'), t('logo_personalizado'), t('plantillas_premium'), t('sin_anuncios')].map((txt, i) => (
+                {[t('facturas_ilimitadas'), t('pdf_sin_marca'), t('plantillas_premium'), t('sin_anuncios')].map((txt, i) => (
                   <View key={i} style={styles.paywallCaracteristica}>
                     <Ionicons name="checkmark-circle" size={20} color="#26de81" />
                     <Text style={styles.paywallCaracteristicaTexto}>{txt}</Text>

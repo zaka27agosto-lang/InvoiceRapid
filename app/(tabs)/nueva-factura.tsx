@@ -1403,10 +1403,7 @@ export default function NuevaFactura() {
                   <Ionicons name="checkmark-circle" size={20} color="#26de81" />
                   <Text style={styles.paywallCaracteristicaTexto}>{t('pdf_sin_marca')}</Text>
                 </View>
-                <View style={styles.paywallCaracteristica}>
-                  <Ionicons name="checkmark-circle" size={20} color="#26de81" />
-                  <Text style={styles.paywallCaracteristicaTexto}>{t('logo_personalizado')}</Text>
-                </View>
+
                 <View style={styles.paywallCaracteristica}>
                   <Ionicons name="checkmark-circle" size={20} color="#26de81" />
                   <Text style={styles.paywallCaracteristicaTexto}>{t('plantillas_premium')}</Text>

@@ -392,13 +392,13 @@ export default function Inicio() {
       </ScrollView>
 
       <View style={styles.fabContainer}>
-        <TouchableOpacity style={[styles.fabToggle, { backgroundColor: '#FF9F43', shadowColor: '#FF9F43' }]} onPress={() => setModo(esFacturas ? 'albaranes' : 'facturas')}>
-          <Ionicons name={esFacturas ? 'clipboard-outline' : 'document-text-outline'} size={18} color="#fff" />
-          <Text style={styles.fabToggleTexto}>{btnToggleTexto}</Text>
-        </TouchableOpacity>
         <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => router.push(btnCrearRuta as any)}>
           <Ionicons name="add" size={22} color="#fff" />
           <Text style={styles.fabTexto}>{btnCrearTexto}</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={[styles.fabToggle, { backgroundColor: '#FF9F43', shadowColor: '#FF9F43' }]} onPress={() => setModo(esFacturas ? 'albaranes' : 'facturas')}>
+          <Ionicons name={esFacturas ? 'clipboard-outline' : 'document-text-outline'} size={18} color="#fff" />
+          <Text style={styles.fabToggleTexto}>{btnToggleTexto}</Text>
         </TouchableOpacity>
       </View>
       </View>
@@ -453,9 +453,9 @@ const styles = StyleSheet.create({
   emptyState: { alignItems: "center", paddingVertical: 30, marginHorizontal: 20 },
   emptyTexto: { fontSize: 16, fontWeight: "600", color: "#aaa", marginTop: 12 },
   emptySub: { fontSize: 13, color: "#ccc", marginTop: 4 },
-  fab: { borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
-  fabContainer: { position: "absolute", bottom: 24, left: 20, right: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  fabToggle: { borderRadius: 30, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 6, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fab: { borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fabContainer: { position: "absolute", bottom: 24, left: 20, right: 20, flexDirection: "column", gap: 10 },
+  fabToggle: { borderRadius: 30, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
   fabToggleTexto: { color: "#fff", fontWeight: "700", fontSize: 14 },
   fabTexto: { color: "#fff", fontWeight: "700", fontSize: 15 },
   listaFacturas: { marginHorizontal: 20 },

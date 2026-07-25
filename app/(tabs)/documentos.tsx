@@ -744,13 +744,13 @@ export default function Documentos() {
 
       {!modoSeleccion && (
         <View style={styles.fabContainer}>
-          <TouchableOpacity style={[styles.fabToggle, { backgroundColor: '#FF9F43', shadowColor: '#FF9F43' }]} onPress={() => cambiarModo(esFacturas ? 'albaranes' : 'facturas')}>
-            <Ionicons name={esFacturas ? 'clipboard-outline' : 'document-text-outline'} size={18} color="#fff" />
-            <Text style={styles.fabToggleTexto}>{btnToggleTexto}</Text>
-          </TouchableOpacity>
           <TouchableOpacity style={[styles.fab, { backgroundColor: currentTheme.colors.primary, shadowColor: currentTheme.colors.primary }]} onPress={() => router.push(btnCrearRuta as any)}>
             <Ionicons name="add" size={22} color="#fff" />
             <Text style={styles.fabTexto}>{btnCrearTexto}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.fabToggle, { backgroundColor: '#FF9F43', shadowColor: '#FF9F43' }]} onPress={() => cambiarModo(esFacturas ? 'albaranes' : 'facturas')}>
+            <Ionicons name={esFacturas ? 'clipboard-outline' : 'document-text-outline'} size={18} color="#fff" />
+            <Text style={styles.fabToggleTexto}>{btnToggleTexto}</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -976,7 +976,7 @@ export default function Documentos() {
               <View style={styles.paywallIcono}><Ionicons name="rocket" size={36} color={currentTheme.colors.primary} /></View>
               <Text style={styles.paywallTitulo}>{t('premium_titulo')}</Text><Text style={styles.paywallSub}>{t('premium_sub')}</Text>
             </View>
-            {[{ icon: 'infinite-outline', texto: t('facturas_ilimitadas') },{ icon: 'document-text-outline', texto: t('pdf_sin_marca') },{ icon: 'image-outline', texto: t('logo_personalizado') },{ icon: 'color-palette-outline', texto: t('plantillas_premium') },{ icon: 'ban-outline', texto: t('sin_anuncios') }].map((f, i) => (
+            {[{ icon: 'infinite-outline', texto: t('facturas_ilimitadas') },{ icon: 'document-text-outline', texto: t('pdf_sin_marca') },{ icon: 'color-palette-outline', texto: t('plantillas_premium') },{ icon: 'ban-outline', texto: t('sin_anuncios') }].map((f, i) => (
               <View key={i} style={styles.feature}><View style={styles.featureIcono}><Ionicons name={f.icon as any} size={20} color={currentTheme.colors.primary} /></View><Text style={styles.featureTexto}>{f.texto}</Text><Ionicons name="checkmark" size={18} color="#26de81" /></View>
             ))}
             <View style={styles.planesContainer}>
@@ -1104,10 +1104,10 @@ const styles = StyleSheet.create({
   estadoPillRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6, gap: 4 },
   syncBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
   syncBadgeText: { fontSize: 11, fontWeight: '600' },
-  fab: { borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fab: { borderRadius: 30, paddingHorizontal: 22, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
   fabTexto: { color: "#fff", fontWeight: "700", fontSize: 15 },
-  fabContainer: { position: "absolute", bottom: 24, left: 20, right: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  fabToggle: { borderRadius: 30, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center", gap: 6, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
+  fabContainer: { position: "absolute", bottom: 24, left: 20, right: 20, flexDirection: "column", gap: 10 },
+  fabToggle: { borderRadius: 30, paddingHorizontal: 18, paddingVertical: 14, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10 },
   fabToggleTexto: { color: "#fff", fontWeight: "700", fontSize: 14 },
   detalleWrapper: { flex: 1, paddingTop: 20 },
   detalleHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: "#f0f0f0" },

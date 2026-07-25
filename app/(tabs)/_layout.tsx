@@ -72,8 +72,8 @@ function TabsContent() {
         <Tabs.Screen name="nueva-factura" options={{ href: null }} />
         <Tabs.Screen name="nuevo-albaran" options={{ href: null }} />
         <Tabs.Screen name="facturas" options={{ href: null }} />
-      </Tabs>
       <PersistentBanner />
+      </Tabs>
     </View>
   );
 }
