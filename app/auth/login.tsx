@@ -141,7 +141,7 @@ export default function Login() {
       clearTimeout(timeoutId);
 
       if (response.ok) {
-        modernAlert.showError(t('cuenta_restaurada'), t('cuenta_restaurada_desc'));
+        modernAlert.showSuccess(t('cuenta_restaurada'), t('cuenta_restaurada_desc'));
         router.replace('/(tabs)');
         // Forzar recarga de anuncios después de restaurar
         try {
