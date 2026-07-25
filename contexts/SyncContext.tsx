@@ -179,21 +179,29 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       // creados localmente que aún no se sincronizaron.
       // Los métodos pull*Only ya hacen upsert por ID, así que los
       // registros existentes se actualizan y los nuevos se insertan.
+      //
+      // ⚠️ ORDEN IMPORTA: clientes DEBE descargarse antes que facturas y
+      // albaranes porque ambas tablas tienen foreign keys a clientes.
+      // Si se descargan en paralelo con Promise.all, las facturas y
+      // albaranes pueden insertarse antes que sus clientes, provocando
+      // errores silenciosos de FK constraint y pérdida de datos.
       let totalSynced = 0;
       let downloadError = false;
 
       try {
-        const [facturasResult, clientesResult, productosResult, albaranesResult] = await Promise.all([
-          syncService.pullInvoicesOnly(user.id),
-          syncService.pullClientsOnly(user.id),
+        // 1) Productos + Clientes (independientes, pueden ir en paralelo)
+        const [productosResult, clientesResult] = await Promise.all([
           syncService.pullProductsOnly(user.id),
+          syncService.pullClientsOnly(user.id),
+        ]);
+        totalSynced += (productosResult.synced || 0) + (clientesResult.synced || 0);
+
+        // 2) Facturas + Albaranes (dependen de clientes, van después pero en paralelo entre sí)
+        const [facturasResult, albaranesResult] = await Promise.all([
+          syncService.pullInvoicesOnly(user.id),
           syncService.pullAlbaranesOnly(user.id),
         ]);
-        totalSynced =
-          (facturasResult.synced || 0) +
-          (clientesResult.synced || 0) +
-          (productosResult.synced || 0) +
-          (albaranesResult.synced || 0);
+        totalSynced += (facturasResult.synced || 0) + (albaranesResult.synced || 0);
       } catch {
         downloadError = true;
       }
