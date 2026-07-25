@@ -17,6 +17,7 @@ import { useTranslation } from "react-i18next";    import {
         View
     } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { useModernAlert } from "../../components/ModernAlert";
 import { useTheme } from "../../contexts/ThemeContext";
 import { adsService } from "../../services/adsService";
 import { convertirAEurosParaGuardar } from "../../utils/currency";
@@ -49,6 +50,7 @@ export default function NuevaFactura() {
   const { id: facturaId } = useLocalSearchParams<{ id?: string }>();
   const { t } = useTranslation();
   const { isPremium, offerings, comprar, restaurar } = useSubscription();
+  const modernAlert = useModernAlert();
   const { currentTheme } = useTheme();
   const esModoEdicion = !!facturaId;
 
@@ -273,7 +275,7 @@ export default function NuevaFactura() {
   function cargarFactura(id: number) {
     const factura = getFactura(id) as Factura | null;
     if (!factura) {
-      Alert.alert(t('error'), t('factura_no_encontrada'));
+      modernAlert.showError(t('error'), t('factura_no_encontrada'));
       router.back();
       return;
     }
@@ -316,30 +318,30 @@ export default function NuevaFactura() {
     setComprando(false);
     if (result.success) {
       setMostrarPaywall(false);
-      Alert.alert('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
+      modernAlert.showSuccess('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
     } else if (!result.cancelled) {
-      Alert.alert(t('error'), result.error || t('error_procesar_compra'));
+      modernAlert.showError(t('error'), result.error || t('error_procesar_compra'));
     }
   }
 
   async function handleRestaurar() {
     const result = await restaurar();
     if (result.isPremium) {
-      Alert.alert('✅', t('compra_restaurada'));
+      modernAlert.showSuccess('✅', t('compra_restaurada'));
     } else {
-      Alert.alert(t('info'), t('no_compras_previas'));
+      modernAlert.showError(t('info'), t('no_compras_previas'));
     }
   }
 
   async function handleVistaPrevia() {
     if (!clienteSeleccionado) {
-      Alert.alert(t('cliente_requerido'), t('selecciona_cliente'));
+      modernAlert.showError(t('cliente_requerido'), t('selecciona_cliente'));
       return;
     }
 
     const itemsValidos = items.filter(i => i.descripcion.trim() && parseFloat(i.precio) > 0);
     if (itemsValidos.length === 0) {
-      Alert.alert(t('sin_articulos'), t('anadir_articulo_valido'));
+      modernAlert.showError(t('sin_articulos'), t('anadir_articulo_valido'));
       return;
     }
 
@@ -380,7 +382,7 @@ export default function NuevaFactura() {
         setMostrarPreviewPdf(true);
       }
     } catch {
-      Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
+      modernAlert.showError(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
       setGenerandoPreview(false);
     }
@@ -402,13 +404,13 @@ export default function NuevaFactura() {
     }
 
     if (!clienteSeleccionado) {
-      Alert.alert(t('cliente_requerido'), t('selecciona_cliente'));
+      modernAlert.showError(t('cliente_requerido'), t('selecciona_cliente'));
       return;
     }
 
     const itemsValidos = items.filter(i => i.descripcion.trim() && parseFloat(i.precio) > 0);
     if (itemsValidos.length === 0) {
-      Alert.alert(t('sin_articulos'), t('anadir_articulo_valido'));
+      modernAlert.showError(t('sin_articulos'), t('anadir_articulo_valido'));
       return;
     }
 
@@ -510,7 +512,7 @@ export default function NuevaFactura() {
       if (e?.message?.includes('CANCELED') || e?.message?.includes('canceled') || e?.message?.includes('cancelled')) {
         return;
       }
-      Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
+      modernAlert.showError(t('error'), t('no_se_pudo_generar_pdf'));
     } finally {
       setGenerandoPDF(false);
     }
@@ -545,9 +547,9 @@ export default function NuevaFactura() {
             if (rewarded) {
               await incrementRewardedAdCount();
               setPendingRewardedSave(true);
-              Alert.alert(t('recompensa_recibida'), t('puedes_guardar_factura'), [
+              modernAlert.showAlert({ title: t('recompensa_recibida'), message: t('puedes_guardar_factura'), buttons: [
                 { text: t('guardar'), onPress: () => guardarFactura() }
-              ]);
+              ] });
             } else {
               // Mostrar mensaje específico según el tipo de error
               const errorType = adsService.lastRewardedError;
@@ -574,7 +576,7 @@ export default function NuevaFactura() {
 
       const diasRest = getDiasRestantesMes();
       const mensajeLimite = t('limite_desc') + '\n\n' + t('se_renueva_en', { dias: diasRest });
-      Alert.alert(t('limite_alcanzado'), mensajeLimite, buttons);
+      modernAlert.showAlert({ title: t('limite_alcanzado'), message: mensajeLimite, buttons: buttons });
       return;
     }
 
@@ -599,14 +601,14 @@ export default function NuevaFactura() {
 
     if (!clienteSeleccionado) {
       savingRef.current = false;
-      Alert.alert(t('cliente_requerido'), t('selecciona_cliente'));
+      modernAlert.showError(t('cliente_requerido'), t('selecciona_cliente'));
       return;
     }
 
     const itemsValidos = items.filter(i => i.descripcion.trim() && parseFloat(i.precio) > 0);
     if (itemsValidos.length === 0) {
       savingRef.current = false;
-      Alert.alert(t('sin_articulos'), t('anadir_articulo_valido'));
+      modernAlert.showError(t('sin_articulos'), t('anadir_articulo_valido'));
       return;
     }
 
@@ -786,7 +788,7 @@ export default function NuevaFactura() {
       }
     } catch (e: any) {
       savingRef.current = false;
-      Alert.alert(t('error'), `${t('error_guardar')}: ${e?.message || ''}`);
+      modernAlert.showError(t('error'), `${t('error_guardar')}: ${e?.message || ''}`);
       return;
     }
   }
@@ -806,16 +808,16 @@ export default function NuevaFactura() {
 
   function handleSalir() {
     if (!hayCambiosSinGuardar()) {
-      Alert.alert(t('salir_factura_titulo'), t('seguro_salir_factura'), [
+      modernAlert.showAlert({ title: t('salir_factura_titulo'), message: t('seguro_salir_factura'), buttons: [
         { text: t('cancelar'), style: 'cancel' },
         { text: t('salir'), onPress: () => { closingRef.current = true; router.back(); } }
-      ]);
+      ] });
       return;
     }
-    Alert.alert('', t('confirmar_salir_factura_cambios'), [
+    modernAlert.showAlert({ title: '', message: t('confirmar_salir_factura_cambios'), buttons: [
       { text: t('cancelar'), style: 'cancel' },
       { text: t('salir'), onPress: () => { closingRef.current = true; router.back(); } }
-    ]);
+    ] });
   }
 
   return (

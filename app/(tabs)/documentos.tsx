@@ -16,6 +16,7 @@ import {
     View
 } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { useModernAlert } from "../../components/ModernAlert";
 import { useTheme } from "../../contexts/ThemeContext";
 import SwipeNavigation from "../../components/SwipeNavigation";
 import { convertirDeEurosParaMostrar } from "../../utils/currency";
@@ -86,6 +87,7 @@ export default function Documentos() {
   const router = useRouter();
   const { lastSync } = useSync();
   const { isPremium, offerings, comprar, restaurar } = useSubscription();
+  const modernAlert = useModernAlert();
 
   const estadosActuales = modo === 'facturas' ? ESTADOS_FACTURAS : ESTADOS_ALBARANES;
   const formatearFechaSync = (fecha: string | Date) => {
@@ -119,14 +121,14 @@ export default function Documentos() {
     setComprando(true);
     const result = await comprar(pkg);
     setComprando(false);
-    if (result.success) { setMostrarPaywall(false); Alert.alert('✨ ' + t('bienvenida_premium'), t('acceso_premium')); }
-    else if (!result.cancelled) { Alert.alert(t('error'), result.error || 'Error al procesar la compra'); }
+    if (result.success) { setMostrarPaywall(false); modernAlert.showSuccess('✨ ' + t('bienvenida_premium'), t('acceso_premium')); }
+    else if (!result.cancelled) { modernAlert.showError(t('error'), result.error || 'Error al procesar la compra'); }
   }
 
   async function handleRestaurar() {
     const result = await restaurar();
-    if (result.isPremium) Alert.alert('✅', t('compra_restaurada'));
-    else Alert.alert(t('info'), t('no_compras_previas'));
+    if (result.isPremium) modernAlert.showSuccess('✅', t('compra_restaurada'));
+    else modernAlert.showError(t('info'), t('no_compras_previas'));
   }
 
   useFocusEffect(useCallback(() => {
@@ -226,16 +228,19 @@ export default function Documentos() {
         precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
       }));
       await generarYCompartirPDF(facturaDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
-    } catch (e) { Alert.alert(t('error'), t('no_se_pudo_generar_pdf')); }
+    } catch (e) { modernAlert.showError(t('error'), t('no_se_pudo_generar_pdf')); }
     finally { setGenerandoPDF(false); }
   }
 
   function handleCambiarEstadoFactura(estado: string) {
     if (!facturaDetalle) return;
-    Alert.alert(t('cambiar_estado'), t('confirmar_cambio_estado', { estado: estadoLabelFactura(estado) }), [
+    modernAlert.showAlert({
+      title: t('cambiar_estado'),
+      message: t('confirmar_cambio_estado', { estado: estadoLabelFactura(estado) }),
+      buttons: [
       { text: t('cancelar'), style: "cancel" },
       { text: t('confirmar'), onPress: () => { updateEstadoFactura(facturaDetalle.id, estado); setFacturaDetalle({ ...facturaDetalle, estado }); cargarDatos(); } }
-    ]);
+    ] });
   }
 
   function handleDuplicarFactura() {
@@ -254,18 +259,21 @@ export default function Documentos() {
       unidad: item.unidad, precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
     }));
     setMostrarDetalle(false); cargarDatos();
-    Alert.alert('✅', t('factura_duplicada'));
+    modernAlert.showSuccess('✅', t('factura_duplicada'));
   }
 
   function handleEliminarFactura() {
-    Alert.alert(t('eliminar_factura'), t('confirmar_eliminar_factura'), [
+    modernAlert.showAlert({
+      title: t('eliminar_factura'),
+      message: t('confirmar_eliminar_factura'),
+      buttons: [
       { text: t('cancelar'), style: "cancel" },
       { text: t('eliminar'), style: "destructive", onPress: () => {
         deleteFactura(facturaDetalle.id);
         syncService.deleteInvoiceFromCloud(facturaDetalle.id).catch(() => {});
         setMostrarDetalle(false); cargarDatos();
       }}
-    ]);
+    ] });
   }
 
   function estadoLabelFactura(estado: string) { return ESTADOS_FACTURAS_LABELS[estado] || estado; }
@@ -284,7 +292,7 @@ export default function Documentos() {
       }));
       const uri = await generarPDFPreview(facturaDetalleConvertida || facturaDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary);
       if (uri) { setPreviewUri(uri); setMostrarPreviewPdf(true); }
-    } catch { Alert.alert(t('error'), t('no_se_pudo_generar_pdf')); }
+    } catch { modernAlert.showError(t('error'), t('no_se_pudo_generar_pdf')); }
     finally { setGenerandoPreview(false); }
   }
 
@@ -320,16 +328,19 @@ export default function Documentos() {
         precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
       }));
       await generarYCompartirPDFAlbaran(albaranDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary, albaranDetalle.firma_data);
-    } catch (e) { Alert.alert(t('error'), t('no_se_pudo_generar_pdf')); }
+    } catch (e) { modernAlert.showError(t('error'), t('no_se_pudo_generar_pdf')); }
     finally { setGenerandoPDF(false); }
   }
 
   function handleCambiarEstadoAlbaran(estado: string) {
     if (!albaranDetalle) return;
-    Alert.alert(t('cambiar_estado'), t('confirmar_cambio_estado_albaran', { estado: estadoLabelAlbaran(estado) }), [
+    modernAlert.showAlert({
+      title: t('cambiar_estado'),
+      message: t('confirmar_cambio_estado_albaran', { estado: estadoLabelAlbaran(estado) }),
+      buttons: [
       { text: t('cancelar'), style: "cancel" },
       { text: t('confirmar'), onPress: () => { updateEstadoAlbaran(albaranDetalle.id, estado); setAlbaranDetalle({ ...albaranDetalle, estado }); cargarDatos(); } }
-    ]);
+    ] });
   }
 
   function handleDuplicarAlbaran() {
@@ -349,18 +360,21 @@ export default function Documentos() {
       unidad: item.unidad, precio_unitario: item.precio_unitario, descuento: item.descuento, subtotal: item.subtotal,
     }));
     setMostrarDetalleAlbaran(false); cargarDatos();
-    Alert.alert('✅', t('albaran_duplicado'));
+    modernAlert.showSuccess('✅', t('albaran_duplicado'));
   }
 
   function handleEliminarAlbaran() {
-    Alert.alert(t('eliminar_albaran'), t('confirmar_eliminar_albaran'), [
+    modernAlert.showAlert({
+      title: t('eliminar_albaran'),
+      message: t('confirmar_eliminar_albaran'),
+      buttons: [
       { text: t('cancelar'), style: "cancel" },
       { text: t('eliminar'), style: "destructive", onPress: () => {
         deleteAlbaran(albaranDetalle.id);
         syncService.deleteAlbaranFromCloud(albaranDetalle.id).catch(() => {});
         setMostrarDetalleAlbaran(false); cargarDatos();
       }}
-    ]);
+    ] });
   }
 
   async function handleConvertirAFactura() {
@@ -383,12 +397,12 @@ export default function Documentos() {
       if (!isPremium) await incrementInvoiceCounter();
     } catch (e: any) {
       // El documento ya está creado; mostramos error pero seguimos
-      Alert.alert(t('error'), e?.message || t('error_guardar'));
+      modernAlert.showError(t('error'), e?.message || t('error_guardar'));
     }
     setMostrarDetalleAlbaran(false);
     setModo('facturas');
     setFacturas(getFacturas());
-    Alert.alert('✅', t('albaran_convertido_factura'));
+    modernAlert.showSuccess('✅', t('albaran_convertido_factura'));
   }
 
   function estadoLabelAlbaran(estado: string) { return ESTADOS_ALBARANES_LABELS[estado] || estado; }
@@ -407,7 +421,7 @@ export default function Documentos() {
       }));
       const uri2 = await generarPDFPreviewAlbaran(albaranDetalleConvertida || albaranDetalle, itemsConCalculos, isPremium, plantilla, simboloMoneda, currentTheme.colors.primary, albaranDetalle.firma_data);
       if (uri2) { setPreviewUri(uri2); setMostrarPreviewPdf(true); }
-    } catch { Alert.alert(t('error'), t('no_se_pudo_generar_pdf')); }
+    } catch { modernAlert.showError(t('error'), t('no_se_pudo_generar_pdf')); }
     finally { setGenerandoPreview(false); }
   }
 
@@ -426,10 +440,10 @@ export default function Documentos() {
   function handleEliminarSeleccionadas() {
     const count = seleccionados.size;
     if (count === 0) return;
-    Alert.alert(
-      modo === 'facturas' ? t('eliminar_factura') : t('eliminar_albaran'),
-      modo === 'facturas' ? t('eliminar_varias_confirm', { count }) : t('eliminar_varios_albaranes_confirm', { count }),
-      [
+    modernAlert.showAlert({
+      title: modo === 'facturas' ? t('eliminar_factura') : t('eliminar_albaran'),
+      message: modo === 'facturas' ? t('eliminar_varias_confirm', { count }) : t('eliminar_varios_albaranes_confirm', { count }),
+      buttons: [
         { text: t('cancelar'), style: "cancel" },
         { text: t('eliminar'), style: "destructive", onPress: () => {
           seleccionados.forEach(id => {
@@ -440,7 +454,7 @@ export default function Documentos() {
           desactivarModoSeleccion(); cargarDatos();
         }}
       ]
-    );
+    });
   }
 
   // ──────── SYNC STATUS ────────
