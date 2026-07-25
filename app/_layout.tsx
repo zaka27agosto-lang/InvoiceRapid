@@ -6,6 +6,7 @@ import { useEffect, useRef } from 'react';
 import { AuthProvider, useAuth } from "../contexts/AuthContext";
 import { SyncProvider } from "../contexts/SyncContext";
 import { ThemeProvider } from "../contexts/ThemeContext";
+import { ModernAlertProvider } from "../components/ModernAlert";
 import '../utils/i18n';
 import { cargarIdioma } from '../utils/i18n';
 import { initDB } from "./db/database";
@@ -135,7 +136,9 @@ export default function RootLayout() {
       <AuthProvider>
         <SyncProvider>
           <ThemeProvider>
+            <ModernAlertProvider>
             <RootNavigator />
+            </ModernAlertProvider>
           </ThemeProvider>
         </SyncProvider>
       </AuthProvider>

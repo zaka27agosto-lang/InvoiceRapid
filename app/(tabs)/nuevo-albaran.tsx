@@ -18,6 +18,7 @@ import {
     View
 } from "react-native";
 import { useSubscription } from "../../contexts/SubscriptionContext";
+import { useModernAlert } from "../../components/ModernAlert";
 import { useTheme } from "../../contexts/ThemeContext";
 import { adsService } from "../../services/adsService";
 import { convertirAEurosParaGuardar } from "../../utils/currency";
@@ -49,6 +50,7 @@ export default function NuevoAlbaran() {
   const { id: albaranId } = useLocalSearchParams<{ id?: string }>();
   const { t } = useTranslation();
   const { isPremium, offerings, comprar, restaurar } = useSubscription();
+  const modernAlert = useModernAlert();
   const { currentTheme } = useTheme();
   const esModoEdicion = !!albaranId;
 
@@ -279,25 +281,21 @@ export default function NuevoAlbaran() {
   async function handleComprar(pkg: any) {
     setComprando(true);
     const result = await comprar(pkg);
-    setComprando(false);
-    if (result.success) {
-      setMostrarPaywall(false);
-      Alert.alert('✨ ' + t('bienvenida_premium'), t('acceso_premium'));
-    } else if (!result.cancelled) {
+    setComprando(false);    if (result.success) { setMostrarPaywall(false); modernAlert.showSuccess('✨ ' + t('bienvenida_premium'), t('acceso_premium')); } else if (!result.cancelled) {
       Alert.alert(t('error'), result.error || t('error_procesar_compra'));
     }
   }
 
   async function handleRestaurar() {
     const result = await restaurar();
-    if (result.isPremium) Alert.alert('✅', t('compra_restaurada'));
-    else Alert.alert(t('info'), t('no_compras_previas'));
+    if (result.isPremium) modernAlert.showSuccess('✅', t('compra_restaurada'));
+    else modernAlert.showError(t('info'), t('no_compras_previas'));
   }
 
   async function handleVistaPrevia() {
-    if (!clienteSeleccionado) { Alert.alert(t('cliente_requerido'), t('selecciona_cliente')); return; }
+      if (!clienteSeleccionado) { modernAlert.showError(t('cliente_requerido'), t('selecciona_cliente')); return; }
     const itemsValidos = items.filter(i => i.descripcion.trim());
-    if (itemsValidos.length === 0) { Alert.alert(t('sin_articulos'), t('anadirArticuloValidoAlbaran')); return; }
+      if (itemsValidos.length === 0) { modernAlert.showError(t('sin_articulos'), t('anadirArticuloValidoAlbaran')); return; }
 
     setGenerandoPreview(true);
     try {
@@ -325,9 +323,9 @@ export default function NuevoAlbaran() {
   }
 
   async function handleExportarPDF() {
-    if (!clienteSeleccionado) { Alert.alert(t('cliente_requerido'), t('selecciona_cliente')); return; }
+      if (!clienteSeleccionado) { modernAlert.showError(t('cliente_requerido'), t('selecciona_cliente')); return; }
     const itemsValidos = items.filter(i => i.descripcion.trim());
-    if (itemsValidos.length === 0) { Alert.alert(t('sin_articulos'), t('anadirArticuloValidoAlbaran')); return; }
+      if (itemsValidos.length === 0) { modernAlert.showError(t('sin_articulos'), t('anadirArticuloValidoAlbaran')); return; }
 
     setGenerandoPDF(true);
     try {

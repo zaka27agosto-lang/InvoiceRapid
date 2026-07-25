@@ -139,7 +139,11 @@ export function SignaturePad({ onSignatureChange, onDrawStart, onDrawEnd, primar
 
   return (
     <View style={styles.container}>
-      <View style={[styles.canvasContainer, { width, height, borderColor: primaryColor }]}>
+      <View
+        style={[styles.canvasContainer, { width, height, borderColor: primaryColor }]}
+        onStartShouldSetResponder={() => true}
+        onMoveShouldSetResponder={() => true}
+        onResponderTerminationRequest={() => false}>
         {loading && !error && (
           <View style={styles.loadingOverlay}>
             <ActivityIndicator size="small" color={primaryColor} />
@@ -154,6 +158,7 @@ export function SignaturePad({ onSignatureChange, onDrawStart, onDrawEnd, primar
             </TouchableOpacity>
           </View>
         ) : (
+        <View style={{ flex: 1 }} pointerEvents="box-none">
         <WebView
           ref={webViewRef}
           source={{ html: SIGNATURE_HTML }}
@@ -169,7 +174,10 @@ export function SignaturePad({ onSignatureChange, onDrawStart, onDrawEnd, primar
           overScrollMode="never"
           showsVerticalScrollIndicator={false}
           showsHorizontalScrollIndicator={false}
+          setDisplayZoomControls={false}
+          nestedScrollEnabled={false}
         />
+        </View>
         )}
       </View>
       {signatureData ? (
