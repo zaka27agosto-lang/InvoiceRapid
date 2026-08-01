@@ -1092,7 +1092,7 @@ const styles = StyleSheet.create({
   filtroImporteRow: { flexDirection: "row", alignItems: "center", marginBottom: 12 },
   filtroImporteInputLabel: { fontSize: 14, fontWeight: "600", width: 70 },
   filtroImporteInput: { flex: 1, fontSize: 15, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 14, borderWidth: 1.5, borderColor: "#e8e8e8" },
-  emptyState: { flex: 1, justifyContent: "center", alignItems: "center", paddingBottom: 100 },
+  emptyState: { flex: 1, justifyContent: "center", alignItems: "center", paddingBottom: 140 },
   emptyTexto: { fontSize: 18, fontWeight: "600", marginTop: 16 },
   emptySub: { fontSize: 14, marginTop: 6, textAlign: "center" },
   facturaCard: { borderRadius: 16, marginBottom: 12, flexDirection: "row", overflow: "hidden", shadowColor: "#000", shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4 },

@@ -113,8 +113,6 @@ export default function NuevoAlbaran() {
   const scrollRef = useRef<ScrollView>(null);
   const savingRef = useRef(false);
   const closingRef = useRef(false);
-  const draftRef = useRef<any>(null);
-  const isFirstFocusRef = useRef(true);
 
   useEffect(() => {
     getMoneda().then(m => {
@@ -141,7 +139,6 @@ export default function NuevoAlbaran() {
       }
     });
     formGuard.hasUnsaved = !esModoEdicion && hayCambiosSinGuardar();
-    formGuard.setT(t);
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       if (savingRef.current || closingRef.current) return;
       if (mostrarClientes || mostrarProductos || mostrarUnidades || mostrarPaywall) return;
@@ -156,16 +153,7 @@ export default function NuevoAlbaran() {
         ]
       );
     });
-    // Guardar borrador al perder foco (cambio de tab o navegación)
-    const blurUnsubscribe = navigation.addListener('blur', () => {
-      if (!albaranId && hayCambiosSinGuardar()) {
-        draftRef.current = {
-          clienteSeleccionado, items, notas, fechaVencimiento,
-          fechaEmision, direccionEntrega, firmaData, numeroAlbaran,
-        };
-      }
-    });
-    return () => { unsubscribe(); blurUnsubscribe(); formGuard.hasUnsaved = false; };
+    return () => { unsubscribe(); formGuard.hasUnsaved = false; };
   }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas, firmaData, fechaVencimiento, fechaEmision, direccionEntrega, numeroAlbaran, albaranId]);
 
   useFocusEffect(
@@ -193,23 +181,8 @@ export default function NuevoAlbaran() {
 
       function handleFocus(cfg: { prefijo: string; sufijo: string; digitos: number }) {
         if (!albaranId) {
-          // Restaurar borrador si existe (al volver de otra tab)
-          if (!isFirstFocusRef.current && draftRef.current) {
-            const d = draftRef.current;
-            setNumeroAlbaran(d.numeroAlbaran || getNextNumeroAlbaran(cfg));
-            setClienteSeleccionado(d.clienteSeleccionado);
-            setItems(d.items);
-            setNotas(d.notas);
-            setFechaVencimiento(d.fechaVencimiento);
-            setFechaEmision(d.fechaEmision);
-            setDireccionEntrega(d.direccionEntrega);
-            setFirmaData(d.firmaData);
-            draftRef.current = null;
-          } else {
-            setNumeroAlbaran(getNextNumeroAlbaran(cfg));
-            reiniciarFormulario();
-          }
-          isFirstFocusRef.current = false;
+          setNumeroAlbaran(getNextNumeroAlbaran(cfg));
+          reiniciarFormulario();
         } else {
           cargarAlbaran(parseInt(albaranId));
         }
@@ -421,7 +394,6 @@ export default function NuevoAlbaran() {
       await adsService.incrementAction(isPremium);
       // Contar como factura del mes (exportar PDF también cuenta)
       if (!isPremium) await incrementInvoiceCounter();
-        draftRef.current = null;
         formGuard.hasUnsaved = false;
         savingRef.current = true;
         router.back();
@@ -476,7 +448,6 @@ export default function NuevoAlbaran() {
           setNumeracionAlbaranConfig(patronAlb);
         }
 
-        draftRef.current = null;
         formGuard.hasUnsaved = false;
         router.back();
       } else {
@@ -509,7 +480,6 @@ export default function NuevoAlbaran() {
           setNumeracionAlbaranConfig(patronAlb2);
         }
 
-        draftRef.current = null;
         formGuard.hasUnsaved = false;
         router.back();
       }

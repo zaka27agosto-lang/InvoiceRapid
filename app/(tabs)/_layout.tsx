@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import BannerAdComponent from "../../components/BannerAdComponent";
+import { useModernAlert } from "../../components/ModernAlert";
 import { SubscriptionProvider, useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getExchangeRates } from "../../utils/currency";
@@ -22,20 +23,24 @@ function TabsContent() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
   const insets = useSafeAreaInsets();
-  const pendingTabRef = useRef<string | null>(null);
+  const modernAlert = useModernAlert();
 
-  // Listener que bloquea el cambio de tab si hay cambios sin guardar en un formulario
-  const makeTabPressListener = (navigation: any) => ({
+  // Listener que bloquea el cambio de tab si hay cambios sin guardar en un formulario.
+  // Ahora usa ModernAlert (mismo estilo que el botón X) en vez de Alert.alert nativo.
+  const makeTabPressListener = (navigation: any, routeName: string) => ({
     tabPress: (e: any) => {
       if (formGuard.hasUnsaved) {
         e.preventDefault();
-        const target = e.target;
-        formGuard.showConfirm(() => {
-          formGuard.hasUnsaved = false;
-          if (target) {
-            navigation.navigate(target);
-          }
-        });
+        modernAlert.showConfirm(
+          '',
+          t('confirmar_salir_factura_cambios'),
+          () => {
+            formGuard.hasUnsaved = false;
+            navigation.navigate(routeName);
+          },
+          t('salir'),
+          t('cancelar')
+        );
       }
     },
   });
@@ -67,27 +72,27 @@ function TabsContent() {
         <Tabs.Screen name="index" options={{
           tabBarLabel: t('inicio'),
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
-        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation, 'index')} />
         <Tabs.Screen name="documentos" options={{
           tabBarLabel: t('documentos'),
           tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />,
-        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation, 'documentos')} />
         <Tabs.Screen name="clientes" options={{
           tabBarLabel: t('clientes'),
           tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
-        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation, 'clientes')} />
         <Tabs.Screen name="productos" options={{
           tabBarLabel: t('productos'),
           tabBarIcon: ({ color, size }) => <Ionicons name="pricetag-outline" size={size} color={color} />,
-        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation, 'productos')} />
         <Tabs.Screen name="informes" options={{
           tabBarLabel: t('informes'),
           tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
-        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation, 'informes')} />
         <Tabs.Screen name="ajustes" options={{
           tabBarLabel: t('ajustes'),
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
-        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation, 'ajustes')} />
         <Tabs.Screen name="nueva-factura" options={{ href: null }} />
         <Tabs.Screen name="nuevo-albaran" options={{ href: null }} />
         <Tabs.Screen name="facturas" options={{ href: null }} />

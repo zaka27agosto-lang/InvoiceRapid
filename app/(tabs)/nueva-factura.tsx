@@ -116,8 +116,6 @@ export default function NuevaFactura() {
   const scrollRef = useRef<ScrollView>(null);
   const savingRef = useRef(false);
   const closingRef = useRef(false);
-  const draftRef = useRef<any>(null);
-  const isFirstFocusRef = useRef(true);
 
   useEffect(() => {
     getMoneda().then(m => {
@@ -160,21 +158,10 @@ export default function NuevaFactura() {
         ]
       );
     });
-    // Guardar borrador al perder foco (cambio de tab o navegación)
-    const blurUnsubscribe = navigation.addListener('blur', () => {
-      if (!facturaId && hayCambiosSinGuardar()) {
-        draftRef.current = {
-          clienteSeleccionado, items, notas, ivaPorcentaje, irpfPorcentaje,
-          metodoPago, fechaVencimiento, fechaEmision, numeroFactura,
-        };
-      }
-    });
 
-    // Actualizar el guardia de tabs: avisar al layout si hay cambios sin guardar
     formGuard.hasUnsaved = !esModoEdicion && hayCambiosSinGuardar();
-    formGuard.setT(t);
 
-    return () => { unsubscribe(); blurUnsubscribe(); formGuard.hasUnsaved = false; };
+    return () => { unsubscribe(); formGuard.hasUnsaved = false; };
   }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas, ivaPorcentaje, irpfPorcentaje, metodoPago, fechaVencimiento, fechaEmision, numeroFactura, facturaId]);
 
   useFocusEffect(
@@ -199,24 +186,8 @@ export default function NuevaFactura() {
       if (facturaId) {
         cargarFactura(parseInt(facturaId));
       } else {
-        // Restaurar borrador si existe (al volver de otra tab)
-        if (!isFirstFocusRef.current && draftRef.current) {
-          const d = draftRef.current;
-          setNumeroFactura(d.numeroFactura || getNextNumeroFactura(cfg));
-          setClienteSeleccionado(d.clienteSeleccionado);
-          setItems(d.items);
-          setNotas(d.notas);
-          setIvaPorcentaje(d.ivaPorcentaje);
-          setIrpfPorcentaje(d.irpfPorcentaje);
-          setMetodoPago(d.metodoPago);
-          setFechaVencimiento(d.fechaVencimiento);
-          setFechaEmision(d.fechaEmision);
-          draftRef.current = null;
-        } else {
-          setNumeroFactura(getNextNumeroFactura(cfg));
-          reiniciarFormulario();
-        }
-        isFirstFocusRef.current = false;
+        setNumeroFactura(getNextNumeroFactura(cfg));
+        reiniciarFormulario();
       }
     });
     }, [facturaId, isPremium])
@@ -701,7 +672,6 @@ export default function NuevaFactura() {
             setNumeracionConfigState(patron);
           }
 
-          draftRef.current = null;
           router.back();
           return;
         } else {
@@ -759,7 +729,6 @@ export default function NuevaFactura() {
             setNumeracionConfigState(patron2);
           }
 
-          draftRef.current = null;
           router.back();
           return;
         }
@@ -817,7 +786,6 @@ export default function NuevaFactura() {
           setNumeracionConfigState(patron3);
         }
 
-        draftRef.current = null;
         router.back();
       }
     } catch (e: any) {
