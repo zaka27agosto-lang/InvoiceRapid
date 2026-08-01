@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { Tabs } from "expo-router";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -8,6 +8,7 @@ import BannerAdComponent from "../../components/BannerAdComponent";
 import { SubscriptionProvider, useSubscription } from "../../contexts/SubscriptionContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import { getExchangeRates } from "../../utils/currency";
+import { formGuard } from "../../utils/formGuard";
 
 /** Banner persistente que sobrevive a cambios de pestaña.
  *  SIN key=isPremium: mantener el componente montado evita que el
@@ -21,6 +22,23 @@ function TabsContent() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
   const insets = useSafeAreaInsets();
+  const pendingTabRef = useRef<string | null>(null);
+
+  // Listener que bloquea el cambio de tab si hay cambios sin guardar en un formulario
+  const makeTabPressListener = (navigation: any) => ({
+    tabPress: (e: any) => {
+      if (formGuard.hasUnsaved) {
+        e.preventDefault();
+        const target = e.target;
+        formGuard.showConfirm(() => {
+          formGuard.hasUnsaved = false;
+          if (target) {
+            navigation.navigate(target);
+          }
+        });
+      }
+    },
+  });
 
   useEffect(() => {
     // Actualizar tipos de cambio al abrir la app
@@ -29,6 +47,7 @@ function TabsContent() {
 
   return (
     <View style={{ flex: 1 }}>
+      <PersistentBanner />
       <Tabs
         screenOptions={{
           headerShown: false,
@@ -48,31 +67,30 @@ function TabsContent() {
         <Tabs.Screen name="index" options={{
           tabBarLabel: t('inicio'),
           tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" size={size} color={color} />,
-        }} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
         <Tabs.Screen name="documentos" options={{
           tabBarLabel: t('documentos'),
           tabBarIcon: ({ color, size }) => <Ionicons name="document-text-outline" size={size} color={color} />,
-        }} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
         <Tabs.Screen name="clientes" options={{
           tabBarLabel: t('clientes'),
           tabBarIcon: ({ color, size }) => <Ionicons name="people-outline" size={size} color={color} />,
-        }} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
         <Tabs.Screen name="productos" options={{
           tabBarLabel: t('productos'),
           tabBarIcon: ({ color, size }) => <Ionicons name="pricetag-outline" size={size} color={color} />,
-        }} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
         <Tabs.Screen name="informes" options={{
           tabBarLabel: t('informes'),
           tabBarIcon: ({ color, size }) => <Ionicons name="bar-chart-outline" size={size} color={color} />,
-        }} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
         <Tabs.Screen name="ajustes" options={{
           tabBarLabel: t('ajustes'),
           tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" size={size} color={color} />,
-        }} />
+        }} listeners={({ navigation }) => makeTabPressListener(navigation)} />
         <Tabs.Screen name="nueva-factura" options={{ href: null }} />
         <Tabs.Screen name="nuevo-albaran" options={{ href: null }} />
         <Tabs.Screen name="facturas" options={{ href: null }} />
-      <PersistentBanner />
       </Tabs>
     </View>
   );

@@ -31,6 +31,7 @@ import { getClientes } from "../db/clientes";
 import { deleteAlbaranItems, getAlbaran, getAlbaranItems, getNextNumeroAlbaran, insertAlbaran, insertAlbaranItem, updateAlbaran } from "../db/albaranes";
 import { getProductos } from "../db/productos";
 import { incrementInvoiceCounter } from "../../utils/subscription";
+import { formGuard } from "../../utils/formGuard";
 
 type Item = {
   id: string;
@@ -78,7 +79,6 @@ export default function NuevoAlbaran() {
   const [mostrarDatePickerEmision, setMostrarDatePickerEmision] = useState(false);
   const [direccionEntrega, setDireccionEntrega] = useState("");
   const [firmaData, setFirmaData] = useState<string | null>(null);
-  const [scrollEnabled, setScrollEnabled] = useState(true);
   const [simboloMoneda, setSimboloMoneda] = useState("€");
   const [codigoMoneda, setCodigoMoneda] = useState("EUR");
   const [unidades, setUnidades] = useState<string[]>(UNIDADES_BASE);
@@ -113,6 +113,8 @@ export default function NuevoAlbaran() {
   const scrollRef = useRef<ScrollView>(null);
   const savingRef = useRef(false);
   const closingRef = useRef(false);
+  const draftRef = useRef<any>(null);
+  const isFirstFocusRef = useRef(true);
 
   useEffect(() => {
     getMoneda().then(m => {
@@ -138,6 +140,8 @@ export default function NuevoAlbaran() {
         } catch {}
       }
     });
+    formGuard.hasUnsaved = !esModoEdicion && hayCambiosSinGuardar();
+    formGuard.setT(t);
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
       if (savingRef.current || closingRef.current) return;
       if (mostrarClientes || mostrarProductos || mostrarUnidades || mostrarPaywall) return;
@@ -152,8 +156,17 @@ export default function NuevoAlbaran() {
         ]
       );
     });
-    return unsubscribe;
-  }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas, firmaData, fechaVencimiento]);
+    // Guardar borrador al perder foco (cambio de tab o navegación)
+    const blurUnsubscribe = navigation.addListener('blur', () => {
+      if (!albaranId && hayCambiosSinGuardar()) {
+        draftRef.current = {
+          clienteSeleccionado, items, notas, fechaVencimiento,
+          fechaEmision, direccionEntrega, firmaData, numeroAlbaran,
+        };
+      }
+    });
+    return () => { unsubscribe(); blurUnsubscribe(); formGuard.hasUnsaved = false; };
+  }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas, firmaData, fechaVencimiento, fechaEmision, direccionEntrega, numeroAlbaran, albaranId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -165,27 +178,42 @@ export default function NuevoAlbaran() {
       });
       // Cargar config de albaranes (independiente de facturas)
       getNumeracionAlbaranConfig().then(cfgAlb => {
-        if (cfgAlb) {
-          setNumeracionConfigState(cfgAlb);
-          if (!albaranId) {
-            setNumeroAlbaran(getNextNumeroAlbaran(cfgAlb));
-            reiniciarFormulario();
-          } else {
-            cargarAlbaran(parseInt(albaranId));
-          }
-        } else {
-          getNumeracionConfig().then(cfg => {
-            const albCfg = { prefijo: 'A-', sufijo: cfg.sufijo, digitos: cfg.digitos };
+        const cfg = cfgAlb || { prefijo: 'A-' as const, sufijo: '', digitos: 4 };
+        if (!cfgAlb) {
+          getNumeracionConfig().then(factCfg => {
+            const albCfg = { prefijo: 'A-', sufijo: factCfg.sufijo, digitos: factCfg.digitos };
             setNumeracionConfigState(albCfg);
-            if (!albaranId) {
-              setNumeroAlbaran(getNextNumeroAlbaran(albCfg));
-              reiniciarFormulario();
-            } else {
-              cargarAlbaran(parseInt(albaranId));
-            }
+            handleFocus(albCfg);
           });
+        } else {
+          setNumeracionConfigState(cfg);
+          handleFocus(cfg);
         }
       });
+
+      function handleFocus(cfg: { prefijo: string; sufijo: string; digitos: number }) {
+        if (!albaranId) {
+          // Restaurar borrador si existe (al volver de otra tab)
+          if (!isFirstFocusRef.current && draftRef.current) {
+            const d = draftRef.current;
+            setNumeroAlbaran(d.numeroAlbaran || getNextNumeroAlbaran(cfg));
+            setClienteSeleccionado(d.clienteSeleccionado);
+            setItems(d.items);
+            setNotas(d.notas);
+            setFechaVencimiento(d.fechaVencimiento);
+            setFechaEmision(d.fechaEmision);
+            setDireccionEntrega(d.direccionEntrega);
+            setFirmaData(d.firmaData);
+            draftRef.current = null;
+          } else {
+            setNumeroAlbaran(getNextNumeroAlbaran(cfg));
+            reiniciarFormulario();
+          }
+          isFirstFocusRef.current = false;
+        } else {
+          cargarAlbaran(parseInt(albaranId));
+        }
+      }
     }, [albaranId, isPremium])
   );
 
@@ -393,8 +421,10 @@ export default function NuevoAlbaran() {
       await adsService.incrementAction(isPremium);
       // Contar como factura del mes (exportar PDF también cuenta)
       if (!isPremium) await incrementInvoiceCounter();
-      savingRef.current = true;
-      router.back();
+        draftRef.current = null;
+        formGuard.hasUnsaved = false;
+        savingRef.current = true;
+        router.back();
     } catch (e: any) {
       savingRef.current = false;
       Alert.alert(t('error'), t('no_se_pudo_generar_pdf'));
@@ -446,6 +476,8 @@ export default function NuevoAlbaran() {
           setNumeracionAlbaranConfig(patronAlb);
         }
 
+        draftRef.current = null;
+        formGuard.hasUnsaved = false;
         router.back();
       } else {
         const newId = insertAlbaran({
@@ -477,6 +509,8 @@ export default function NuevoAlbaran() {
           setNumeracionAlbaranConfig(patronAlb2);
         }
 
+        draftRef.current = null;
+        formGuard.hasUnsaved = false;
         router.back();
       }
     } catch (e: any) {
@@ -533,7 +567,7 @@ export default function NuevoAlbaran() {
           </TouchableOpacity>
         </View>
 
-        <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false} scrollEnabled={scrollEnabled}>
+        <ScrollView ref={scrollRef} style={styles.scroll} showsVerticalScrollIndicator={false}>
 
           {/* Número de albarán */}
           <View style={[styles.seccion, { backgroundColor: currentTheme.colors.card }]}>
@@ -745,10 +779,9 @@ export default function NuevoAlbaran() {
             <Text style={[styles.firmaClienteHint, { color: currentTheme.colors.primary }]}>{t('zona_firma_receptor_sub')}</Text>
             <SignaturePad
               onSignatureChange={setFirmaData}
-              onDrawStart={() => setScrollEnabled(false)}
-              onDrawEnd={() => setScrollEnabled(true)}
               primaryColor={currentTheme.colors.primary}
             />
+            <Text style={[styles.firmaHintScroll, { color: currentTheme.colors.textSecondary }]}>{t('firma_hint_scroll')}</Text>
           </View>
 
           <TouchableOpacity style={[styles.botonGuardar, { backgroundColor: currentTheme.colors.primary }]} onPress={guardarAlbaran}>
@@ -1091,6 +1124,7 @@ const styles = StyleSheet.create({
   firmaBannerTexto: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
   firmaDescripcion: { fontSize: 13, marginBottom: 14, lineHeight: 18 },
   firmaClienteHint: { fontSize: 12, fontWeight: '500', marginBottom: 12, textAlign: 'center' },
+  firmaHintScroll: { fontSize: 11, fontStyle: 'italic', textAlign: 'center', marginTop: 8, lineHeight: 16 },
   firmaArea: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 12, height: 120, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
   firmaPlaceholder: { fontSize: 13, fontStyle: 'italic', marginTop: 8 },
   firmaToggle: { flexDirection: 'row', alignItems: 'center', gap: 10, borderRadius: 12, padding: 14, borderWidth: 1.5 },

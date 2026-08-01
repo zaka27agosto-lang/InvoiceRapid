@@ -693,7 +693,7 @@ export default function Documentos() {
           </View>
 
         {datosFiltrados.length === 0 ? (
-          <View style={{ flex: 1, justifyContent: 'center' }}>
+          <View style={{ flex: 1, justifyContent: 'center', paddingBottom: 120 }}>
             <View style={[styles.emptyState, { flex: undefined }]}>
               <Ionicons name={emptyIcono as any} size={60} color={currentTheme.colors.textSecondary} />
               <Text style={[styles.emptyTexto, { color: currentTheme.colors.textSecondary }]}>{emptyTexto}</Text>

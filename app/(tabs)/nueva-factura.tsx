@@ -31,6 +31,7 @@ import { getClientes } from "../db/clientes";
 import { deleteFacturaItems, getFactura, getFacturaItems, getNextNumeroFactura, insertFactura, insertFacturaItem, updateFactura } from "../db/facturas";
 import { getProductos } from "../db/productos";
 import type { Factura, FacturaItem } from "../db/types";
+import { formGuard } from "../../utils/formGuard";
 
 type Item = {
   id: string;
@@ -115,6 +116,8 @@ export default function NuevaFactura() {
   const scrollRef = useRef<ScrollView>(null);
   const savingRef = useRef(false);
   const closingRef = useRef(false);
+  const draftRef = useRef<any>(null);
+  const isFirstFocusRef = useRef(true);
 
   useEffect(() => {
     getMoneda().then(m => {
@@ -157,9 +160,22 @@ export default function NuevaFactura() {
         ]
       );
     });
+    // Guardar borrador al perder foco (cambio de tab o navegación)
+    const blurUnsubscribe = navigation.addListener('blur', () => {
+      if (!facturaId && hayCambiosSinGuardar()) {
+        draftRef.current = {
+          clienteSeleccionado, items, notas, ivaPorcentaje, irpfPorcentaje,
+          metodoPago, fechaVencimiento, fechaEmision, numeroFactura,
+        };
+      }
+    });
 
-    return unsubscribe;
-  }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas]);
+    // Actualizar el guardia de tabs: avisar al layout si hay cambios sin guardar
+    formGuard.hasUnsaved = !esModoEdicion && hayCambiosSinGuardar();
+    formGuard.setT(t);
+
+    return () => { unsubscribe(); blurUnsubscribe(); formGuard.hasUnsaved = false; };
+  }, [navigation, t, mostrarClientes, mostrarProductos, mostrarUnidades, mostrarPaywall, clienteSeleccionado, items, notas, ivaPorcentaje, irpfPorcentaje, metodoPago, fechaVencimiento, fechaEmision, numeroFactura, facturaId]);
 
   useFocusEffect(
     useCallback(() => {
@@ -183,8 +199,24 @@ export default function NuevaFactura() {
       if (facturaId) {
         cargarFactura(parseInt(facturaId));
       } else {
-        setNumeroFactura(getNextNumeroFactura(cfg));
-        reiniciarFormulario();
+        // Restaurar borrador si existe (al volver de otra tab)
+        if (!isFirstFocusRef.current && draftRef.current) {
+          const d = draftRef.current;
+          setNumeroFactura(d.numeroFactura || getNextNumeroFactura(cfg));
+          setClienteSeleccionado(d.clienteSeleccionado);
+          setItems(d.items);
+          setNotas(d.notas);
+          setIvaPorcentaje(d.ivaPorcentaje);
+          setIrpfPorcentaje(d.irpfPorcentaje);
+          setMetodoPago(d.metodoPago);
+          setFechaVencimiento(d.fechaVencimiento);
+          setFechaEmision(d.fechaEmision);
+          draftRef.current = null;
+        } else {
+          setNumeroFactura(getNextNumeroFactura(cfg));
+          reiniciarFormulario();
+        }
+        isFirstFocusRef.current = false;
       }
     });
     }, [facturaId, isPremium])
@@ -669,7 +701,7 @@ export default function NuevaFactura() {
             setNumeracionConfigState(patron);
           }
 
-          savingRef.current = true;
+          draftRef.current = null;
           router.back();
           return;
         } else {
@@ -727,6 +759,7 @@ export default function NuevaFactura() {
             setNumeracionConfigState(patron2);
           }
 
+          draftRef.current = null;
           router.back();
           return;
         }
@@ -784,6 +817,7 @@ export default function NuevaFactura() {
           setNumeracionConfigState(patron3);
         }
 
+        draftRef.current = null;
         router.back();
       }
     } catch (e: any) {

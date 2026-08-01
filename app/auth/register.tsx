@@ -73,6 +73,12 @@ export default function Register() {
       return;
     }
 
+    // Validar formato de email antes de enviar a Supabase
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+      modernAlert.showError(t('error'), t('email_invalido'))
+      return;
+    }
+
     if (password !== confirmPassword) {
       modernAlert.showError(t('error'), t('contraseñas_no_coinciden'))
       return;
@@ -112,8 +118,13 @@ export default function Register() {
         // Silencioso: no bloquear el registro si falla el device_id
       }
 
-      modernAlert.showError(t('registro_exitoso'), t('verifica_email'));
-      router.replace('/(tabs)');
+      modernAlert.showAlert({
+        title: t('registro_exitoso'),
+        message: t('verifica_email') + '\n\n' + t('revisar_spam'),
+        icon: 'checkmark-circle',
+        iconColor: '#26de81',
+        buttons: [{ text: t('aceptar'), onPress: () => router.replace('/(tabs)') }]
+      });
     } else {
       modernAlert.showError(t('error'), result.error || t('error_registro'))
     }
@@ -174,7 +185,7 @@ export default function Register() {
               <Ionicons name="lock-closed-outline" size={20} color={currentTheme.colors.textSecondary} />
               <TextInput
                 style={[styles.input, { color: currentTheme.colors.text }]}
-                placeholder="••••••••"
+                placeholder="••••••"
                 placeholderTextColor={currentTheme.colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
@@ -189,7 +200,7 @@ export default function Register() {
               <Ionicons name="lock-closed-outline" size={20} color={currentTheme.colors.textSecondary} />
               <TextInput
                 style={[styles.input, { color: currentTheme.colors.text }]}
-                placeholder="••••••••"
+                placeholder="••••••"
                 placeholderTextColor={currentTheme.colors.textSecondary}
                 value={confirmPassword}
                 onChangeText={setConfirmPassword}
@@ -209,6 +220,14 @@ export default function Register() {
           <TouchableOpacity onPress={() => router.back()}>
             <Text style={[styles.loginLink, { color: currentTheme.colors.primary, textAlign: 'center', marginTop: 16 }]}>{t('iniciar_sesion')}</Text>
           </TouchableOpacity>
+
+          {/* Aviso carpeta spam */}
+          <View style={styles.spamHint}>
+            <Ionicons name="warning-outline" size={14} color={currentTheme.colors.textSecondary} />
+            <Text style={[styles.spamHintText, { color: currentTheme.colors.textSecondary }]}>
+              {t('revisar_spam')}
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -229,6 +248,8 @@ const styles = StyleSheet.create({
   button: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   loginLink: { fontSize: 14, fontWeight: '600' },
+  spamHint: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 12, paddingHorizontal: 8 },
+  spamHintText: { fontSize: 12, textAlign: 'center', flexShrink: 1, lineHeight: 16 },
   headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   backBtn: { width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
 });

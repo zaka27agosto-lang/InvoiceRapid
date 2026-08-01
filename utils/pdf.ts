@@ -102,7 +102,6 @@ async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean
       .totales { display: flex; justify-content: flex-end; margin-bottom: 10px; }
       .totales-box { width: 200px; }
       .total-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 11px; color: #4a5568; }
-      .firma-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 30px; margin-bottom: 20px; }
       .firma-box { border: 1.5px dashed #cbd5e0; border-radius: 10px; padding: 30px 15px 12px 15px; text-align: center; position: relative; min-height: 80px; }
       .firma-box span { font-size: 8px; text-transform: uppercase; letter-spacing: 1px; color: #a0aec0; position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%); }
       .notas { background: ${lightBg}; border-radius: 12px; padding: 10px; margin-bottom: 20px; }
@@ -163,11 +162,8 @@ async function generarHTMLAlbaran(albaran: any, items: any[], isPremium: boolean
         </div>
         ` : ''}
         ${albaran.notas ? `<div class="notas"><h3>Notas</h3><p>${albaran.notas}</p></div>` : ''}
-        <div class="firma-section">
-          <div class="firma-box">
-            <span>Firma del emisor</span>
-          </div>
-          <div class="firma-box">
+        <div style="display: flex; justify-content: center; margin-top: 30px; margin-bottom: 20px;">
+          <div class="firma-box" style="max-width: 320px; width: 100%;">
             ${firmaData ? `<img src="${firmaData}" style="max-width:100%;max-height:70px;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);" />` : ''}
             <span>Firma del receptor</span>
           </div>

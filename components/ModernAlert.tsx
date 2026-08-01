@@ -118,8 +118,8 @@ export function ModernAlertProvider({ children }: { children: React.ReactNode })
                 <TouchableOpacity
                   key={i}
                   style={getButtonStyle(btn.style)}
-                  onPress={() => { btn.onPress?.(); }}>
-                  <Text style={getButtonTextStyle(btn.style)}>{btn.text}</Text>
+                  onPress={() => { btn.onPress?.(); setVisible(false); }}>
+                  <Text style={[getButtonTextStyle(btn.style), { textAlign: 'center' }]}>{btn.text}</Text>
                 </TouchableOpacity>
               ))}
             </View>

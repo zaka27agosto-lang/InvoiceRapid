@@ -259,7 +259,7 @@ export default function Login() {
               <Ionicons name="lock-closed-outline" size={20} color={currentTheme.colors.textSecondary} />
               <TextInput
                 style={[styles.input, { color: currentTheme.colors.text }]}
-                placeholder="••••••••"
+                placeholder="••••••"
                 placeholderTextColor={currentTheme.colors.textSecondary}
                 value={password}
                 onChangeText={setPassword}
@@ -301,7 +301,7 @@ export default function Login() {
             onPress={() => router.push('/auth/register')}
           >
             <Ionicons name="person-add-outline" size={s(20)} color={currentTheme.colors.primary} />
-            <Text style={[styles.registerButtonText, { color: currentTheme.colors.primary }]}>{t('registrarse')}</Text>
+            <Text style={[styles.registerButtonText, { color: currentTheme.colors.primary }]} numberOfLines={1}>{t('registrarse')}</Text>
           </TouchableOpacity>
 
           {/* Toggle de idioma ES/EN */}
@@ -338,13 +338,11 @@ const styles = StyleSheet.create({
   input: { flex: 1, fontSize: 15 },
   forgotPassword: { alignSelf: 'flex-end' },
   forgotPasswordText: { fontSize: 14, fontWeight: '600' },
-  button: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  button: { paddingVertical: 16, borderRadius: 12, alignItems: 'center' },    buttonText: { color: '#fff', fontSize: 16, fontWeight: '700', textAlign: 'center' },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 8 },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 14, fontWeight: '500' },
-  googleButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 12, borderWidth: 1.5, gap: 12 },
-  googleButtonText: { fontSize: 16, fontWeight: '600' },
+  googleButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 12, borderWidth: 1.5, gap: 12 },    googleButtonText: { fontSize: 16, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
   registerButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -354,7 +352,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     gap: 10,
   },
-  registerButtonText: { fontSize: 16, fontWeight: '700' },
+  registerButtonText: { fontSize: 16, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   langToggle: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 8 },
   langBtn: { paddingHorizontal: 20, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, borderColor: '#e0e0e0' },
   langBtnText: { fontSize: 13, fontWeight: '600', color: '#888' },

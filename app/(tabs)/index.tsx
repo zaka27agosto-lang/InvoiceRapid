@@ -206,7 +206,7 @@ export default function Inicio() {
   return (
     <SwipeNavigation onSwipeLeft={navigateToNextTab} onSwipeRight={navigateToPreviousTab}>
       <View style={[styles.wrapper, { backgroundColor: currentTheme.colors.background }]}>
-        <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
+        <ScrollView style={styles.container} showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 140 }}>
 
         <View style={styles.header}>
           <TouchableOpacity style={[styles.iconBtn, { backgroundColor: currentTheme.colors.primaryLight }]} onPress={() => router.push("/(tabs)/ajustes")}>
@@ -241,12 +241,13 @@ export default function Inicio() {
             {restantes === 0 ? (
               <View style={[styles.contadorCard, { backgroundColor: currentTheme.colors.card }]}>
                 <View style={styles.contadorTop}>
-                  <Text style={[styles.contadorTexto, { color: currentTheme.colors.textSecondary }]}>
+                  <Text style={[styles.contadorTexto, { color: currentTheme.colors.textSecondary, flex: 1, flexShrink: 1 }]} numberOfLines={2}>
                     <Text style={[styles.contadorNum, { color: '#FF4757' }]}>{limiteInfo.currentCount}</Text> {t('de')} <Text style={[styles.contadorNum, { color: '#FF4757' }]}>{limiteInfo.limit}</Text> {t('usadas_este_mes')}
-                  </Text>                      <View style={{ alignItems: 'flex-end' }}>
-                        <Text style={{ fontSize: 13, fontWeight: '600', color: '#FF4757' }}>{t('completo')}</Text>
-                        <Text style={{ fontSize: 11, color: '#FF4757', marginTop: 2 }}>{t('se_renueva_en', { dias: getDiasRestantesMes() })}</Text>
-                      </View>
+                  </Text>
+                  <View style={{ alignItems: 'flex-end', flexShrink: 0, marginLeft: 8 }}>
+                    <Text style={{ fontSize: 13, fontWeight: '600', color: '#FF4757' }} numberOfLines={1}>{t('completo')}</Text>
+                    <Text style={{ fontSize: 11, color: '#FF4757', marginTop: 2 }} numberOfLines={2}>{t('se_renueva_en', { dias: getDiasRestantesMes() })}</Text>
+                  </View>
                 </View>
                 <View style={styles.contadorBarra}>
                   <View style={[styles.contadorBarraRelleno, { width: '100%', backgroundColor: '#FF4757' }]} />
@@ -279,10 +280,10 @@ export default function Inicio() {
             ) : (
               <View style={[styles.contadorCard, { backgroundColor: currentTheme.colors.card }]}>
                 <View style={styles.contadorTop}>
-                  <Text style={[styles.contadorTexto, { color: currentTheme.colors.textSecondary }]}>
+                  <Text style={[styles.contadorTexto, { color: currentTheme.colors.textSecondary, flex: 1, flexShrink: 1 }]} numberOfLines={2}>
                     <Text style={[styles.contadorNum, { color: currentTheme.colors.primary }]}>{limiteInfo.currentCount}</Text> {t('de')} <Text style={[styles.contadorNum, { color: currentTheme.colors.primary }]}>{limiteInfo.limit}</Text> {t('usadas_este_mes')}
                   </Text>
-                  <Text style={[styles.contadorRestantes, { color: restantes <= 3 ? '#FF4757' : '#888' }]}>{restantes} {t('restantes')}</Text>
+                  <Text style={[styles.contadorRestantes, { color: restantes <= 3 ? '#FF4757' : '#888', flexShrink: 0, marginLeft: 8 }]} numberOfLines={1}>{restantes} {t('restantes')}</Text>
                 </View>
                 <View style={styles.contadorBarra}>
                   <View style={[styles.contadorBarraRelleno, {

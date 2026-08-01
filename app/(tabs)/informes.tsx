@@ -12,6 +12,36 @@ import { getMoneda } from "../../utils/settings";
 import { getFacturas } from "../db/facturas";
 import { useSync } from "../../hooks/useSync";
 
+/**
+ * Formatea un número quitando ceros decimales innecesarios.
+ * 12.50 → "12.5", 25 → "25", 37.50 → "37.5"
+ */
+function formatClean(val: number): string {
+  if (val === 0) return '0';
+  return val.toFixed(2).replace(/\.?0+$/, '');
+}
+
+/**
+ * Calcula un máximo "bonito" para el eje Y del gráfico.
+ * Garantiza que los 5 ticks del eje Y (0, step, 2*step, 3*step, 4*step)
+ * sean números enteros que acaben en 0: 10, 20, 50, 100, 200, 500, 1000...
+ */
+function niceChartMax(rawMax: number): number {
+  if (rawMax <= 0) return 10;
+  // Step ideal = max / 4, redondeado a un número bonito que acabe en 0
+  const roughStep = rawMax / 4;
+  const magnitude = Math.pow(10, Math.floor(Math.log10(roughStep)));
+  const residual = roughStep / magnitude;
+
+  let niceStep: number;
+  if (residual <= 1) niceStep = magnitude;           // 1, 10, 100, 1000...
+  else if (residual <= 2) niceStep = 2 * magnitude;  // 2, 20, 200, 2000...
+  else if (residual <= 5) niceStep = 5 * magnitude;  // 5, 50, 500, 5000...
+  else niceStep = 10 * magnitude;                     // 10, 100, 1000, 10000...
+
+  return niceStep * 4;
+}
+
 export default function Informes() {
   const { t } = useTranslation();
   const { currentTheme } = useTheme();
@@ -280,14 +310,19 @@ export default function Informes() {
             <View style={styles.graficoContainer}>
               {/* Eje Y */}
               <View style={styles.ejeY}>
-                {[100, 75, 50, 25, 0].map(pct => {
-                  const val = maxValorGrafico > 0 ? maxValorGrafico * pct / 100 : 0;
-                  return (
-                    <Text key={pct} style={styles.ejeYLabel}>
-                      {maxValorGrafico > 0 ? `${val.toFixed(val >= 100 ? 0 : val >= 10 ? 0 : 0)}` : '0'}
-                    </Text>
-                  );
-                })}
+                {(() => {
+                  const niceMax = niceChartMax(maxValorGrafico);
+                  const step = niceMax / 4;
+                  return [4, 3, 2, 1, 0].map(i => {
+                    const val = i * step;
+                    const formatted = formatClean(val);
+                    return (
+                      <Text key={i} style={styles.ejeYLabel}>
+                        {maxValorGrafico > 0 ? formatted : '0'}
+                      </Text>
+                    );
+                  });
+                })()}
               </View>
               {/* Barras */}
               <View style={styles.barrasContainer}>
@@ -297,15 +332,16 @@ export default function Informes() {
                   ))}
                 </View>
                 {ultimos6Convertidos.map((mes, i) => {
-                  const alturaPct = maxValorGrafico > 0 ? (mes.total / maxValorGrafico) * 100 : 0;
+                  const niceMax = niceChartMax(maxValorGrafico);
+                  const alturaPct = niceMax > 0 ? (mes.total / niceMax) * 100 : 0;
                   // Mostrar valor exacto (sin decimales si es entero, con 2 decimales si no)
-                  const valorTexto = mes.total > 0 ? (Number.isInteger(mes.total) ? mes.total.toFixed(0) : mes.total.toFixed(2)) : '';
+                  const valorTexto = mes.total > 0 ? formatClean(mes.total) : '';
                   return (
                     <View key={i} style={styles.barraCol}>
-                      <Text style={[styles.barraValor, { color: currentTheme.colors.primary }]}>
-                        {valorTexto}
-                      </Text>
                       <View style={styles.barraWrapper}>
+                        <Text style={[styles.barraValor, { color: currentTheme.colors.primary }]}>
+                          {valorTexto}
+                        </Text>
                         <View
                           style={[
                             styles.barra,
@@ -427,8 +463,8 @@ const styles = StyleSheet.create({
   leyendaTexto: { fontSize: 11, color: '#888', fontWeight: '500' },
   grafico: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', height: 160 },
   barraCol: { flex: 1, alignItems: 'center', gap: 6 },
-  barraValor: { fontSize: 9, color: '#007AFF', fontWeight: '700', textAlign: 'center' },
-  barraWrapper: { flex: 1, justifyContent: 'flex-end', width: '70%' },
+  barraValor: { fontSize: 9, color: '#007AFF', fontWeight: '700', textAlign: 'center', position: 'absolute', top: -16, left: 0, right: 0 },
+  barraWrapper: { flex: 1, justifyContent: 'flex-end', width: '70%', position: 'relative' },
   barra: { borderRadius: 6, width: '100%' },
   barraLabel: { fontSize: 11, color: '#888', fontWeight: '500' },
   exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, marginHorizontal: 16, marginBottom: 16, borderRadius: 12, paddingVertical: 14, borderWidth: 1.5 },

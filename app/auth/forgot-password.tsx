@@ -19,7 +19,7 @@ import { supabase } from '../../services/supabase';
  *                    `supabase.auth.verifyOtp({ email, token, type: 'email' })`.
  *                    Esto establece una sesión temporal del usuario.
  * Paso 3 ('reset'):  Mostramos el email verificado y los campos de nueva
- *                    contraseña + confirmación. Validamos (≥ 8 caracteres y
+ *                    contraseña + confirmación. Validamos (≥ 6 caracteres y
  *                    coincidencia). Llamamos a
  *                    `supabase.auth.updateUser({ password })`, que actualiza
  *                    la contraseña del usuario actualmente firmado.
@@ -70,8 +70,13 @@ export default function ForgotPassword() {
       return;
     }
     const trimmedEmail = email.trim();
-    if (!trimmedEmail || !trimmedEmail.includes('@')) {
+    if (!trimmedEmail) {
       modernAlert.showError(t('error'), t('email_requerido'))
+      return;
+    }
+    // Validar formato de email antes de enviar a Supabase
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmedEmail)) {
+      modernAlert.showError(t('error'), t('email_invalido'))
       return;
     }
 
@@ -96,8 +101,15 @@ export default function ForgotPassword() {
           );
           return;
         }
-        // Mensaje genérico: no revelar si el email existe o no
-        modernAlert.showError(t('error'), t('email_no_registrado'))
+        // Mensaje genérico con icono azul neutro: no revelar si el email existe o no.
+        // Usamos showAlert con icono info porque el error puede deberse
+        // a un fallo de SMTP, no necesariamente a que el email no exista.
+        modernAlert.showAlert({
+          title: '',
+          message: t('email_no_registrado'),
+          icon: 'information-circle-outline',
+          iconColor: '#3498db',
+        });
         return;
       }
 
@@ -106,7 +118,17 @@ export default function ForgotPassword() {
       const msg = error?.message?.toLowerCase().includes('rate limit')
         ? t('excede_intentos_codigo')
         : (error?.message || t('email_no_registrado'));
-      modernAlert.showError(t('error'), msg)
+      // Si es rate limit → error rojo. Si no, mensaje neutro con icono azul.
+      if (error?.message?.toLowerCase().includes('rate limit')) {
+        modernAlert.showError(t('error'), msg);
+      } else {
+        modernAlert.showAlert({
+          title: '',
+          message: t('email_no_registrado'),
+          icon: 'information-circle-outline',
+          iconColor: '#3498db',
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -172,8 +194,8 @@ export default function ForgotPassword() {
       modernAlert.showError(t('error'), 'Supabase no está configurado')
       return;
     }
-    if (!newPassword || newPassword.length < 8) {
-      modernAlert.showError(t('error'), t('contraseña_min_8'))
+    if (!newPassword || newPassword.length < 6) {
+      modernAlert.showError(t('error'), t('contraseña_min_6'))
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -196,6 +218,8 @@ export default function ForgotPassword() {
       modernAlert.showAlert({
         title: '',
         message: t('contraseña_actualizada'),
+        icon: 'checkmark-circle',
+        iconColor: '#26de81',
         buttons: [
           {
             text: t('aceptar'),
@@ -365,7 +389,7 @@ export default function ForgotPassword() {
                 <Ionicons name="lock-closed-outline" size={20} color={currentTheme.colors.textSecondary} />
                 <TextInput
                   style={[styles.input, { color: currentTheme.colors.text }]}
-                  placeholder="••••••••"
+                  placeholder="••••••"
                   placeholderTextColor={currentTheme.colors.textSecondary}
                   value={newPassword}
                   onChangeText={setNewPassword}
@@ -381,7 +405,7 @@ export default function ForgotPassword() {
                 <Ionicons name="lock-closed-outline" size={20} color={currentTheme.colors.textSecondary} />
                 <TextInput
                   style={[styles.input, { color: currentTheme.colors.text }]}
-                  placeholder="••••••••"
+                  placeholder="••••••"
                   placeholderTextColor={currentTheme.colors.textSecondary}
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
@@ -411,6 +435,16 @@ export default function ForgotPassword() {
               {step === 'email' ? t('volver_login') : t('volver')}
             </Text>
           </TouchableOpacity>
+
+          {/* Aviso de carpeta spam — solo en pasos email y otp (no en reset) */}
+          {(step === 'email' || step === 'otp') && (
+          <View style={styles.spamHint}>
+            <Ionicons name="warning-outline" size={14} color={currentTheme.colors.textSecondary} />
+            <Text style={[styles.spamHintText, { color: currentTheme.colors.textSecondary }]}>
+              {t('revisar_spam')}
+            </Text>
+          </View>
+          )}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -442,4 +476,6 @@ const styles = StyleSheet.create({
   footer: { marginTop: 16, alignItems: 'center' },
   backButton: { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 8 },
   backButtonText: { fontSize: 14, fontWeight: '600' },
+  spamHint: { flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 12, paddingHorizontal: 8 },
+  spamHintText: { fontSize: 12, textAlign: 'center', flexShrink: 1, lineHeight: 16 },
 });

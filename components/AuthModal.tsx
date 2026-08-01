@@ -50,7 +50,7 @@ export function AuthModal({
             onPress={onLogin}
           >
             <Ionicons name="log-in-outline" size={20} color="#fff" />
-            <Text style={styles.primaryButtonText}>{t('inicia_sesion')}</Text>
+            <Text style={styles.primaryButtonText} numberOfLines={1}>{t('inicia_sesion')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -58,7 +58,7 @@ export function AuthModal({
             onPress={onRegister}
           >
             <Ionicons name="person-add-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.secondaryButtonText, { color: currentTheme.colors.primary }]}>
+            <Text style={[styles.secondaryButtonText, { color: currentTheme.colors.primary }]} numberOfLines={1}>
               {t('crear_cuenta')}
             </Text>
           </TouchableOpacity>
@@ -68,7 +68,7 @@ export function AuthModal({
             onPress={onGoogle}
           >
             <Ionicons name="logo-google" size={20} color={currentTheme.colors.text} />
-            <Text style={[styles.googleButtonText, { color: currentTheme.colors.text }]}>
+            <Text style={[styles.googleButtonText, { color: currentTheme.colors.text }]} numberOfLines={1}>
               {t('continuar_google')}
             </Text>
           </TouchableOpacity>
@@ -106,7 +106,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 12,
   },
-  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   secondaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -117,7 +117,7 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     marginBottom: 12,
   },
-  secondaryButtonText: { fontSize: 16, fontWeight: '700' },
+  secondaryButtonText: { fontSize: 16, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   googleButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -127,5 +127,5 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1.5,
   },
-  googleButtonText: { fontSize: 16, fontWeight: '700' },
+  googleButtonText: { fontSize: 16, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
 });

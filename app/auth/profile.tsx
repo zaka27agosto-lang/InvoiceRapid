@@ -72,7 +72,7 @@ export default function Profile() {
             onPress={() => router.push('/auth/login')}
           >
             <Ionicons name="log-in-outline" size={20} color="#fff" />
-            <Text style={styles.primaryButtonText}>{t('inicia_sesion')}</Text>
+            <Text style={styles.primaryButtonText} numberOfLines={1}>{t('inicia_sesion')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -80,7 +80,7 @@ export default function Profile() {
             onPress={() => router.push('/auth/register')}
           >
             <Ionicons name="person-add-outline" size={20} color={currentTheme.colors.primary} />
-            <Text style={[styles.secondaryButtonText, { color: currentTheme.colors.primary }]}>{t('crear_cuenta')}</Text>
+            <Text style={[styles.secondaryButtonText, { color: currentTheme.colors.primary }]} numberOfLines={1}>{t('crear_cuenta')}</Text>
           </TouchableOpacity>
 
           {true && (
@@ -104,7 +104,7 @@ export default function Profile() {
                 disabled={loading}
               >
                 <Ionicons name="logo-google" size={20} color="#DB4437" />
-                <Text style={[styles.googleButtonText, { color: currentTheme.colors.text }]}>{loading ? t('cargando') : t('continuar_google')}</Text>
+                <Text style={[styles.googleButtonText, { color: currentTheme.colors.text }]} numberOfLines={1}>{loading ? t('cargando') : t('continuar_google')}</Text>
               </TouchableOpacity>
             </>
           )}
@@ -117,10 +117,12 @@ export default function Profile() {
 
 
 
-  // Para cuentas Google: detecta si YA tiene contraseña establecida
-  const esCuentaGoogle = user?.app_metadata?.provider === 'google' || 
-    !user?.identities?.some((i: any) => i.provider === 'email');
-  const [hasPassword, setHasPassword] = useState(!esCuentaGoogle);
+  // Detecta si el usuario YA tiene contraseña establecida.
+  // No basta con mirar app_metadata.provider porque una cuenta Google
+  // puede haber establecido contraseña después (vía forgot-password)
+  // y entonces tendrá una identidad 'email' adicional.
+  const tienePassword = user?.identities?.some((i: any) => i.provider === 'email') ?? false;
+  const [hasPassword, setHasPassword] = useState(tienePassword);
 
   async function handleCambiarNombre() {
     if (!nuevoNombre.trim()) {
@@ -245,7 +247,7 @@ export default function Profile() {
                 {hasPassword ? t('cambiar_password') : t('establecer_password')}
               </Text>
               <Text style={[styles.infoValue, { color: currentTheme.colors.text }]}>
-                {hasPassword ? '••••••••' : t('sin_password')}
+                {hasPassword ? '••••••' : t('sin_password')}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color={currentTheme.colors.textSecondary} />
@@ -352,15 +354,12 @@ const styles = StyleSheet.create({
   infoValue: { fontSize: 15, fontWeight: '600' },
   logoutButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 12 },
   logoutButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 12, marginBottom: 12 },
-  primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  secondaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 12, borderWidth: 2, marginBottom: 12 },
-  secondaryButtonText: { fontSize: 16, fontWeight: '700' },
+  primaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 12, marginBottom: 12 },    primaryButtonText: { color: '#fff', fontSize: 16, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
+  secondaryButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 16, borderRadius: 12, borderWidth: 2, marginBottom: 12 },    secondaryButtonText: { fontSize: 16, fontWeight: '700', flexShrink: 1, textAlign: 'center' },
   divider: { flexDirection: 'row', alignItems: 'center', gap: 12, marginVertical: 8 },
   dividerLine: { flex: 1, height: 1 },
   dividerText: { fontSize: 14, fontWeight: '500' },
-  googleButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 12, borderWidth: 1.5, gap: 12 },
-  googleButtonText: { fontSize: 16, fontWeight: '600' },
+  googleButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 16, borderRadius: 12, borderWidth: 1.5, gap: 12 },    googleButtonText: { fontSize: 16, fontWeight: '600', flexShrink: 1, textAlign: 'center' },
   modalWrapper: { flex: 1, backgroundColor: '#fff', paddingTop: 20 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
   modalTitulo: { fontSize: 18, fontWeight: '800', color: '#1a1a1a' },
